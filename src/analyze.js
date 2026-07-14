@@ -153,7 +153,10 @@ export async function analyzeBenchmarks(inventory, brandLock, config = {}, optio
     } catch (error) { search.status = `失败，已回退内置案例库：${error.message}`; }
   }
   const library = BENCHMARK_LIBRARY[industryResult.value] || BENCHMARK_LIBRARY.default;
-  for (const item of library) if (!cases.some((x) => x.name === item.name)) cases.push(item);
+  for (const item of library) {
+    if (cases.length >= 3) break;
+    if (!cases.some((x) => x.name === item.name)) cases.push(item);
+  }
   cases = cases.slice(0, Math.max(3, config.benchmarkLimit || 5));
   const commonTraits = config.commonTraits?.length ? config.commonTraits : [
     '核心品牌资产在包装、海报与数字触点中保持一致',
@@ -231,6 +234,15 @@ export function buildImagePlan(gaps, brandLock, config = {}) {
       packaging: brandLock.packaging
     };
     card.mustHave = ['主体与品牌资产关系明确', brandLock.primaryColor ? `主色 ${brandLock.primaryColor} 得到合理体现` : '使用经人工确认的品牌主色', '为后续排版保留安全留白'];
+    const override = config.imagePlanOverrides?.[card.id];
+    if (override) {
+      for (const key of ['title', 'objective', 'scene', 'ratio']) {
+        if (typeof override[key] === 'string' && override[key].trim()) card[key] = override[key].trim();
+      }
+      for (const key of ['mustHave', 'avoid', 'acceptance']) {
+        if (Array.isArray(override[key]) && override[key].length) card[key] = override[key].map(String);
+      }
+    }
   }
   return { count: cards.length, sequenceRule: '先补关键叙事，再确认包装形态与 VI 系统，最后扩展传播海报。', cards };
 }

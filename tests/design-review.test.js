@@ -55,6 +55,12 @@ test('人工 reviewScores 可覆盖评分但仍保留评分依据', async () => 
   const configFile = path.join(root, 'design-factory.json');
   const config = JSON.parse(await fs.readFile(configFile, 'utf8'));
   config.reviewScores = { 摄影: 91, 版式: 77 };
+  config.reviewSummary = '人工视觉复核后的项目总结。';
+  config.reviewFindings = {
+    replaceAutomatic: true,
+    strengths: [{ strength: '人工确认优点', reason: '来自逐张视觉检查。', keep: '继续保持。' }],
+    improvements: [{ problem: '人工确认问题', impact: '影响一致性。', suggestion: '执行人工建议。', referenceDirection: '对照已核验案例。', expectedEffect: '提高一致性。', priority: 'P0', category: 'Brand' }]
+  };
   await fs.writeFile(configFile, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
   const output = await fs.mkdtemp(path.join(os.tmpdir(), 'design-review-override-output-'));
   const historyDir = await fs.mkdtemp(path.join(os.tmpdir(), 'design-review-override-history-'));
@@ -63,4 +69,9 @@ test('人工 reviewScores 可覆盖评分但仍保留评分依据', async () => 
   assert.equal(byName.摄影.score, 91);
   assert.equal(byName.版式.score, 77);
   assert.ok(byName.摄影.reason);
+  assert.equal(result.designReview.summary, '人工视觉复核后的项目总结。');
+  assert.equal(result.designReview.strengths[0].strength, '人工确认优点');
+  assert.equal(result.designReview.improvements[0].problem, '人工确认问题');
+  assert.equal(result.designReview.strengths.some((item) => item.strength === '分析链路完整'), false);
+  assert.equal(result.designReview.improvements.some((item) => item.problem === '字体层级尚未形成可验证的完整规范'), false);
 });

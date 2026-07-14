@@ -57,21 +57,47 @@ export function buildDesignReview(result, config = {}) {
   const missingLogo = result.brandLock.logo.files.length === 0;
   const missingColor = !result.brandLock.primaryColor;
   const topGaps = result.gaps.topThree;
-  const improvements = [
+  const automaticImprovements = [
     ...(missingLogo ? [improvement('缺少可用的 Logo 源文件或明确标志证据', '关键触点无法稳定复用品牌识别，生图也容易产生伪造标志。', '补充矢量 Logo，并定义最小尺寸、安全空间和禁用方式。', '研究优秀品牌手册中的 Logo clear space 与小尺寸应用页。', '品牌识别稳定，减少返工和错误资产传播。', 'P0', 'Brand')] : []),
     ...(missingColor ? [improvement('主色尚未得到可靠确认', '系列图片与物料容易出现色彩漂移，削弱统一性。', '由负责人确认主色值，并补充辅助色及使用比例。', '参考同类品牌的主辅色占比和深浅背景适配方式。', '提升跨触点一致性和品牌记忆度。', 'P0', 'Visual System')] : []),
     ...topGaps.map((gap, index) => improvement(`作品集中缺少足够的${gap.type}`, `当前数量 ${gap.current}，低于建议数量 ${gap.target}，导致项目叙事或触点证明不完整。`, `按图片规划优先完成 ${gap.gap} 张${gap.type}，并使用统一验收标准。`, `重点观察对标案例如何用${gap.type}证明概念、材质与使用场景。`, `作品集完整度提高，并让评审者更快理解设计价值。`, index === 0 ? 'P0' : 'P1', 'Portfolio')),
     improvement('字体层级尚未形成可验证的完整规范', '不同页面容易依靠临时排版，信息节奏和可读性不稳定。', '建立标题、正文、注释和数字四级样式，并用三种内容密度压力测试。', '参考编辑设计中的字号比、行长、行距和对齐方式。', '提高信息层级、版式效率和系列一致性。', 'P1', 'Visual System'),
     improvement('包装摄影与 Hero 构图需要形成系列方法', '单张效果即使成立，也难以支撑包装质感和完整作品集叙事。', '固定镜头、光位、背景材质和后期参数，连续完成主视觉、组合与微距三类画面。', '分析优秀包装案例的主光方向、接触阴影、材质高光和镜头高度。', '提升包装质感、摄影一致性和首屏吸引力。', 'P1', 'Packaging')
   ];
+  const configuredImprovements = (config.reviewFindings?.improvements || []).map((item) => improvement(
+    item.problem || '待确认问题',
+    item.impact || '影响待人工确认。',
+    item.suggestion || '由项目负责人补充可执行建议。',
+    item.referenceDirection || '结合本项目视觉证据与已核验对标案例复核。',
+    item.expectedEffect || '预计改善效果待验证。',
+    ['P0', 'P1', 'P2'].includes(item.priority) ? item.priority : 'P1',
+    item.category || 'Visual System'
+  ));
+  const replaceAutomatic = config.reviewFindings?.replaceAutomatic === true;
+  const improvementPool = replaceAutomatic && configuredImprovements.length
+    ? configuredImprovements
+    : [...configuredImprovements, ...automaticImprovements];
+  const improvements = improvementPool
+    .filter((item, index, items) => items.findIndex((candidate) => candidate.problem === item.problem) === index);
   while (improvements.length < 5) improvements.push(improvement('视觉系统的跨触点验证不足', '规则可能只在单张画面成立，扩展时容易失去一致性。', '选择包装、VI 和海报各一个触点，用同一组资产完成连续验证。', '参考优秀案例中核心资产在不同媒介上的尺度与节奏变化。', '增强系统扩展能力和作品集说服力。', 'P2', 'Visual System'));
 
-  const strengths = [
+  const automaticStrengths = [
     { strength: '分析链路完整', reason: `已形成 Brand Lock、${result.benchmarks.cases.length} 个对标案例、缺图矩阵和 ${result.imagePlan.count} 张图片规划。`, keep: '后续迭代继续使用同一证据链，确保建议可追溯。' },
     { strength: result.brandLock.logo.files.length ? '已具备 Logo 识别基础' : '品牌风险被明确暴露', reason: result.brandLock.logo.files.length ? `已识别 ${result.brandLock.logo.files.length} 个 Logo 候选，可继续验证应用一致性。` : '系统没有伪造 Logo，而是把缺失资产列为 P0。', keep: '所有关键品牌事实继续坚持“有证据才确认”。' },
     { strength: result.brandLock.primaryColor ? '色彩方向已有明确锚点' : '色彩决策保持可控', reason: result.brandLock.primaryColor ? `主色 ${result.brandLock.primaryColor} 可作为系列视觉统一的起点。` : '未把低置信度颜色推断包装为最终规范。', keep: '建立主辅色比例和跨媒介测试后再扩大使用范围。' },
     { strength: '图片生产计划可执行', reason: `任务卡覆盖 ${unique(result.imagePlan.cards.map((card) => card.category)).join('、')}，每张包含构图、约束和验收。`, keep: '按队列逐张验收，并记录不通过原因用于下一轮改进。' }
   ].slice(0, 4);
+  const configuredStrengths = (config.reviewFindings?.strengths || []).map((item) => ({
+    strength: item.strength || '待确认优点',
+    reason: item.reason || '依据待人工补充。',
+    keep: item.keep || '继续保留并在更多触点验证。'
+  }));
+  const strengthPool = replaceAutomatic && configuredStrengths.length
+    ? configuredStrengths
+    : [...configuredStrengths, ...automaticStrengths];
+  const strengths = strengthPool
+    .filter((item, index, items) => items.findIndex((candidate) => candidate.strength === item.strength) === index)
+    .slice(0, Math.max(4, configuredStrengths.length));
 
   const portfolioPresent = result.gaps.matrix.filter((item) => item.current > 0).map((item) => `${item.type}（${item.current}）`);
   const portfolioMissing = result.gaps.matrix.filter((item) => item.gap > 0).map((item) => `${item.type}（缺 ${item.gap}）`);
@@ -115,7 +141,7 @@ export function buildDesignReview(result, config = {}) {
     action: `选择一个现有页面，按“${point}”重做并与原版并排复盘。`
   }));
   const overallScore = Math.round(radar.reduce((sum, item) => sum + item.score, 0) / radar.length);
-  const summary = overallScore >= 80 ? '项目已形成较完整的视觉系统，下一步应集中强化细节证据与作品集叙事。' : overallScore >= 60 ? '项目方向已建立，但关键资产、系统规范与展示证据仍需按优先级补齐。' : '项目处于基础搭建阶段，应先冻结品牌事实，再补齐核心视觉与展示证据。';
+  const summary = config.reviewSummary || (overallScore >= 80 ? '项目已形成较完整的视觉系统，下一步应集中强化细节证据与作品集叙事。' : overallScore >= 60 ? '项目方向已建立，但关键资产、系统规范与展示证据仍需按优先级补齐。' : '项目处于基础搭建阶段，应先冻结品牌事实，再补齐核心视觉与展示证据。');
   return {
     overallScore, summary, completion: portfolioCompleteness,
     scoringNote: '评分来自可解析素材、Brand Lock、缺图覆盖和配置证据；它是成长基线，不是审美裁决。人工可在 design-factory.json 的 reviewScores 中覆盖固定维度评分。',
