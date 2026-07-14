@@ -6,6 +6,7 @@ coverage/
 
 # 项目数据永远保留在本地
 Design-Factory-Projects/
+Projects/
 
 # 客户源文件与交付物
 *.psd
