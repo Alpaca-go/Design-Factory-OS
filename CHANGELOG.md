@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.0.0 — 2026-07-14
+
+- 新增 Design Review & Growth Engine，以带依据的成长评审替代无依据的主观打分。
+- 新增 Brand、Packaging、Visual System、Portfolio 与 Benchmark 专项评审。
+- 新增八维能力雷达、七项跨项目趋势、下一阶段建议和 Top 3 训练路线。
+- 新增六类 Action Items，所有 Knowledge、Rule、Prompt、Template 修改仍需人工执行。
+- 新增 `history/reviews/` 本地 JSON/Markdown 历史记录，真实记录默认不进入 Git。
+- 正式输出收敛为四份编号报告；`--debug` 时额外生成结构化 JSON。
+- 增加首次项目、第二项目趋势、评分依据、建议完整性及历史记录回归测试。
+
 ## 1.2.0 — 2026-07-14
 
 - 新增仓库内 `projects/` 标准工作目录及 `.gitkeep`。

@@ -1,7 +1,7 @@
 {
   "name": "design-factory-pack",
-  "version": "1.2.0",
-  "description": "Design Factory OS：生成品牌视觉规划、Knowledge Candidate 与 Knowledge Analysis",
+  "version": "2.0.0",
+  "description": "Design Factory OS：品牌视觉分析、设计评审与成长引擎",
   "type": "module",
   "bin": { "design-factory": "./bin/design-factory.js" },
   "scripts": {
