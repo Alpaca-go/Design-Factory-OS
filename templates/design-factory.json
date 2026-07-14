@@ -1,0 +1,15 @@
+{
+  "projectName": "品牌名称",
+  "projectType": "品牌视觉优化",
+  "industry": "综合/待确认",
+  "brand": {
+    "name": "品牌名称",
+    "primaryColor": null,
+    "secondaryColors": [],
+    "fonts": [],
+    "fontTemperament": "现代、清晰、具品牌识别度",
+    "packaging": [],
+    "coreVisualAssets": []
+  },
+  "benchmarks": []
+}

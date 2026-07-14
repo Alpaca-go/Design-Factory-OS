@@ -1,0 +1,14 @@
+{
+  "projectName": "帅府",
+  "projectType": "品牌全案",
+  "industry": "食品饮料",
+  "brand": {
+    "name": "帅府",
+    "primaryColor": "#173F35",
+    "secondaryColors": ["#C89B3C", "#F5E9CF"],
+    "fonts": ["思源黑体"],
+    "fontTemperament": "厚重、可信、雅致",
+    "packaging": ["书型礼盒"],
+    "coreVisualAssets": ["府门剪影", "金色印章"]
+  }
+}

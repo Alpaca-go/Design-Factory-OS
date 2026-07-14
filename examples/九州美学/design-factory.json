@@ -1,0 +1,14 @@
+{
+  "projectName": "九州美学",
+  "projectType": "品牌视觉升级",
+  "industry": "文化旅游",
+  "brand": {
+    "name": "九州美学",
+    "primaryColor": "#8B1E2D",
+    "secondaryColors": ["#D8B36A", "#F3EBDD"],
+    "fonts": ["思源宋体"],
+    "fontTemperament": "东方、人文、当代",
+    "packaging": ["天地盖礼盒"],
+    "coreVisualAssets": ["山水留白", "传统云纹"]
+  }
+}

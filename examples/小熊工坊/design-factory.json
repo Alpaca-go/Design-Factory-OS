@@ -1,0 +1,14 @@
+{
+  "projectName": "小熊工坊",
+  "projectType": "包装设计",
+  "industry": "文创生活",
+  "brand": {
+    "name": "小熊工坊",
+    "primaryColor": "#C66A3D",
+    "secondaryColors": ["#F2C66D", "#FFF5E4", "#547A65"],
+    "fonts": ["霞鹜文楷"],
+    "fontTemperament": "温暖、童趣、手作感",
+    "packaging": ["抽屉盒"],
+    "coreVisualAssets": ["小熊吉祥物", "手绘植物"]
+  }
+}

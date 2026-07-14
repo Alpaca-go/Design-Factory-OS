@@ -1,0 +1,5 @@
+node_modules/
+design-factory-output/
+coverage/
+.DS_Store
+*.log
