@@ -1,7 +1,7 @@
 {
   "name": "design-factory-pack",
-  "version": "1.0.1",
-  "description": "Design Factory OS：从项目素材自动生成品牌锁定、视觉优化、缺图分析与生图任务包",
+  "version": "1.1.0",
+  "description": "Design Factory OS：生成品牌视觉规划、Knowledge Candidate 与 Knowledge Analysis",
   "type": "module",
   "bin": { "design-factory": "./bin/design-factory.js" },
   "scripts": {

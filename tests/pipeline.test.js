@@ -18,7 +18,7 @@ for (const project of projects) {
     assert.ok(result.brandLock.logo.files.length >= 1);
     assert.equal(result.imagePlan.count, 13);
     assert.equal(result.gaps.topThree.length, 3);
-    const taskPackage = await fs.readFile(path.join(output, '05-Chat生图任务包.md'), 'utf8');
+    const taskPackage = await fs.readFile(path.join(output, 'Chat生图任务包.md'), 'utf8');
     assert.match(taskPackage, new RegExp(project));
     assert.match(taskPackage, /## 1\. Brand Lock/);
     assert.match(taskPackage, /## 2\. Chat 执行规则/);
@@ -26,8 +26,15 @@ for (const project of projects) {
     assert.match(taskPackage, /## 4\. 图片任务卡/);
     assert.match(taskPackage, /## 5\. 全局验收标准/);
     assert.doesNotMatch(taskPackage, /\\n\+?>/);
+    const candidate = await fs.readFile(path.join(output, 'Knowledge-Candidate.md'), 'utf8');
+    const knowledgeAnalysis = await fs.readFile(path.join(output, 'Knowledge-Analysis.md'), 'utf8');
+    assert.match(candidate, /未经人工审核不得写入 knowledge\/approved\//);
+    assert.match(knowledgeAnalysis, /本次项目未发现新的通用设计规律，仅产生项目级经验/);
+    assert.match(knowledgeAnalysis, /建议动作：Project Only/);
+    assert.deepEqual(result.knowledgeAnalysis.statistics, { new: 0, update: 0, duplicate: 0, projectOnly: 4 });
     const json = JSON.parse(await fs.readFile(path.join(output, 'design-factory-result.json'), 'utf8'));
     assert.equal(json.imagePlan.cards.length, 13);
+    assert.equal(json.knowledgeCandidates.length, 4);
   });
 }
 
@@ -39,4 +46,16 @@ test('重复运行不会把自定义输出当作素材', async () => {
   const second = await runPipeline(root, { output });
   assert.equal(second.result.inventory.totalFiles, first.result.inventory.totalFiles);
   assert.ok(!second.result.inventory.items.some((x) => x.path.startsWith('reports/')));
+});
+
+test('默认 outputs 每次包含三个规范文件且不会回扫', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'design-factory-default-output-'));
+  await fs.cp(path.resolve('examples', '匿名食品Demo'), root, { recursive: true });
+  const first = await runPipeline(root);
+  const second = await runPipeline(root);
+  assert.equal(first.output, path.join(root, 'outputs'));
+  assert.equal(second.result.inventory.totalFiles, first.result.inventory.totalFiles);
+  for (const name of ['Chat生图任务包.md', 'Knowledge-Candidate.md', 'Knowledge-Analysis.md']) {
+    await assert.doesNotReject(fs.access(path.join(root, 'outputs', name)));
+  }
 });

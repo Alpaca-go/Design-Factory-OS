@@ -1,16 +1,20 @@
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { inventoryProject } from './inventory.js';
 import { analyzeBenchmarks, buildBrandLock, buildGapAnalysis, buildImagePlan, buildPriorities } from './analyze.js';
+import { analyzeKnowledge, buildKnowledgeCandidates, loadApprovedRules } from './knowledge-analysis.js';
 import { renderAll } from './report.js';
 import { readJson } from './utils.js';
+
+const DEFAULT_APPROVED_KNOWLEDGE = fileURLToPath(new URL('../knowledge/approved/', import.meta.url));
 
 export async function runPipeline(input, options = {}) {
   const root = path.resolve(input);
   const configPath = options.config ? path.resolve(options.config) : path.join(root, 'design-factory.json');
   const config = await readJson(configPath, {});
-  const output = path.resolve(options.output || path.join(root, options.outputName || 'design-factory-output'));
+  const output = path.resolve(options.output || path.join(root, options.outputName || 'outputs'));
   const inventory = await inventoryProject(root, {
-    ignore: [options.outputName || 'design-factory-output'],
+    ignore: [options.outputName || 'outputs', 'design-factory-output'],
     ignorePaths: [output]
   });
   const brandLock = buildBrandLock(inventory, config);
@@ -18,7 +22,16 @@ export async function runPipeline(input, options = {}) {
   const gaps = buildGapAnalysis(inventory, benchmarks, config);
   const imagePlan = buildImagePlan(gaps, brandLock, config);
   const priorities = buildPriorities(brandLock, gaps);
-  const result = { version: '1.0.0', generatedAt: new Date().toISOString(), configPath, config, inventory, brandLock, benchmarks, gaps, imagePlan, priorities };
+  const result = { version: '1.1.0', generatedAt: new Date().toISOString(), configPath, config, inventory, brandLock, benchmarks, gaps, imagePlan, priorities };
+  const knowledgeApprovedPath = options.knowledgeDir
+    ? path.resolve(options.knowledgeDir)
+    : config.knowledgeApprovedPath
+      ? path.resolve(root, config.knowledgeApprovedPath)
+      : DEFAULT_APPROVED_KNOWLEDGE;
+  const knowledgeCandidates = buildKnowledgeCandidates(result, config);
+  const approvedRules = await loadApprovedRules(knowledgeApprovedPath);
+  const knowledgeAnalysis = analyzeKnowledge(knowledgeCandidates, approvedRules, brandLock.brandName);
+  Object.assign(result, { knowledgeApprovedPath, knowledgeCandidates, knowledgeAnalysis });
   await renderAll(result, output);
   return { result, output };
 }

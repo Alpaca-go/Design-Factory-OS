@@ -11,5 +11,6 @@
     "packaging": [],
     "coreVisualAssets": []
   },
-  "benchmarks": []
+  "benchmarks": [],
+  "knowledgeCandidates": []
 }

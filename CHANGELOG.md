@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0 — 2026-07-14
+
+- 新增 Knowledge Candidate 数据契约与候选报告。
+- 新增 Knowledge Analysis，对候选执行 New、Update、Ignore、Project Only 分类。
+- 新增 Packaging、Brand、VI、Poster、Portfolio 知识库健康度分析。
+- 新增 P0–P3 优先级和人工审核清单。
+- Approved Rule 目录保持只读，支持 JSON 与带 Frontmatter 的 Markdown。
+- 默认项目输出目录调整为 `outputs/`，每次运行保证生成三个规范文件。
+
 ## 1.0.1 — 2026-07-14
 
 - 将带有真实项目名称的测试素材替换为三个明确匿名的自制 Demo。

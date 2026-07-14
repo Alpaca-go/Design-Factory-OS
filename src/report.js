@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { ensureDir, mdCell, writeText } from './utils.js';
+import { renderCandidateReport, renderKnowledgeAnalysis } from './knowledge-analysis.js';
 
 function header(title, result) {
   return `# ${title}\n\n> Design Factory OS v${result.version} 自动生成  \n> 生成时间：${result.generatedAt}  \n> 项目：${result.brandLock.brandName}\n\n`;
@@ -83,7 +84,9 @@ export async function renderAll(result, output) {
   const files = {
     '00-素材清单.md': inventoryReport(result), '01-Brand-Lock.md': brandReport(result),
     '02-视觉方案优化报告.md': optimizationReport(result), '03-缺图分析.md': gapReport(result),
-    '04-图片规划.md': planReport(result), '05-Chat生图任务包.md': chatPackage(result)
+    '04-图片规划.md': planReport(result), 'Chat生图任务包.md': chatPackage(result),
+    'Knowledge-Candidate.md': renderCandidateReport(result.knowledgeCandidates, result),
+    'Knowledge-Analysis.md': renderKnowledgeAnalysis(result.knowledgeAnalysis, result)
   };
   for (const [name, content] of Object.entries(files)) await writeText(path.join(output, name), content);
   await writeText(path.join(output, 'design-factory-result.json'), `${JSON.stringify(result, null, 2)}\n`);
