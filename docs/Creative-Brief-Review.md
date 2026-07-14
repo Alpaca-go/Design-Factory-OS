@@ -1,10 +1,12 @@
 # Creative Brief Review
 
-v3.1 的 Design Review 评审的是 **Creative Brief 的准备度**，不是给尚未产生的设计作品打分。
+v3.2 的 Design Review 评审的是 **Creative Brief 的准备度**，不是给尚未产生的设计作品打分。
 
 ## 检查内容
 
-评审逐项检查 Brand Identity、Brand Positioning、Design Language、Emotional Direction、Visual DNA、Photography Direction、Design Risks、Must Keep、Can Explore 和 Design Goal。
+评审逐项检查 Brand Identity、Brand Positioning、Design Language、Emotional Direction、Approved Brand DNA、Photography Direction、Design Risks、Must Keep、Can Explore 和 Design Goal。
+
+Approved Brand DNA 只有在 Original Intent、Industry Benchmark、Creative Decision、九个 DNA 维度与显式批准全部完成时才可标记 `Ready`。
 
 每项只有两种状态：
 

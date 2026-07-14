@@ -5,8 +5,9 @@ import path from 'node:path';
 
 const forbiddenExtensions = new Set(['.psd', '.ai', '.cdr', '.pdf', '.zip', '.rar', '.7z']);
 const forbiddenNames = new Set(['review.md', 'chat生图任务包.md', 'knowledge-candidate.md', 'knowledge-analysis.md', '01-项目分析报告.md', '02-chat生图任务包.md', '02-creative-brief.md', '03-knowledge-review.md', '04-design-review.md']);
-const forbiddenRoots = ['Design-Factory-Projects/'];
+const forbiddenRoots = ['Masterpiece-OS-Projects/'];
 const localProjectNames = ['九州美学', '帅府', '香辣虾', '小熊工坊'];
+const gitAvailable = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { encoding: 'utf8' }).status === 0;
 
 function repositoryFiles() {
   const result = spawnSync('git', ['-c', 'core.quotepath=false', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], { encoding: 'utf8' });
@@ -14,7 +15,7 @@ function repositoryFiles() {
   return result.stdout.split('\0').filter(Boolean).map((file) => file.replaceAll('\\', '/'));
 }
 
-test('仓库不包含项目源文件或项目交付物', () => {
+test('仓库不包含项目源文件或项目交付物', { skip: gitAvailable ? false : '当前副本不含 .git 元数据' }, () => {
   const violations = [];
   for (const file of repositoryFiles()) {
     const lower = file.toLowerCase();
@@ -30,7 +31,7 @@ test('仓库不包含项目源文件或项目交付物', () => {
   assert.deepEqual(violations, [], `发现 GitHub 文件管理规范违规：\n${violations.join('\n')}`);
 });
 
-test('仓库内栅格图片只能用于脱敏示例、测试或模板', () => {
+test('仓库内栅格图片只能用于脱敏示例、测试或模板', { skip: gitAvailable ? false : '当前副本不含 .git 元数据' }, () => {
   const raster = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp']);
   const violations = repositoryFiles().filter((file) => raster.has(path.posix.extname(file).toLowerCase()))
     .filter((file) => !/^(examples|tests|templates)\//.test(file));

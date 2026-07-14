@@ -1,4 +1,4 @@
-# Design Factory OS — GitHub 文件管理规范
+# Masterpiece-OS — GitHub 文件管理规范
 
 ## 核心边界
 
@@ -20,7 +20,7 @@
 
 ## 禁止提交
 
-- `Design-Factory-Projects/` 或任何真实项目目录
+- `Masterpiece-OS-Projects/` 或任何真实项目目录
 - `projects/` 下除 `.gitkeep` 之外的任何真实项目内容
 - `history/reviews/` 下的旧版 review.json、review.md 和项目成长数据
 - PSD、AI、CDR、PDF、ZIP 等客户源文件
@@ -28,7 +28,7 @@
 - 最终 PNG/JPG 和其他生成结果
 - 四份项目分析/评审报告、`review.json`、修改记录与客户交付文件
 
-真实项目默认存放在仓库内的 `projects/`，该目录内容已由 `.gitignore` 排除；也可继续存放在仓库外的同级目录 `Design-Factory-Projects/`。无论采用哪种方式，真实素材和交付物都不得进入 Git。
+真实项目默认存放在仓库内的 `projects/`，该目录内容已由 `.gitignore` 排除；也可继续存放在仓库外的同级目录 `Masterpiece-OS-Projects/`。无论采用哪种方式，真实素材和交付物都不得进入 Git。
 
 ## Thinking Framework 准入规则
 

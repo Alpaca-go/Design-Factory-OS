@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { assertSafeProjectRoot, DEFAULT_PROJECTS_ROOT } from './project-paths.js';
 
-const RESERVED = new Set(['input', 'outputs', 'design-factory.json', '.gitkeep']);
+const RESERVED = new Set(['input', 'outputs', 'masterpiece-os.json', '.gitkeep']);
 const SYSTEM_FILES = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini']);
 
 function ignoredEntry(name) {

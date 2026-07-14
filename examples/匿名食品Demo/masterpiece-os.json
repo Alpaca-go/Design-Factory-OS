@@ -17,6 +17,38 @@
     "inspectedImages": ["assets/demo-logo.svg", "assets/demo-package-front.svg"],
     "findings": ["Logo 采用深绿底、金色圆角方形符号和米白英文组合", "包装正面以深绿矩形为主体，金色圆形位于稳定中心，外围保留大面积米白留白"]
   },
+  "brandDnaDecision": {
+    "originalIntent": {
+      "statement": "以可靠秩序和赠予仪式连接人与人的礼赠品牌，而不只是包装食品。",
+      "evidence": ["项目被定义为品牌全案", "已确认书型礼盒、中心印章式符号与稳重礼赠色系"]
+    },
+    "industryBenchmark": {
+      "observations": ["成熟食品品牌让包装、语气与真实产品证据共同工作", "高品质礼赠依靠稳定系统而不是金色堆叠"],
+      "opportunities": ["以可信秩序和克制仪式感区别于通用高端礼盒"],
+      "references": ["Oatly", "Blue Bottle Coffee", "Noma Projects"]
+    },
+    "creativeDecision": {
+      "statement": "以深绿主场、克制金色焦点、中心几何秩序与米白缓冲建立可信而不炫耀的礼赠体验。",
+      "rationale": ["深绿大面积使用形成稳定基底", "少量金色承担仪式焦点而不形成促销感"],
+      "tradeoffs": ["不把金色等同于高级", "不以空盒效果代替真实食品与赠予关系"]
+    },
+    "approvedBrandDNA": {
+      "logo": "只使用已确认的深绿底、金色圆角方形符号与米白英文组合。",
+      "color": "深绿 #173F35 为主，金色 #C89B3C 点题，米白 #F5E9CF 提供呼吸区",
+      "typography": "以厚重、可信的清晰层级配合中心几何秩序，避免装饰字体抢占符号。",
+      "composition": "单一几何主体居中，外围保持稳定矩形秩序",
+      "whitespace": "米白区域承担礼赠感和信息缓冲，不用密集装饰填满",
+      "photography": "后续产品摄影应延续稳重、真实、低反差的礼赠质感",
+      "materials": "真实纸张、食品与哑光表面承担触感证据，不以高光效果替代材质。",
+      "packaging": "保持已确认书型礼盒；当前画面只证明正面语言，不推断内部结构",
+      "craft": "金色区域仅可在打样阶段探索哑金或压凹，未经验证不得冻结具体工艺"
+    },
+    "approval": {
+      "status": "approved",
+      "approvedBy": "匿名示例维护者",
+      "approvedAt": "2026-07-14"
+    }
+  },
   "creativeReasoning": {
     "brandIdentity": {
       "statement": "以可靠秩序和赠予仪式连接人与人的礼赠品牌，而不只是食品包装提供者。",
@@ -36,17 +68,6 @@
       "desiredFeelings": ["可靠", "雅致", "有礼赠仪式感"],
       "avoidFeelings": ["浮夸", "促销感", "通用高端礼盒感"],
       "evidence": ["深绿主色、居中几何秩序和克制装饰"]
-    },
-    "visualDNA": {
-      "logo": "只使用已确认的深绿底、金色圆角方形符号与米白英文组合。",
-      "color": "深绿 #173F35 为主，金色 #C89B3C 点题，米白 #F5E9CF 提供呼吸区",
-      "typography": "以厚重、可信的清晰层级配合中心几何秩序，避免装饰字体抢占符号。",
-      "composition": "单一几何主体居中，外围保持稳定矩形秩序",
-      "whitespace": "米白区域承担礼赠感和信息缓冲，不用密集装饰填满",
-      "photography": "后续产品摄影应延续稳重、真实、低反差的礼赠质感",
-      "materials": "真实纸张、食品与哑光表面承担触感证据，不以高光效果替代材质。",
-      "packaging": "保持已确认书型礼盒；当前画面只证明正面语言，不推断内部结构",
-      "craft": "金色区域可探索哑金或压凹，但具体工艺在打样前待确认"
     },
     "photographyDirection": {
       "lighting": "柔和侧上方大光源，保留真实接触阴影。",

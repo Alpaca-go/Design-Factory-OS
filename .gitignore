@@ -1,11 +1,11 @@
 node_modules/
-design-factory-output/
+masterpiece-os-output/
 coverage/
 .DS_Store
 *.log
 
 # 项目数据永远保留在本地
-Design-Factory-Projects/
+Masterpiece-OS-Projects/
 
 # 保留 projects 目录本身，忽略其中所有真实项目
 projects/*

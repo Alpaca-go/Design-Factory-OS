@@ -8,17 +8,17 @@ import { runPipeline } from '../src/pipeline.js';
 const projects = ['匿名文旅Demo', '匿名食品Demo', '匿名文创Demo'];
 const outputFiles = ['01-项目分析报告.md', '02-Creative-Brief.md', '03-Knowledge-Review.md', '04-Design-Review.md'];
 const briefSections = [
-  'Brand Identity', 'Brand Positioning', 'Design Language', 'Emotional Direction', 'Visual DNA',
+  'Brand Identity', 'Brand Positioning', 'Design Language', 'Emotional Direction', 'Approved Brand DNA',
   'Photography Direction', 'Design Risks', 'Must Keep', 'Can Explore', 'Design Goal'
 ];
 
 for (const project of projects) {
-  test(`v3.1 长期回归：${project}`, async () => {
+  test(`v3.2 长期回归：${project}`, async () => {
     const root = path.resolve('examples', project);
-    const output = await fs.mkdtemp(path.join(os.tmpdir(), `design-factory-${project}-`));
+    const output = await fs.mkdtemp(path.join(os.tmpdir(), `masterpiece-os-${project}-`));
     const { result } = await runPipeline(root, { output });
 
-    assert.equal(result.version, '3.1.0');
+    assert.equal(result.version, '3.2.0');
     assert.equal(result.mode, 'brief');
     assert.equal(result.brandLock.brandName, project);
     assert.match(result.brandLock.primaryColor, /^#[0-9A-F]{6}$/);
@@ -27,16 +27,22 @@ for (const project of projects) {
     assert.equal(result.gaps, undefined);
     assert.equal(result.knowledgeAnalysis, undefined);
     assert.equal(result.growth, undefined);
+    assert.equal(result.brandDnaDecision.status, 'Approved');
+    assert.deepEqual(result.brandDnaDecision.approval.blockers, []);
     assert.deepEqual(result.outputFiles, outputFiles);
 
     const brief = await fs.readFile(path.join(output, '02-Creative-Brief.md'), 'utf8');
     assert.match(brief, new RegExp(project));
     for (const section of briefSections) assert.match(brief, new RegExp(`## \\d+\\. ${section}`));
+    assert.match(brief, /后续 GPT .*自主完成图片规划与生成/);
+    assert.doesNotMatch(brief, /## 5\. Visual DNA/);
     assert.doesNotMatch(brief, /PKG-|VI-|POS-|图片任务|生图任务|画幅|比例计划|Chat 执行|Prompt 指令/);
 
     const analysis = await fs.readFile(path.join(output, '01-项目分析报告.md'), 'utf8');
     assert.match(analysis, /## Brand Lock/);
     assert.match(analysis, /## Benchmark Analysis/);
+    assert.match(analysis, /## Brand DNA Decision/);
+    assert.match(analysis, /Original Intent → Industry Benchmark → Creative Decision → Approved Brand DNA/);
     assert.match(analysis, /## Creative Reasoning/);
     assert.doesNotMatch(analysis, /## Image Planning|缺图矩阵|图片任务卡/);
 
@@ -51,12 +57,12 @@ for (const project of projects) {
     assert.match(review, /## 十项简报检查/);
     assert.match(review, /不生成图片任务、Prompt、数量或比例方案/);
     assert.equal((await fs.readdir(output)).filter((name) => name.endsWith('.md')).length, 4);
-    await assert.rejects(fs.access(path.join(output, 'design-factory-result.json')), { code: 'ENOENT' });
+    await assert.rejects(fs.access(path.join(output, 'masterpiece-os-result.json')), { code: 'ENOENT' });
   });
 }
 
 test('重复运行保持幂等且固定输出四份文档', async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'design-factory-idempotent-'));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'masterpiece-os-idempotent-'));
   await fs.cp(path.resolve('examples', '匿名文旅Demo'), root, { recursive: true });
   const output = path.join(root, 'reports', 'latest');
   const first = await runPipeline(root, { output });
@@ -67,8 +73,8 @@ test('重复运行保持幂等且固定输出四份文档', async () => {
   assert.equal((await fs.readdir(output)).filter((name) => name.endsWith('.md')).length, 4);
 });
 
-test('默认运行清理 v3.0 生图任务包并生成 v3.1 四份文件', async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'design-factory-default-output-'));
+test('默认运行清理 v3.0 生图任务包并生成 v3.2 四份文件', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'masterpiece-os-default-output-'));
   await fs.cp(path.resolve('examples', '匿名食品Demo'), root, { recursive: true });
   await fs.mkdir(path.join(root, 'outputs'), { recursive: true });
   await fs.writeFile(path.join(root, 'outputs', '02-Chat生图任务包.md'), 'stale');
@@ -83,7 +89,7 @@ test('默认运行清理 v3.0 生图任务包并生成 v3.1 四份文件', async
 
 test('v3.0 模式参数兼容映射到唯一 Creative Brief 工作流', async () => {
   for (const mode of ['fast', 'review', 'research']) {
-    const output = await fs.mkdtemp(path.join(os.tmpdir(), `design-factory-mode-${mode}-`));
+    const output = await fs.mkdtemp(path.join(os.tmpdir(), `masterpiece-os-mode-${mode}-`));
     const { result } = await runPipeline(path.resolve('examples', '匿名文创Demo'), { output, mode });
     assert.equal(result.mode, 'brief');
     assert.deepEqual(result.outputFiles, outputFiles);
@@ -94,14 +100,15 @@ test('未知分析模式会被拒绝', async () => {
   await assert.rejects(runPipeline(path.resolve('examples', '匿名文创Demo'), { mode: 'slow' }), /未知分析模式/);
 });
 
-test('调试模式额外生成 v3.1 结构化 JSON', async () => {
+test('调试模式额外生成 v3.2 结构化 JSON', async () => {
   const root = path.resolve('examples', '匿名食品Demo');
-  const output = await fs.mkdtemp(path.join(os.tmpdir(), 'design-factory-debug-output-'));
+  const output = await fs.mkdtemp(path.join(os.tmpdir(), 'masterpiece-os-debug-output-'));
   await runPipeline(root, { output, debug: true });
-  const json = JSON.parse(await fs.readFile(path.join(output, 'design-factory-result.json'), 'utf8'));
-  assert.equal(json.version, '3.1.0');
+  const json = JSON.parse(await fs.readFile(path.join(output, 'masterpiece-os-result.json'), 'utf8'));
+  assert.equal(json.version, '3.2.0');
   assert.equal(json.mode, 'brief');
   assert.ok(json.creativeReasoning.brandIdentity.statement);
+  assert.equal(json.brandDnaDecision.status, 'Approved');
   assert.equal(json.briefReview.checks.length, 10);
   assert.equal(json.thinkingReview.categories.length, 5);
 });

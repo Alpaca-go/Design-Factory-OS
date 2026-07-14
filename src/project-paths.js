@@ -33,7 +33,7 @@ export function getProjectPaths(projectName, options = {}) {
     projectRoot,
     inputDir: path.join(projectRoot, 'input'),
     outputsDir: path.join(projectRoot, 'outputs'),
-    configFile: path.join(projectRoot, 'design-factory.json')
+    configFile: path.join(projectRoot, 'masterpiece-os.json')
   };
 }
 

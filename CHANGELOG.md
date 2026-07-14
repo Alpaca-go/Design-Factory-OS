@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.2.0 — 2026-07-14
+
+- 新增独立 Brand DNA Decision 契约，强制执行 Original Intent → Industry Benchmark → Creative Decision → Approved Brand DNA。
+- 只有决策链完整且显式批准时，九个 Approved Brand DNA 维度才会进入 Creative Brief。
+- 旧 `creativeReasoning.visualDNA` 仅保留为迁移候选，阻止用户视觉方案被静默升级为品牌结论。
+- Creative Brief 第五部分由 Visual DNA 改为 Approved Brand DNA；Design Review 同步检查决策链与批准状态。
+- 明确 GPT Collaboration：输入为已核验视觉方案与 Creative Brief，GPT 自主完成图片规划和生成。
+- 保持四份固定 Markdown，不恢复 PKG、VI、Poster、图片数量、画幅、任务卡或 Prompt 规划。
+- Thinking Framework 的视觉问题改为检查决策追溯与 Approved Brand DNA，不保存项目答案。
+- 增加三类决策防绕过测试，并迁移三个匿名回归样例到 v3.2。
+- 在架构说明中定义真实项目 A/B 验证口径：总耗时、首图质量、满意度、返工和品牌一致性。
+
 ## 3.1.0 — 2026-07-14
 
 - 将产品重新定位为 AI Creative Brief Generator：系统理解品牌，专业创意团队负责设计。
@@ -58,8 +70,8 @@
 
 ## 1.0.0 — 2026-07-14
 
-- 初始化 Design Factory OS 仓库与目录结构。
-- 新增零依赖 `design-factory` CLI。
+- 初始化 Masterpiece-OS 仓库与目录结构。
+- 新增零依赖 `masterpiece-os` CLI。
 - 新增 ZIP、PDF、PPTX、PNG/JPEG/GIF/WebP/SVG 素材盘点。
 - 新增 Brand Lock、行业/项目类型识别、可选联网对标。
 - 新增视觉优化报告、缺图矩阵、13 张图片规划与 Chat 生图任务包。

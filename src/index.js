@@ -1,6 +1,7 @@
 export { inventoryProject } from './inventory.js';
 export { runPipeline, normalizeMode } from './pipeline.js';
 export { buildBrandLock, analyzeBenchmarks } from './analyze.js';
+export { BRAND_DNA_DIMENSIONS, buildBrandDnaDecision } from './brand-dna-decision.js';
 export { buildCreativeReasoning } from './creative-reasoning.js';
 export { THINKING_FRAMEWORKS, loadThinkingFramework, buildThinkingReview } from './thinking-framework.js';
 export { buildBriefReview } from './brief-review.js';

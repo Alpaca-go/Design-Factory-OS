@@ -19,6 +19,38 @@
     "inspectedImages": [],
     "findings": []
   },
+  "brandDnaDecision": {
+    "originalIntent": {
+      "statement": "",
+      "evidence": []
+    },
+    "industryBenchmark": {
+      "observations": [],
+      "opportunities": [],
+      "references": []
+    },
+    "creativeDecision": {
+      "statement": "",
+      "rationale": [],
+      "tradeoffs": []
+    },
+    "approvedBrandDNA": {
+      "logo": "",
+      "color": "",
+      "typography": "",
+      "composition": "",
+      "whitespace": "",
+      "photography": "",
+      "materials": "",
+      "packaging": "",
+      "craft": ""
+    },
+    "approval": {
+      "status": "draft",
+      "approvedBy": "",
+      "approvedAt": ""
+    }
+  },
   "creativeReasoning": {
     "brandIdentity": {
       "statement": "",
@@ -38,17 +70,6 @@
       "desiredFeelings": [],
       "avoidFeelings": [],
       "evidence": []
-    },
-    "visualDNA": {
-      "logo": "",
-      "color": "",
-      "typography": "",
-      "composition": "",
-      "whitespace": "",
-      "photography": "",
-      "materials": "",
-      "packaging": "",
-      "craft": ""
     },
     "photographyDirection": {
       "lighting": "",

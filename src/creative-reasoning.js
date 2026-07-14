@@ -1,4 +1,5 @@
 import { unique } from './utils.js';
+import { buildBrandDnaDecision } from './brand-dna-decision.js';
 
 const PENDING = '待确认（需完整查看视觉素材后补充）';
 
@@ -44,10 +45,6 @@ function oldKeywordPrinciples(supplied) {
     : `${clean(item.keyword || item.name) || '待确认'}：${clean(item.reason) || '依据待确认'}`);
 }
 
-function dnaValue(value, fallback) {
-  return clean(typeof value === 'string' ? value : value?.direction || value?.summary) || fallback;
-}
-
 function normalizeRisk(item) {
   return {
     problem: clean(item?.problem) || '待确认的设计风险',
@@ -81,7 +78,7 @@ function fallbackRisks(inspection, brand) {
   risks.push(normalizeRisk({
     problem: '单个创意表现可能脱离品牌长期资产',
     reason: '摄影、材质和场景变化时，Logo、色彩、排版与情绪容易各自发展。',
-    prevention: '所有创意探索均以 Visual DNA 和 Must Keep 为边界，并在跨触点环境中验证。'
+    prevention: '所有创意探索均以 Approved Brand DNA 和 Must Keep 为边界，并在跨触点环境中验证。'
   }));
   return risks.slice(0, 5);
 }
@@ -94,8 +91,9 @@ function inferIdentity(brand, benchmarks, supplied) {
   return `${brand.brandName} 是一个以“${essence}”建立认知与关系的品牌。${position}而不只是“${benchmarks.industry.value}”品类中的产品提供者。`;
 }
 
-export function buildCreativeReasoning(inventory, brand, benchmarks, config = {}) {
+export function buildCreativeReasoning(inventory, brand, benchmarks, config = {}, decision = null) {
   const supplied = config.creativeReasoning || config.creativeBrief || {};
+  const brandDnaDecision = decision || buildBrandDnaDecision(brand, benchmarks, config);
   const inspection = inspectionStatus(inventory, config);
   const oldPositioning = supplied.positioning;
   const brandIdentity = section(supplied.brandIdentity, inferIdentity(brand, benchmarks, supplied), inspection.findings.slice(0, 4));
@@ -122,31 +120,20 @@ export function buildCreativeReasoning(inventory, brand, benchmarks, config = {}
     evidence: strings(emotionalInput.evidence || oldTemperament.evidence)
   };
 
-  const dna = supplied.visualDNA || {};
-  const colors = [brand.primaryColor, ...brand.secondaryColors].filter(Boolean);
-  const visualDNA = {
-    logo: dnaValue(dna.logo, brand.logo.files.length ? `只使用已确认标志文件：${brand.logo.files.join('、')}。` : 'Logo 待确认，不得重绘或猜测。'),
-    color: dnaValue(dna.color, colors.length ? `以 ${colors.join('、')} 为已确认色彩锚点，并保持主辅层级。` : PENDING),
-    typography: dnaValue(dna.typography, clean(config.brand?.typographyNotes || brand.fontTemperament) || PENDING),
-    composition: dnaValue(dna.composition, clean(config.brand?.layoutStyle) || PENDING),
-    whitespace: dnaValue(dna.whitespace, clean(config.brand?.whitespaceStyle) || PENDING),
-    photography: dnaValue(dna.photography, clean(config.brand?.photographyStyle) || PENDING),
-    materials: dnaValue(dna.materials || dna.material, '真实材质及触感关系待视觉与实物证据确认。'),
-    packaging: dnaValue(dna.packaging, brand.packaging.length ? `只沿用已确认包装：${brand.packaging.join('、')}。` : '包装结构待确认，不得自行发明。'),
-    craft: dnaValue(dna.craft, clean(config.brand?.craftLanguage) || '工艺证据待确认，不得凭效果图推断。')
-  };
+  const approvedBrandDNA = brandDnaDecision.approvedBrandDNA;
 
   const photo = supplied.photographyDirection || supplied.photographyLanguage || {};
   const photographyDirection = {
     lighting: clean(photo.lighting || photo.light) || '光线方向、软硬和色温待逐张视觉确认。',
     framing: clean(photo.framing || photo.composition || photo.lens) || '镜头、机位、景别与主体尺度待逐张视觉确认。',
     depth: clean(photo.depth || photo.depthOfField) || '景深关系应服务主体和品牌情绪，具体方式待确认。',
-    materials: clean(photo.materials || photo.material) || visualDNA.materials,
+    materials: clean(photo.materials || photo.material) || approvedBrandDNA.materials,
     atmosphere: clean(photo.atmosphere || photo.mood) || `整体氛围应服务“${emotionalDirection.statement}”。`
   };
 
-  const mustKeep = strings(supplied.mustKeep || dna.mustKeep).length
-    ? strings(supplied.mustKeep || dna.mustKeep)
+  const legacyDna = supplied.visualDNA || {};
+  const mustKeep = strings(supplied.mustKeep || legacyDna.mustKeep).length
+    ? strings(supplied.mustKeep || legacyDna.mustKeep)
     : unique([brand.primaryColor ? `主色 ${brand.primaryColor}` : null, ...brand.coreVisualAssets, ...brand.logo.files.map((file) => `授权 Logo：${file}`)].filter(Boolean));
   const canExplore = strings(supplied.canExplore).length
     ? strings(supplied.canExplore)
@@ -163,7 +150,11 @@ export function buildCreativeReasoning(inventory, brand, benchmarks, config = {}
     brandPositioning,
     designLanguage,
     emotionalDirection,
-    visualDNA,
+    brandDnaDecision,
+    approvedBrandDNA,
+    // Read-only compatibility alias. It resolves to approved decisions, never
+    // to legacy creativeReasoning.visualDNA candidates.
+    visualDNA: approvedBrandDNA,
     photographyDirection,
     designRisks,
     mustKeep,

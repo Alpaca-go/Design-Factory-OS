@@ -1,4 +1,4 @@
-const PENDING_PATTERN = /待确认|待补充|不得仅凭|视觉核验未闭环/;
+const PENDING_PATTERN = /待.*(?:确认|补充|验证|打样)|仍需.*确认|尚未|未完成|不得仅凭|视觉核验未闭环/;
 
 function populated(value) {
   if (Array.isArray(value)) return value.length > 0 && value.every(populated);
@@ -6,18 +6,29 @@ function populated(value) {
   return typeof value === 'string' ? Boolean(value.trim()) && !PENDING_PATTERN.test(value) : value !== null && value !== undefined;
 }
 
-function check(section, value, evidence, nextStep) {
-  return { section, status: populated(value) ? 'Ready' : 'Needs Evidence', evidence, nextStep };
+function check(section, value, evidence, nextStep, ready = populated(value)) {
+  return { section, status: ready ? 'Ready' : 'Needs Evidence', evidence, nextStep };
 }
 
 export function buildBriefReview(result) {
   const reasoning = result.creativeReasoning;
+  const decision = reasoning.brandDnaDecision || result.brandDnaDecision || {};
+  const approvedBrandDNA = reasoning.approvedBrandDNA || decision.approvedBrandDNA || {};
+  const dnaReady = decision.status === 'Approved' && populated(approvedBrandDNA);
   const checks = [
     check('Brand Identity', reasoning.brandIdentity, reasoning.brandIdentity.evidence.join('；') || '暂无依据', '用一句非品类描述说明品牌真正是什么，并补充视觉或用户证据。'),
     check('Brand Positioning', reasoning.brandPositioning, reasoning.brandPositioning.evidence.join('；') || '暂无依据', '明确相对竞争环境的差异，并说明判断依据。'),
     check('Design Language', reasoning.designLanguage, reasoning.designLanguage.rationale.join('；') || '暂无依据', '把风格形容词转化为可被设计团队执行的关系和原则。'),
     check('Emotional Direction', reasoning.emotionalDirection, reasoning.emotionalDirection.evidence.join('；') || '暂无依据', '补充目标情绪与不希望出现的反向感受。'),
-    check('Visual DNA', reasoning.visualDNA, '已检查 Logo、色彩、字体、构图、留白、摄影、材质、包装和工艺。', '为待确认维度补充逐张画面或实物证据。'),
+    check(
+      'Approved Brand DNA',
+      approvedBrandDNA,
+      decision.status === 'Approved'
+        ? '四阶段 Brand DNA Decision 已完成并显式批准。'
+        : `决策链未完成：${decision.approval?.blockers?.join('；') || '缺少显式批准或决策依据'}`,
+      '完成 Original Intent → Industry Benchmark → Creative Decision，并显式批准九个 Brand DNA 维度。',
+      dnaReady
+    ),
     check('Photography Direction', reasoning.photographyDirection, '已检查光线、取景、景深、材质和氛围。', '确保描述的是摄影方向而不是单张 Prompt。'),
     check('Design Risks', reasoning.designRisks, `${reasoning.designRisks.length} 项风险`, '每项风险保留原因与防偏方式。'),
     check('Must Keep', reasoning.mustKeep, `${reasoning.mustKeep.length} 项不可变资产`, '只保留真正影响品牌身份的长期资产。'),
@@ -37,7 +48,7 @@ export function buildBriefReview(result) {
     completeness,
     readiness: completeness === 100 ? 'Ready for Creative Development' : 'Needs Evidence Before Creative Development',
     summary: completeness === 100
-      ? 'Creative Brief 已覆盖品牌身份、设计语言、情绪、视觉 DNA、创意边界与目标，可交付专业创意团队继续发展。'
+      ? 'Creative Brief 已覆盖品牌身份、设计语言、情绪、Approved Brand DNA、创意边界与目标，可与已核验视觉方案一起交给 GPT 自主开展图片规划与生成。'
       : 'Creative Brief 结构完整，但仍有内容依赖待确认信息；补齐证据前不应把这些判断作为正式设计结论。',
     checks,
     strengths,
@@ -45,4 +56,3 @@ export function buildBriefReview(result) {
     risks: reasoning.designRisks
   };
 }
-

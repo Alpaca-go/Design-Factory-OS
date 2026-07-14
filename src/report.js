@@ -22,7 +22,7 @@ const LEGACY_OUTPUTS = [
 ];
 
 function header(title, result) {
-  return `# ${title}\n\n> Design Factory OS v${result.version}  \n> 生成时间：${result.generatedAt}  \n> 项目：${result.brandLock.brandName}\n\n`;
+  return `# ${title}\n\n> Masterpiece-OS v${result.version}  \n> 生成时间：${result.generatedAt}  \n> 项目：${result.brandLock.brandName}\n\n`;
 }
 
 function list(values, empty = '待确认') {
@@ -70,51 +70,80 @@ function renderReasoningSummary(result) {
     `### 设计目标\n\n${reasoning.designGoal}\n\n`;
 }
 
+function renderBrandDnaDecision(result) {
+  const decision = result.brandDnaDecision;
+  const benchmark = decision.industryBenchmark;
+  const references = benchmark.references.map((item) => item.url ? `[${item.name}](${item.url})` : item.name);
+  const approval = decision.approval;
+  return `## Brand DNA Decision\n\n` +
+    `> 状态：${decision.status}。${decision.sourcePolicy}\n\n` +
+    `### 1. Original Intent\n\n${decision.originalIntent.statement}\n\n` +
+    `依据：${evidence(decision.originalIntent.evidence)}。\n\n` +
+    `### 2. Industry Benchmark\n\n` +
+    `- 对标语境：${benchmark.context}\n` +
+    `- 共同观察：${benchmark.observations.join('；') || '待确认'}\n` +
+    `- 差异机会：${benchmark.opportunities.join('；') || '待确认'}\n` +
+    `- 参考案例：${references.join('、') || '待确认'}\n\n` +
+    `### 3. Creative Decision\n\n${decision.creativeDecision.statement}\n\n` +
+    `- 决策理由：${decision.creativeDecision.rationale.join('；') || '待确认'}\n` +
+    `- 主动取舍：${decision.creativeDecision.tradeoffs.join('；') || '待确认'}\n\n` +
+    `### 4. Approval\n\n` +
+    `- 批准状态：${approval.status}\n` +
+    `- 批准人：${approval.approvedBy || '待确认'}\n` +
+    `- 批准时间：${approval.approvedAt || '待确认'}\n` +
+    `- 阻塞项：${approval.blockers.join('；') || '无'}\n` +
+    `${decision.migration.message ? `- 迁移提示：${decision.migration.message}\n` : ''}\n`;
+}
+
 function projectAnalysis(result) {
   const benchmark = result.benchmarks;
   const inspected = result.creativeReasoning.visualInspection;
   return header('项目分析报告', result) +
     `## 项目证据概览\n\n` +
-    `- 工作流：Creative Brief\n` +
+    `- 工作流：Original Intent → Industry Benchmark → Creative Decision → Approved Brand DNA → Creative Brief\n` +
     `- 素材文件：${result.inventory.totalFiles} 个\n` +
     `- 图片素材：${result.inventory.imageCount} 张\n` +
     `- 逐张视觉核验记录：${inspected.inspectedImageCount}/${inspected.totalImages} 张\n` +
     `- 核验状态：${inspected.verified ? '已闭环' : '未闭环'}\n` +
     `- 项目类型依据：${evidence(benchmark.projectType.evidence)}\n` +
     `- 行业依据：${evidence(benchmark.industry.evidence)}\n\n` +
-    renderBrandLock(result) + renderBenchmark(result) + renderReasoningSummary(result) +
+    renderBrandLock(result) + renderBenchmark(result) + renderBrandDnaDecision(result) + renderReasoningSummary(result) +
     `## 当前判断边界\n\n` +
     `- 本报告只把素材、配置和公开来源能够支持的内容写成事实。\n` +
     `- 未经完整视觉核验的构图、材质、工艺与摄影判断保留为待确认。\n` +
     `- 对标案例用于解释行业语境，不会替代本项目自身证据。\n` +
+    `- 用户视觉方案只能作为证据或候选，不能直接成为 Approved Brand DNA。\n` +
     `- 本阶段不规划图片数量、画幅比例或生图任务。\n`;
 }
 
 function creativeBrief(result) {
   const r = result.creativeReasoning;
+  const decision = result.brandDnaDecision;
   const dnaRows = [
-    ['Logo', r.visualDNA.logo],
-    ['Color', r.visualDNA.color],
-    ['Typography', r.visualDNA.typography],
-    ['Composition', r.visualDNA.composition],
-    ['Whitespace', r.visualDNA.whitespace],
-    ['Photography', r.visualDNA.photography],
-    ['Materials', r.visualDNA.materials],
-    ['Packaging', r.visualDNA.packaging],
-    ['Craft', r.visualDNA.craft]
+    ['Logo', r.approvedBrandDNA.logo],
+    ['Color', r.approvedBrandDNA.color],
+    ['Typography', r.approvedBrandDNA.typography],
+    ['Composition', r.approvedBrandDNA.composition],
+    ['Whitespace', r.approvedBrandDNA.whitespace],
+    ['Photography', r.approvedBrandDNA.photography],
+    ['Materials', r.approvedBrandDNA.materials],
+    ['Packaging', r.approvedBrandDNA.packaging],
+    ['Craft', r.approvedBrandDNA.craft]
   ].map(([name, value]) => `| ${name} | ${mdCell(value)} |`).join('\n');
   const photo = r.photographyDirection;
   const risks = r.designRisks.map((risk, index) =>
     `### ${index + 1}. ${risk.problem}\n\n- 原因：${risk.reason}\n- 防偏方式：${risk.prevention}`
   ).join('\n\n');
   return header('Creative Brief', result) +
-    `> 本简报面向品牌设计与创意团队，定义项目理解、设计边界和探索空间。待确认项需在创意发展前补齐证据。\n\n` +
+    `> 本简报面向品牌设计与创意团队，定义项目理解、设计边界和探索空间。Brand DNA Decision：${decision.status}。待确认项需在创意发展前补齐证据。\n> \n> 协作边界：Masterpiece-OS 到此停止；后续 GPT 以已核验视觉方案与本 Brief 为输入，自主完成图片规划与生成。\n\n` +
     `## 1. Brand Identity\n\n${r.brandIdentity.statement}\n\n**判断依据：** ${evidence(r.brandIdentity.evidence)}。\n\n` +
     `## 2. Brand Positioning\n\n${r.brandPositioning.statement}\n\n**定位依据：** ${evidence(r.brandPositioning.evidence)}。\n\n` +
     `## 3. Design Language\n\n${r.designLanguage.statement}\n\n**为什么采用这一语言：** ${evidence(r.designLanguage.rationale)}。\n\n` +
     `### 设计原则\n\n${list(r.designLanguage.principles, '设计原则待确认')}\n\n` +
     `## 4. Emotional Direction\n\n${r.emotionalDirection.statement}\n\n- 希望产生的感受：${r.emotionalDirection.desiredFeelings.join('、') || '待确认'}\n- 应避免的感受：${r.emotionalDirection.avoidFeelings.join('、') || '待确认'}\n- 判断依据：${evidence(r.emotionalDirection.evidence)}\n\n` +
-    `## 5. Visual DNA\n\n| 维度 | 品牌视觉边界 |\n|---|---|\n${dnaRows}\n\n` +
+    `## 5. Approved Brand DNA\n\n` +
+    `> ${decision.sourcePolicy}\n\n` +
+    `| 维度 | 已批准的品牌边界 |\n|---|---|\n${dnaRows}\n\n` +
     `## 6. Photography Direction\n\n` +
     `- 光线：${photo.lighting}\n- 取景与机位：${photo.framing}\n- 景深：${photo.depth}\n- 材质表现：${photo.materials}\n- 氛围：${photo.atmosphere}\n\n` +
     `## 7. Design Risks\n\n${risks || '当前风险待确认。'}\n\n` +
@@ -175,7 +204,7 @@ export async function renderAll(result, output, options = {}) {
   for (const name of [...new Set([...LEGACY_OUTPUTS, ...OUTPUT_FILES])]) {
     await fs.rm(path.join(output, name), { force: true });
   }
-  if (!options.debug) await fs.rm(path.join(output, 'design-factory-result.json'), { force: true });
+  if (!options.debug) await fs.rm(path.join(output, 'masterpiece-os-result.json'), { force: true });
   const files = {
     '01-项目分析报告.md': projectAnalysis(result),
     '02-Creative-Brief.md': creativeBrief(result),
@@ -187,7 +216,7 @@ export async function renderAll(result, output, options = {}) {
     await writeText(path.join(output, name), content);
   }
   if (options.debug) {
-    await writeText(path.join(output, 'design-factory-result.json'), `${JSON.stringify(result, null, 2)}\n`);
+    await writeText(path.join(output, 'masterpiece-os-result.json'), `${JSON.stringify(result, null, 2)}\n`);
   }
   return Object.keys(files);
 }

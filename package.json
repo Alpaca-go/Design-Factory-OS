@@ -1,12 +1,12 @@
 {
-  "name": "design-factory-pack",
-  "version": "3.1.0",
-  "description": "Design Factory OS：从品牌视觉证据生成专业 Creative Brief",
+  "name": "masterpiece-os",
+  "version": "3.2.0",
+  "description": "Masterpiece-OS：从品牌意图与视觉证据生成可追溯的专业 Creative Brief",
   "type": "module",
-  "bin": { "design-factory": "./bin/design-factory.js" },
+  "bin": { "masterpiece-os": "./bin/masterpiece-os.js" },
   "scripts": {
-    "start": "node ./bin/design-factory.js",
-    "analyze": "node ./bin/design-factory.js analyze",
+    "start": "node ./bin/masterpiece-os.js",
+    "analyze": "node ./bin/masterpiece-os.js analyze",
     "test": "node --test",
     "test:regression": "node ./tests/regression-runner.js"
   },

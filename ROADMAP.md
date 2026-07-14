@@ -39,7 +39,7 @@
 - [x] Review/Research Mode 保留四份编号报告和 Knowledge 只读边界
 - [x] 增加逐张视觉核验状态，阻止把文件名、OCR、尺寸或元数据当作画面事实
 
-## v3.1（当前）
+## v3.1
 
 - [x] 产品定位升级为 AI Creative Brief Generator
 - [x] Creative Reasoning 扩展为十部分专业 Creative Brief 契约
@@ -48,6 +48,16 @@
 - [x] Knowledge 重构为 identity、emotion、visual、brand、portfolio 五类思考问题
 - [x] Design Review 改为 Brief 证据完整度与创意准备度检查
 - [x] CLI、模板、Skill、规则、文档与测试统一到 v3.1
+
+## v3.2（当前）
+
+- [x] Brand DNA Decision 强制执行 Original Intent → Industry Benchmark → Creative Decision → Approved Brand DNA
+- [x] 阻止旧 visualDNA 或用户视觉方案直接成为批准结论
+- [x] Creative Brief 与 Design Review 改用 Approved Brand DNA
+- [x] Thinking Framework 保留问题并增加决策追溯检查
+- [x] 明确“视觉方案 + Creative Brief → GPT 自主规划与生成”的协作边界
+- [x] 保持四份固定输出，不恢复 PKG、VI、Poster 或图片任务规划
+- [x] 定义真实项目 A/B 验证指标与成功判定口径
 
 ## 后续版本
 

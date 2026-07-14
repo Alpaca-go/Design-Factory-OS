@@ -8,3 +8,5 @@
 6. Must Keep 保护身份资产，Can Explore 为创意团队保留空间。
 7. 无法确认的信息标为“待确认”，不通过推断或创作补齐。
 8. Creative Brief 不包含图片数量、画幅比例、任务编号、执行队列或 Prompt。
+9. 用户视觉方案只能作为项目证据或 Brand DNA 候选，不得直接成为 Approved Brand DNA。
+10. Approved Brand DNA 必须经过 Original Intent、Industry Benchmark、Creative Decision 和显式批准。

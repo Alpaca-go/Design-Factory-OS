@@ -6,14 +6,14 @@ import { initializeProject, formatInitializationSummary } from './project-initia
 import { selectProject } from './project-selector.js';
 import { ensureDir, writeText } from './utils.js';
 
-const HELP = `Design Factory OS v3.1 — AI Creative Brief Generator
+const HELP = `Masterpiece-OS v3.2 — AI Creative Brief Generator
 
 用法：
-  design-factory analyze --project <项目名称> [--online] [--debug]
-  design-factory analyze <素材目录> [--output <目录>] [--config <文件>] [--online]
-  design-factory inventory <素材目录> [--json]
-  design-factory init <项目目录> [--name <品牌名>]
-  design-factory help
+  masterpiece-os analyze --project <项目名称> [--online] [--debug]
+  masterpiece-os analyze <素材目录> [--output <目录>] [--config <文件>] [--online]
+  masterpiece-os inventory <素材目录> [--json]
+  masterpiece-os init <项目目录> [--name <品牌名>]
+  masterpiece-os help
 
 命令：
   analyze    从视觉素材生成项目分析、Creative Brief 与两份评审
@@ -21,7 +21,7 @@ const HELP = `Design Factory OS v3.1 — AI Creative Brief Generator
   init       创建独立项目配置模板和 assets 目录
 
 Creative Brief 工作流：
-  Visuals → Brand Lock → Benchmark → Creative Reasoning → Creative Brief
+  Original Intent → Industry Benchmark → Creative Decision → Approved Brand DNA → Creative Brief
 
 固定输出：
   01-项目分析报告.md
@@ -32,10 +32,10 @@ Creative Brief 工作流：
 选项：
   --project          projects/ 下的一级项目名称；只有一个项目时可省略
   -o, --output       直接素材目录模式的输出目录；项目模式固定写入项目 outputs/
-  -c, --config       JSON 配置文件；项目模式默认读取项目根目录 design-factory.json
+  -c, --config       JSON 配置文件；项目模式默认读取项目根目录 masterpiece-os.json
   --thinking-dir     五个 Thinking Framework 文件所在目录
   --online           联网检索对标候选；失败时使用内置案例库
-  --debug            额外输出 design-factory-result.json
+  --debug            额外输出 masterpiece-os-result.json
   --json             inventory 命令输出 JSON
 `;
 
@@ -83,15 +83,21 @@ function initialConfig(name) {
       inspectedImages: [],
       findings: []
     },
+    brandDnaDecision: {
+      originalIntent: { statement: '', evidence: [] },
+      industryBenchmark: { observations: [], opportunities: [], references: [] },
+      creativeDecision: { statement: '', rationale: [], tradeoffs: [] },
+      approvedBrandDNA: {
+        logo: '', color: '', typography: '', composition: '', whitespace: '', photography: '',
+        materials: '', packaging: '', craft: ''
+      },
+      approval: { status: 'draft', approvedBy: '', approvedAt: '' }
+    },
     creativeReasoning: {
       brandIdentity: { statement: '', evidence: [] },
       brandPositioning: { statement: '', evidence: [] },
       designLanguage: { statement: '', rationale: [], principles: [] },
       emotionalDirection: { statement: '', desiredFeelings: [], avoidFeelings: [], evidence: [] },
-      visualDNA: {
-        logo: '', color: '', typography: '', composition: '', whitespace: '', photography: '',
-        materials: '', packaging: '', craft: ''
-      },
       photographyDirection: { lighting: '', framing: '', depth: '', materials: '', atmosphere: '' },
       designRisks: [],
       mustKeep: [],
@@ -105,7 +111,7 @@ function initialConfig(name) {
 async function createStandaloneProject(dir, name) {
   const root = path.resolve(dir);
   await ensureDir(path.join(root, 'assets'));
-  const configFile = path.join(root, 'design-factory.json');
+  const configFile = path.join(root, 'masterpiece-os.json');
   try {
     await fs.access(configFile);
     throw new Error(`配置已存在，未覆盖：${configFile}`);
@@ -162,6 +168,7 @@ export async function main(args) {
     console.log(`Creative Brief 已完成：${result.brandLock.brandName}`);
     console.log(`素材 ${result.inventory.totalFiles} 个，其中图片 ${result.inventory.imageCount} 张`);
     console.log(`视觉核验：${result.creativeReasoning.visualInspection.inspectedImageCount}/${result.creativeReasoning.visualInspection.totalImages} 张`);
+    console.log(`Brand DNA Decision：${result.brandDnaDecision.status}`);
     console.log(`输出文件：${result.outputFiles.join('、')}`);
     console.log(`耗时：${result.durationMs} ms`);
     console.log(`输出目录：${output}`);

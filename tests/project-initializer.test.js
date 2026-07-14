@@ -8,8 +8,10 @@ import { initializeProject, ProjectInitializationError } from '../src/project-in
 import { getProjectPaths } from '../src/project-paths.js';
 import { listProjects, selectProject } from '../src/project-selector.js';
 
+const gitAvailable = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { encoding: 'utf8' }).status === 0;
+
 async function fixture(projectName = '测试项目') {
-  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'design-factory-projects-'));
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'masterpiece-os-projects-'));
   const projectsRoot = path.join(workspace, 'projects');
   const projectRoot = path.join(projectsRoot, projectName);
   await fs.mkdir(projectRoot, { recursive: true });
@@ -89,7 +91,7 @@ test('多个项目时 --project 语义只选择并初始化指定项目', async 
   assert.deepEqual(await listProjects(f.projectsRoot), ['项目A', '项目B']);
 });
 
-test('Git 只允许 projects/.gitkeep，真实项目内容被忽略', () => {
+test('Git 只允许 projects/.gitkeep，真实项目内容被忽略', { skip: gitAvailable ? false : '当前副本不含 .git 元数据' }, () => {
   const ignored = spawnSync('git', ['check-ignore', '-q', 'projects/__policy_test__/asset.png']);
   const keep = spawnSync('git', ['check-ignore', '-q', 'projects/.gitkeep']);
   const visible = spawnSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', 'projects/.gitkeep'], { encoding: 'utf8' });
@@ -128,10 +130,10 @@ test('根目录与旧 inputs 同名时在移动前发现计划冲突', async () 
 
 test('项目根目录配置与隐藏文件保留原位', async () => {
   const f = await fixture();
-  await fs.writeFile(path.join(f.projectRoot, 'design-factory.json'), '{}');
+  await fs.writeFile(path.join(f.projectRoot, 'masterpiece-os.json'), '{}');
   await fs.writeFile(path.join(f.projectRoot, '.local-note'), 'private');
   await initializeProject(f.projectRoot, { projectsRoot: f.projectsRoot });
-  assert.equal(await present(path.join(f.projectRoot, 'design-factory.json')), true);
+  assert.equal(await present(path.join(f.projectRoot, 'masterpiece-os.json')), true);
   assert.equal(await present(path.join(f.projectRoot, '.local-note')), true);
-  assert.equal(await present(path.join(f.projectRoot, 'input', 'design-factory.json')), false);
+  assert.equal(await present(path.join(f.projectRoot, 'input', 'masterpiece-os.json')), false);
 });

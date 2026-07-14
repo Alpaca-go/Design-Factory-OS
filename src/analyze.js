@@ -112,7 +112,7 @@ export function buildBrandLock(inventory, config = {}) {
 
 async function onlineBenchmarks(query) {
   const response = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
-    headers: { 'user-agent': 'Mozilla/5.0 Design-Factory-OS/1.0' }, signal: AbortSignal.timeout(12000)
+    headers: { 'user-agent': 'Mozilla/5.0 Masterpiece-OS/3.2' }, signal: AbortSignal.timeout(12000)
   });
   if (!response.ok) throw new Error(`搜索服务返回 HTTP ${response.status}`);
   const html = await response.text();

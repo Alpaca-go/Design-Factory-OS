@@ -5,7 +5,7 @@ import { unique } from './utils.js';
 export const THINKING_FRAMEWORKS = [
   ['identity', 'Brand Identity'],
   ['emotion', 'Emotional Direction'],
-  ['visual', 'Visual DNA'],
+  ['visual', 'Approved Brand DNA'],
   ['brand', 'Brand Positioning'],
   ['portfolio', 'Portfolio Coherence']
 ];
@@ -49,7 +49,7 @@ function projectQuestions(result) {
     visual: [
       '去掉文案后，Logo、色彩、构图、材质和摄影是否仍属于同一个品牌？',
       '哪些视觉资产必须被固定为长期规则，哪些只是当前项目的表现手法？',
-      'Visual DNA 在最小尺寸、复杂背景、真实材质和空间尺度中是否仍然成立？'
+      'Approved Brand DNA 在最小尺寸、复杂背景、真实材质和空间尺度中是否仍然成立？'
     ],
     brand: [
       `“${reasoning.brandPositioning.statement}”与同类品牌相比，真正具有独占性的部分是什么？`,
