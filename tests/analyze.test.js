@@ -1,20 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { analyzeBenchmarks, buildBrandLock, buildGapAnalysis, buildImagePlan } from '../src/analyze.js';
-
-test('人工审核的图片类型统计覆盖通用文件名推断', () => {
-  const inventory = {
-    items: [{ isImage: true, path: '未标题-1.png' }]
-  };
-  const config = {
-    existingImageTypes: { '无字海报': 0, '包装场景': 2 },
-    existingImageEvidence: { '包装场景': ['未标题-1.png（人工审核）'] }
-  };
-  const gaps = buildGapAnalysis(inventory, { cases: [{}, {}, {}] }, config);
-  assert.equal(gaps.existing.counts['包装场景'], 2);
-  assert.deepEqual(gaps.existing.evidence['包装场景'], ['未标题-1.png（人工审核）']);
-  assert.equal(gaps.matrix.find((x) => x.type === '无字海报').gap, 4);
-});
+import { analyzeBenchmarks, buildBrandLock } from '../src/analyze.js';
 
 test('人工确认的 Logo 文件覆盖通用文件名限制', () => {
   const inventory = { root: '/demo', items: [{ name: '未标题-1.png', path: '未标题-1.png', detail: {} }] };
@@ -33,7 +19,7 @@ test('接受已完成的外部联网对标核验记录', async () => {
   assert.equal(result.cases.length >= 3, true);
 });
 
-test('已核验的充足对标案例不再混入内置通用案例', async () => {
+test('已核验的充足对标案例不混入内置通用案例', async () => {
   const inventory = { root: '/demo', items: [] };
   const benchmarks = ['案例 A', '案例 B', '案例 C', '案例 D'].map((name) => ({ name }));
   const result = await analyzeBenchmarks(inventory, { brandName: '测试品牌' }, {
@@ -41,18 +27,4 @@ test('已核验的充足对标案例不再混入内置通用案例', async () =>
     benchmarkResearch: { verified: true, status: '已联网核验 4 个案例' }
   }, { online: true });
   assert.deepEqual(result.cases.map((item) => item.name), ['案例 A', '案例 B', '案例 C', '案例 D']);
-});
-
-test('图片任务卡支持项目级视觉事实覆盖', () => {
-  const gaps = { topThree: [
-    { type: '产品特写', reason: '缺产品特写' },
-    { type: '无字海报', reason: '缺无字海报' },
-    { type: '社交媒体', reason: '缺社交媒体' }
-  ] };
-  const brand = { brandName: '测试品牌', primaryColor: '#AA0000', secondaryColors: [], fontTemperament: '粗重', packaging: [] };
-  const plan = buildImagePlan(gaps, brand, {
-    imagePlanOverrides: { 'GAP-01': { scene: '真实产品微距', mustHave: ['真实产品'] } }
-  });
-  assert.equal(plan.cards[0].scene, '真实产品微距');
-  assert.deepEqual(plan.cards[0].mustHave, ['真实产品']);
 });

@@ -17,16 +17,6 @@ const TYPE_KEYWORDS = [
   ['品牌全案', ['品牌', 'vi', 'logo', '视觉识别']], ['营销视觉', ['海报', '活动', 'campaign', '营销']]
 ];
 
-const IMAGE_TYPES = [
-  ['logo', ['logo', '标志', '标识']], ['包装正面', ['包装正面', '正面', 'front']],
-  ['包装侧面', ['包装侧面', '侧面', 'side']], ['包装背面', ['包装背面', '背面', 'back']],
-  ['包装场景', ['包装场景', '场景', 'scene', 'mockup']], ['产品特写', ['特写', 'detail', 'closeup']],
-  ['品牌标准字', ['标准字', 'wordmark']], ['色彩规范', ['色彩', '颜色', 'color']],
-  ['字体规范', ['字体', 'font', 'typography']], ['图形纹样', ['图形', '纹样', 'pattern']],
-  ['图标系统', ['图标', 'icon']], ['无字海报', ['无字', '海报', 'poster']],
-  ['社交媒体', ['社交', 'social', '小红书', '公众号']], ['延展物料', ['名片', '手提袋', '物料', '周边']]
-];
-
 const BENCHMARK_LIBRARY = {
   '美妆个护': [
     { name: 'Aesop', url: 'https://www.aesop.com/', reason: '克制的信息层级与高一致性包装系统' },
@@ -159,103 +149,10 @@ export async function analyzeBenchmarks(inventory, brandLock, config = {}, optio
   }
   cases = cases.slice(0, Math.max(3, config.benchmarkLimit || 5));
   const commonTraits = config.commonTraits?.length ? config.commonTraits : [
-    '核心品牌资产在包装、海报与数字触点中保持一致',
-    '用成组的产品图、场景图与细节图建立完整叙事',
-    '信息层级克制，留白、字体和色彩服务于识别而非装饰',
-    '真实材质与使用场景提升可信度，避免纯效果图堆叠'
+    '核心品牌资产在包装、空间与数字触点中保持一致',
+    '视觉表达由清晰的品牌概念驱动，而不是依赖孤立风格元素',
+    '信息层级克制，留白、字体和色彩共同服务于品牌识别',
+    '真实材质与使用语境提升可信度，品牌体验能够跨触点成立'
   ];
   return { projectType: typeResult, industry: industryResult, search, cases, commonTraits };
-}
-
-function classifyExistingImages(inventory) {
-  const counts = Object.fromEntries(IMAGE_TYPES.map(([type]) => [type, 0]));
-  const evidence = Object.fromEntries(IMAGE_TYPES.map(([type]) => [type, []]));
-  for (const item of inventory.items.filter((x) => x.isImage)) {
-    let hit = false;
-    for (const [type, words] of IMAGE_TYPES) {
-      if (words.some((word) => item.path.toLowerCase().includes(word.toLowerCase()))) {
-        counts[type]++; evidence[type].push(item.path); hit = true;
-      }
-    }
-    if (!hit) { counts['延展物料']++; evidence['延展物料'].push(item.path); }
-  }
-  return { counts, evidence };
-}
-
-export function buildGapAnalysis(inventory, benchmarks, config = {}) {
-  const existing = classifyExistingImages(inventory);
-  for (const [type, count] of Object.entries(config.existingImageTypes || {})) {
-    existing.counts[type] = Math.max(0, Number(count) || 0);
-  }
-  for (const [type, evidence] of Object.entries(config.existingImageEvidence || {})) {
-    existing.evidence[type] = Array.isArray(evidence) ? evidence : [String(evidence)];
-  }
-  const benchmarkNeeds = config.imageTargets || {
-    'logo': 1, '包装正面': 1, '包装侧面': 1, '包装背面': 1, '包装场景': 3, '产品特写': 2,
-    '品牌标准字': 1, '色彩规范': 1, '字体规范': 1, '图形纹样': 2, '图标系统': 1,
-    '无字海报': 4, '社交媒体': 3, '延展物料': 2
-  };
-  const matrix = Object.entries(benchmarkNeeds).map(([type, target]) => {
-    const current = existing.counts[type] || 0;
-    const gap = Math.max(0, target - current);
-    const impact = ['包装场景', '产品特写', '无字海报', '包装正面'].includes(type) ? 3 : ['图形纹样', '色彩规范', '字体规范'].includes(type) ? 2 : 1;
-    return { type, current, target, gap, priorityScore: gap * impact, evidence: existing.evidence[type] || [] };
-  }).sort((a, b) => b.priorityScore - a.priorityScore || b.gap - a.gap || a.type.localeCompare(b.type, 'zh-CN'));
-  const topThree = matrix.filter((x) => x.gap > 0).slice(0, 3).map((x, index) => ({ rank: index + 1, type: x.type, reason: `当前 ${x.current} 张，对标建议 ${x.target} 张；补齐后可显著改善${x.type.includes('包装') ? '产品可信度与商业呈现' : x.type.includes('海报') ? '传播延展能力' : '品牌叙事完整度'}。` }));
-  while (topThree.length < 3) topThree.push({ rank: topThree.length + 1, type: ['包装场景', '产品特写', '无字海报'][topThree.length], reason: '作为视觉系统的基础补充项，建议创建不同构图版本。' });
-  return { existing, benchmarkNeeds, matrix, topThree, benchmarkCaseCount: benchmarks.cases.length };
-}
-
-function task(id, category, title, objective, scene, ratio = '4:5') {
-  return { id, category, title, objective, scene, ratio, mustHave: [], avoid: ['未经 Brand Lock 允许的新 Logo', '不可读的伪文字', '破坏主辅色关系的高饱和杂色'], acceptance: ['主体清晰且构图完整', '品牌气质、材质与色彩符合 Brand Lock', '无水印、无错别字、无畸变', `可按 ${ratio} 安全裁切`] };
-}
-
-export function buildImagePlan(gaps, brandLock, config = {}) {
-  const top = gaps.topThree;
-  const cards = [
-    task('GAP-01', '重点缺图', `${top[0].type}补充图`, top[0].reason, '以最能体现品牌价值的主场景补齐关键叙事'),
-    task('GAP-02', '重点缺图', `${top[1].type}补充图`, top[1].reason, '建立与主图差异明显的第二视觉视角'),
-    task('GAP-03', '重点缺图', `${top[2].type}补充图`, top[2].reason, '补充适合社交传播的强记忆点画面'),
-    task('PKG-01', '包装', '包装标准正面', '清楚呈现包装结构、品牌识别与产品名区域', '中性背景，正面平视，商业产品摄影'),
-    task('PKG-02', '包装', '包装三分之四视角', '呈现盒型厚度、侧面信息与材质', '轻微俯拍，柔和侧光，保留自然投影'),
-    task('PKG-03', '包装', '包装使用场景', '把产品放入真实使用语境，提升购买想象', '符合目标人群的真实桌面或生活环境'),
-    task('VI-01', 'VI', 'Logo 与安全空间', '展示标志的正确比例和留白原则', '干净平面系统展示', '16:9'),
-    task('VI-02', 'VI', '品牌色彩与材质', '建立主色、辅助色与物理材质的关系', '色卡、纸张、印刷或表面工艺组合', '16:9'),
-    task('VI-03', 'VI', '核心图形延展', '验证核心视觉资产可形成可扩展系统', '图形在卡片、包装与数字界面上的组合', '16:9'),
-    task('POS-01', '无字海报', '品牌主视觉海报', '形成第一张具有强识别度的封面画面', '英雄式主体、充足留白、无文字'),
-    task('POS-02', '无字海报', '产品细节海报', '用微距细节表达品质和材质', '近景或微距，强调纹理、光泽与工艺'),
-    task('POS-03', '无字海报', '情绪场景海报', '传达品牌世界观与目标用户情绪', '叙事化环境、自然动作、电影感光线'),
-    task('POS-04', '无字海报', '系列陈列海报', '展示系统感并适配活动传播', '多个产品或物料有节奏地成组陈列')
-  ];
-  for (const card of cards) {
-    card.brandConstraints = {
-      brandName: brandLock.brandName, primaryColor: brandLock.primaryColor || '待确认',
-      secondaryColors: brandLock.secondaryColors, temperament: brandLock.fontTemperament,
-      packaging: brandLock.packaging
-    };
-    card.mustHave = ['主体与品牌资产关系明确', brandLock.primaryColor ? `主色 ${brandLock.primaryColor} 得到合理体现` : '使用经人工确认的品牌主色', '为后续排版保留安全留白'];
-    const override = config.imagePlanOverrides?.[card.id];
-    if (override) {
-      for (const key of ['title', 'objective', 'scene', 'ratio']) {
-        if (typeof override[key] === 'string' && override[key].trim()) card[key] = override[key].trim();
-      }
-      for (const key of ['mustHave', 'avoid', 'acceptance']) {
-        if (Array.isArray(override[key]) && override[key].length) card[key] = override[key].map(String);
-      }
-    }
-  }
-  return { count: cards.length, sequenceRule: '先补关键叙事，再确认包装形态与 VI 系统，最后扩展传播海报。', cards };
-}
-
-export function buildPriorities(brandLock, gaps) {
-  const p0 = [
-    ...(!brandLock.primaryColor ? ['人工确认主色与可用色值'] : []),
-    ...(brandLock.logo.files.length === 0 ? ['补充可用的矢量 Logo 文件'] : []),
-    ...gaps.topThree.map((x) => `制作：${x.type}`)
-  ];
-  return {
-    P0: unique(p0).slice(0, 5),
-    P1: ['统一包装各视角的光线、比例与材质表现', '建立标准字、色彩、字体和核心图形的 VI 展示', '形成四张无字传播海报系列'],
-    P2: ['扩展社交媒体尺寸与动态版本', '建立可复用的摄影和生图提示词资产库', '按季度复盘对标案例与品牌资产使用情况']
-  };
 }

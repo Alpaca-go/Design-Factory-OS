@@ -1,21 +1,19 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inventoryProject } from './inventory.js';
-import { analyzeBenchmarks, buildBrandLock, buildGapAnalysis, buildImagePlan, buildPriorities } from './analyze.js';
+import { analyzeBenchmarks, buildBrandLock } from './analyze.js';
 import { buildCreativeReasoning } from './creative-reasoning.js';
-import { analyzeKnowledge, buildKnowledgeCandidates, loadApprovedRules } from './knowledge-analysis.js';
-import { buildActionItems, buildDesignReview } from './design-review.js';
-import { buildGrowthAnalysis, loadReviewHistory, reviewRecordId, saveReviewHistory } from './growth-engine.js';
+import { buildBriefReview } from './brief-review.js';
+import { buildThinkingReview, loadThinkingFramework } from './thinking-framework.js';
 import { renderAll } from './report.js';
 import { readJson } from './utils.js';
 
-const DEFAULT_APPROVED_KNOWLEDGE = fileURLToPath(new URL('../knowledge/approved/', import.meta.url));
-const DEFAULT_REVIEW_HISTORY = fileURLToPath(new URL('../history/reviews/', import.meta.url));
+const DEFAULT_THINKING_FRAMEWORK = fileURLToPath(new URL('../knowledge/thinking/', import.meta.url));
 
-export function normalizeMode(value = 'fast') {
-  const mode = String(value || 'fast').toLowerCase();
-  if (!['fast', 'review', 'research'].includes(mode)) throw new Error(`未知分析模式：${value}；可选 fast、review、research`);
-  return mode;
+export function normalizeMode(value = 'brief') {
+  const mode = String(value || 'brief').toLowerCase();
+  if (['brief', 'fast', 'review', 'research'].includes(mode)) return 'brief';
+  throw new Error(`未知分析模式：${value}；v3.1 只提供 Creative Brief 工作流`);
 }
 
 export async function runPipeline(input, options = {}) {
@@ -32,41 +30,22 @@ export async function runPipeline(input, options = {}) {
   const brandLock = buildBrandLock(inventory, config);
   const benchmarks = await analyzeBenchmarks(inventory, brandLock, config, options);
   const creativeReasoning = buildCreativeReasoning(inventory, brandLock, benchmarks, config);
-  const gaps = buildGapAnalysis(inventory, benchmarks, config);
-  const imagePlan = buildImagePlan(gaps, brandLock, config);
-  const priorities = buildPriorities(brandLock, gaps);
-  const result = { version: '3.0.0', mode, generatedAt: new Date().toISOString(), configPath, config, inventory, brandLock, benchmarks, creativeReasoning, gaps, imagePlan, priorities };
-  if (mode === 'fast') {
-    result.durationMs = Date.now() - startedAt;
-    const files = await renderAll(result, output, { debug: Boolean(options.debug), mode });
-    result.outputFiles = files;
-    result.durationMs = Date.now() - startedAt;
-    return { result, output };
-  }
-  const knowledgeApprovedPath = options.knowledgeDir
-    ? path.resolve(options.knowledgeDir)
-    : config.knowledgeApprovedPath
-      ? path.resolve(root, config.knowledgeApprovedPath)
-      : DEFAULT_APPROVED_KNOWLEDGE;
-  const knowledgeCandidates = buildKnowledgeCandidates(result, config);
-  const approvedRules = await loadApprovedRules(knowledgeApprovedPath);
-  const knowledgeAnalysis = analyzeKnowledge(knowledgeCandidates, approvedRules, brandLock.brandName);
-  Object.assign(result, { knowledgeApprovedPath, knowledgeCandidates, knowledgeAnalysis });
-  const designReview = buildDesignReview(result, config);
-  result.designReview = designReview;
-  const historyDir = path.resolve(options.historyDir || DEFAULT_REVIEW_HISTORY);
-  const recordId = reviewRecordId(brandLock.brandName, result.generatedAt);
-  const history = await loadReviewHistory(historyDir, recordId);
-  const growth = buildGrowthAnalysis(designReview, history);
-  Object.assign(result, {
-    growth,
-    actionItems: buildActionItems(result, growth),
-    history: { directory: historyDir, recordId, priorRecordCount: history.records.length, warnings: history.warnings }
-  });
+  const result = {
+    version: '3.1.0', mode, generatedAt: new Date().toISOString(), configPath, config,
+    inventory, brandLock, benchmarks, creativeReasoning
+  };
+  const thinkingFrameworkPath = options.thinkingDir
+    ? path.resolve(options.thinkingDir)
+    : config.thinkingFrameworkPath
+      ? path.resolve(root, config.thinkingFrameworkPath)
+      : DEFAULT_THINKING_FRAMEWORK;
+  const thinkingFramework = await loadThinkingFramework(thinkingFrameworkPath);
+  const thinkingReview = buildThinkingReview(result, thinkingFramework, config);
+  const briefReview = buildBriefReview(result);
+  Object.assign(result, { thinkingFrameworkPath, thinkingReview, briefReview });
   result.durationMs = Date.now() - startedAt;
-  const files = await renderAll(result, output, { debug: Boolean(options.debug), mode });
+  const files = await renderAll(result, output, { debug: Boolean(options.debug) });
   result.outputFiles = files;
-  await saveReviewHistory(result, historyDir);
   result.durationMs = Date.now() - startedAt;
   return { result, output };
 }

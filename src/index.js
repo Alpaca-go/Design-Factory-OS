@@ -1,10 +1,9 @@
 export { inventoryProject } from './inventory.js';
 export { runPipeline, normalizeMode } from './pipeline.js';
-export { RADAR_DIMENSIONS, buildDesignReview, buildActionItems } from './design-review.js';
-export { buildGrowthAnalysis, loadReviewHistory, reviewRecordId, saveReviewHistory } from './growth-engine.js';
-export { buildBrandLock, analyzeBenchmarks, buildGapAnalysis, buildImagePlan } from './analyze.js';
+export { buildBrandLock, analyzeBenchmarks } from './analyze.js';
 export { buildCreativeReasoning } from './creative-reasoning.js';
-export { buildKnowledgeCandidates, loadApprovedRules, analyzeKnowledge, renderCandidateReport, renderKnowledgeAnalysis } from './knowledge-analysis.js';
+export { THINKING_FRAMEWORKS, loadThinkingFramework, buildThinkingReview } from './thinking-framework.js';
+export { buildBriefReview } from './brief-review.js';
 export { initializeProject, formatInitializationSummary, ProjectInitializationError } from './project-initializer.js';
 export { listProjects, selectProject } from './project-selector.js';
 export { getProjectPaths, validateProjectName, DEFAULT_PROJECTS_ROOT } from './project-paths.js';

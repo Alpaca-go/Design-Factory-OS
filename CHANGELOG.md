@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.1.0 — 2026-07-14
+
+- 将产品重新定位为 AI Creative Brief Generator：系统理解品牌，专业创意团队负责设计。
+- 核心流程调整为 Visuals → Brand Lock → Benchmark → Creative Reasoning → Creative Brief。
+- Creative Reasoning 升级为 Brand Identity、Brand Positioning、Design Language、Emotional Direction、Visual DNA、Photography Direction、Design Risks、Must Keep、Can Explore 与 Design Goal 十部分契约。
+- `02-Creative-Brief.md` 替代 `02-Chat生图任务包.md`；每次固定生成四份编号报告。
+- 删除流水线内部缺图矩阵、图片数量、画幅比例、任务卡与 Chat 生图执行计划。
+- Knowledge 重构为 `knowledge/thinking/` 下的五类开放思考问题，不再把项目结论升级为答案或自动规则。
+- Design Review 改为 Creative Brief 证据与准备度检查；停止能力评分和成长历史写入。
+- 保留旧模式参数兼容映射，但所有入口统一执行 Creative Brief 工作流。
+- CLI、模板、Skill、规则、文档和回归测试全部更新到 v3.1。
+
 ## 3.0.0 — 2026-07-14
 
 - 新增 Creative Reasoning，在图片规划前输出品牌定位、关键词、气质、视觉 DNA、摄影语言与创意方向。

@@ -11,7 +11,7 @@ Design-Factory-Projects/
 projects/*
 !projects/.gitkeep
 
-# 评审历史包含真实项目名称与成长数据，仅保留目录
+# 旧版评审历史包含真实项目名称与成长数据，仅保留目录
 history/reviews/*
 !history/reviews/.gitkeep
 
@@ -30,5 +30,6 @@ Knowledge-Candidate.md
 Knowledge-Analysis.md
 01-项目分析报告.md
 02-Chat生图任务包.md
+02-Creative-Brief.md
 03-Knowledge-Review.md
 04-Design-Review.md
