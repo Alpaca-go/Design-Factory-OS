@@ -136,6 +136,14 @@ Auto
 - 输出文件列表
 - 是否达到 Performance Target（10～11 分钟）
 
+Validation Report 必须存放在当前项目的 `outputs/` 文件夹：
+
+`projects/<项目名>/outputs/Masterpiece OS v4.0 Validation Report — <项目名>.md`
+
+不得存放到项目外部的统一开发文档目录。
+
+Validation Report 属于 Validation 记录，不改变 Pipeline 固定生成的四份正式输出契约。
+
 ---
 
 # Stop Rule
