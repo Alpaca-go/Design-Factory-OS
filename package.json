@@ -13,7 +13,10 @@
     "test": "node --test",
     "test:regression": "node ./tests/regression-runner.js"
   },
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=20.9.0" },
   "license": "MIT",
-  "keywords": ["design", "brand", "creative-brief", "creative-reasoning"]
+  "keywords": ["design", "brand", "creative-brief", "creative-reasoning"],
+  "dependencies": {
+    "sharp": "^0.35.3"
+  }
 }

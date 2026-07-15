@@ -38,7 +38,7 @@ test('Prompt Builder merges maintainable modules into one model request', async 
   assert.equal(prompt.modelCalls, 1);
   assert.equal(prompt.messages.length, 2);
   assert.deepEqual(prompt.sections, [
-    'projectInput', 'assetManifest', 'explicitConstraints', 'benchmark', 'executionCore', 'reportSchema'
+    'projectInput', 'assetManifest', 'explicitConstraints', 'benchmark', 'executionCore', 'reportBudget', 'reportSchema'
   ]);
   assert.equal(prompt.attachments.length, 2);
   assert.equal(prompt.promptDigest.length, 64);
@@ -61,6 +61,7 @@ test('User Prompt contains both Benchmark types, Execution Core and the fixed re
   const user = prompt.messages[1].content;
   assert.match(user, /Category Benchmark/);
   assert.match(user, /Creative Excellence Benchmark/);
+  assert.match(user, /Report Budget/);
   assert.match(user, /不得固定为恰好三个同行品牌/);
   assert.match(user, /## 0\. GPT Execution Core/);
   assert.match(user, /Logo Locked 声明/);

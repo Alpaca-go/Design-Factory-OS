@@ -1,5 +1,6 @@
 import { ReasoningSessionGuard } from './session-guard.js';
 import { buildDeepCreativeDirectorPrompt } from './prompt-builder.js';
+import { performance } from 'node:perf_hooks';
 
 export const DEEP_CREATIVE_DIRECTOR_PROVIDER_ID = 'deep-creative-director-provider-v5';
 
@@ -42,13 +43,36 @@ export async function runDeepCreativeDirector(context, options = {}) {
   const prompt = options.prompt || await buildDeepCreativeDirectorPrompt(context);
   let supplied;
   let executionSource;
-  if (typeof options.reasoner === 'function') {
+  const modelStarted = performance.now();
+  if (options.cachedResult) {
+    executionSource = 'reasoning-cache';
+    supplied = options.cachedResult;
+  } else if (typeof options.reasoner === 'function') {
     executionSource = 'reasoner';
-    supplied = await options.reasoner(Object.freeze({ ...context, prompt }));
+    const abortController = new AbortController();
+    const maximumDurationMs = Number(options.maximumDurationMs || context.config.performance.maximumMinutes * 60_000);
+    const timeout = setTimeout(() => abortController.abort(), maximumDurationMs);
+    try {
+      supplied = await Promise.race([
+        options.reasoner(Object.freeze({
+          ...context,
+          prompt,
+          signal: abortController.signal,
+          maximumDurationMs,
+          deadlineAt: new Date(Date.now() + maximumDurationMs).toISOString()
+        })),
+        new Promise((_, reject) => abortController.signal.addEventListener('abort', () => reject(
+          new DeepCreativeDirectorError('TIME_BUDGET_EXCEEDED', `Deep Creative Director 超过 ${context.config.performance.maximumMinutes} 分钟上限`)
+        ), { once: true }))
+      ]);
+    } finally {
+      clearTimeout(timeout);
+    }
   } else {
     executionSource = 'configured-result';
     supplied = context.config.deepCreativeDirectorResult;
   }
+  const actualModelTimeMs = executionSource === 'reasoner' ? performance.now() - modelStarted : 0;
   if (!supplied) {
     throw new DeepCreativeDirectorError(
       'REASONING_RESULT_MISSING',
@@ -56,6 +80,6 @@ export async function runDeepCreativeDirector(context, options = {}) {
     );
   }
   const result = validateResult(structuredClone(supplied));
-  const session = guard.begin(result.runId);
-  return Object.freeze({ ...result, executionSource, session, prompt });
+  const session = executionSource === 'reasoning-cache' ? guard.reuse(result.runId) : guard.begin(result.runId);
+  return Object.freeze({ ...result, executionSource, session, prompt, actualModelTimeMs });
 }

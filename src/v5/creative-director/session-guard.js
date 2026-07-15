@@ -36,6 +36,17 @@ export class ReasoningSessionGuard {
     return this.snapshot();
   }
 
+  reuse(runId) {
+    if (this.fullReasoningRuns !== 0) {
+      throw new ReasoningSessionError('MULTIPLE_REASONING_RUNS', '缓存复用不能覆盖已经发生的完整 AI 创意推理');
+    }
+    if (typeof runId !== 'string' || !runId.trim()) {
+      throw new ReasoningSessionError('RUN_ID_REQUIRED', '缓存结果必须提供原始 runId');
+    }
+    this.runId = runId.trim();
+    return this.snapshot();
+  }
+
   snapshot() {
     return Object.freeze({
       runId: this.runId,

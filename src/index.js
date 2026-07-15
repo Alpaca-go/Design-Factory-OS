@@ -138,4 +138,7 @@ export {
 } from './v5/creative-director/deep-creative-director.js';
 export { buildDeepCreativeDirectorPrompt, clearPromptTemplateCache } from './v5/creative-director/prompt-builder.js';
 export { publishCreativeUpgradeReport } from './v5/creative-director/output-writer.js';
+export { prepareVisualAssets } from './v5/preparation/visual-preparation.js';
+export { prepareBenchmarks } from './v5/preparation/benchmark-preparation.js';
+export { readReasoningCache, writeReasoningCache } from './v5/preparation/reasoning-cache.js';
 export { runV5Pipeline, v5ConfigExists } from './v5/bootstrap.js';

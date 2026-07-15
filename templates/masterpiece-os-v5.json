@@ -8,6 +8,17 @@
     "factualConstraints": [],
     "logoAssets": []
   },
+  "benchmarkContext": {
+    "category": [],
+    "creativeExcellence": []
+  },
+  "performance": {
+    "targetMinutes": 10,
+    "maximumMinutes": 15,
+    "maxDetailAssets": 5,
+    "maxReportCharacters": 8000,
+    "enablePreparationCache": true
+  },
   "overrides": {
     "additionalLockedAssets": [],
     "allowLogoRedesign": false,

@@ -23,5 +23,12 @@ export const V5_DEFAULTS = Object.freeze({
     min: 6,
     idealMin: 8,
     idealMax: 15
+  }),
+  performance: Object.freeze({
+    targetMinutes: 10,
+    maximumMinutes: 15,
+    maxDetailAssets: 5,
+    maxReportCharacters: 8000,
+    enablePreparationCache: true
   })
 });

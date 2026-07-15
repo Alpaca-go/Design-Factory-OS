@@ -22,6 +22,14 @@ function optionalString(value, field, fallback = '') {
   return value.trim();
 }
 
+function positiveNumber(value, field, fallback) {
+  if (value === undefined || value === null) return fallback;
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new V5ConfigError('CONFIG_INVALID', `${field} 必须是正数`);
+  }
+  return value;
+}
+
 export function createV5ProjectConfig(raw = {}, options = {}) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new V5ConfigError('CONFIG_INVALID', 'v5 项目配置必须是对象');
@@ -45,6 +53,22 @@ export function createV5ProjectConfig(raw = {}, options = {}) {
   );
   const industry = optionalString(brandFacts.industry ?? raw.industry, 'brandFacts.industry', '待确认');
   const additionalLockedAssets = strings(suppliedOverrides.additionalLockedAssets, 'overrides.additionalLockedAssets');
+  const performance = raw.performance || {};
+  const benchmarkContext = raw.benchmarkContext || {};
+  if (performance.enablePreparationCache !== undefined && typeof performance.enablePreparationCache !== 'boolean') {
+    throw new V5ConfigError('CONFIG_INVALID', 'performance.enablePreparationCache 必须是布尔值');
+  }
+  const targetMinutes = positiveNumber(performance.targetMinutes, 'performance.targetMinutes', V5_DEFAULTS.performance.targetMinutes);
+  const maximumMinutes = positiveNumber(performance.maximumMinutes, 'performance.maximumMinutes', V5_DEFAULTS.performance.maximumMinutes);
+  const maxDetailAssets = Math.trunc(positiveNumber(performance.maxDetailAssets, 'performance.maxDetailAssets', V5_DEFAULTS.performance.maxDetailAssets));
+  const maxReportCharacters = Math.trunc(positiveNumber(performance.maxReportCharacters, 'performance.maxReportCharacters', V5_DEFAULTS.performance.maxReportCharacters));
+  if (maximumMinutes < targetMinutes) {
+    throw new V5ConfigError('CONFIG_INVALID', 'performance.maximumMinutes 不得小于 targetMinutes');
+  }
+  if (maxDetailAssets < 1) throw new V5ConfigError('CONFIG_INVALID', 'performance.maxDetailAssets 必须至少为 1');
+  if (maxReportCharacters < 6000) {
+    throw new V5ConfigError('CONFIG_INVALID', 'performance.maxReportCharacters 不得低于 6000');
+  }
 
   return Object.freeze({
     version: V5_VERSION,
@@ -55,6 +79,17 @@ export function createV5ProjectConfig(raw = {}, options = {}) {
       industry,
       factualConstraints: Object.freeze(strings(brandFacts.factualConstraints, 'brandFacts.factualConstraints')),
       logoAssets: Object.freeze(strings(brandFacts.logoAssets, 'brandFacts.logoAssets'))
+    }),
+    benchmarkContext: Object.freeze({
+      category: Object.freeze(strings(benchmarkContext.category, 'benchmarkContext.category')),
+      creativeExcellence: Object.freeze(strings(benchmarkContext.creativeExcellence, 'benchmarkContext.creativeExcellence'))
+    }),
+    performance: Object.freeze({
+      targetMinutes,
+      maximumMinutes,
+      maxDetailAssets,
+      maxReportCharacters,
+      enablePreparationCache: performance.enablePreparationCache ?? V5_DEFAULTS.performance.enablePreparationCache
     }),
     overrides: Object.freeze({
       additionalLockedAssets: Object.freeze(additionalLockedAssets),

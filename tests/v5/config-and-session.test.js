@@ -12,6 +12,21 @@ test('v5 defaults to Deep Mode, Maximum authority, one output and Logo lock', ()
   assert.equal(config.runtime.useCompilerPipeline, false);
   assert.equal(config.runtime.useCreativeFreedomRecommendation, false);
   assert.equal(config.runtime.useModeRecommendation, false);
+  assert.equal(config.performance.targetMinutes, 10);
+  assert.equal(config.performance.maximumMinutes, 15);
+  assert.equal(config.performance.maxDetailAssets, 5);
+  assert.equal(config.performance.maxReportCharacters, 8000);
+});
+
+test('v5 rejects a performance maximum below the target', () => {
+  assert.throws(() => createV5ProjectConfig({
+    projectName: 'Demo',
+    performance: { targetMinutes: 10, maximumMinutes: 9 }
+  }), { code: 'CONFIG_INVALID' });
+  assert.throws(() => createV5ProjectConfig({
+    projectName: 'Demo',
+    performance: { maxReportCharacters: 5999 }
+  }), { code: 'CONFIG_INVALID' });
 });
 
 test('v5 only changes the Logo lock through an explicit project override', () => {

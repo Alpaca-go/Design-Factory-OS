@@ -44,7 +44,7 @@ ${json({
   })}`;
 }
 
-function renderManifest(inventory) {
+function renderManifest(inventory, visualPreparation) {
   const assets = inventory.items.map((item, index) => ({
     assetId: `asset-${String(index + 1).padStart(3, '0')}`,
     path: item.path,
@@ -55,12 +55,20 @@ function renderManifest(inventory) {
     detail: item.detail,
     warning: item.warning
   }));
+  const preparation = visualPreparation ? {
+    fingerprint: visualPreparation.fingerprint,
+    strategy: visualPreparation.strategy,
+    contactSheet: visualPreparation.contactSheetPath ? 'contact-sheet' : null,
+    priorityAssetIds: visualPreparation.priorityAssetIds,
+    attachmentCount: visualPreparation.attachmentCount,
+    instruction: '先整体阅读 Contact Sheet，再精读 priorityAssetIds；资产决策仍须覆盖完整 index，不得把未单独附加的图片视为未提供。'
+  } : null;
   return {
     markdown: `## Asset Manifest
 
 你必须查看清单中的全部可读视觉资产。重复 Mockup 只作为重复证据，不得提高相关元素的保留权重。不可读文件必须明确写入审计范围，不得猜测内容。
 
-${json({ totalFiles: inventory.totalFiles, imageCount: inventory.imageCount, assets })}`,
+${json({ totalFiles: inventory.totalFiles, imageCount: inventory.imageCount, preparation, assets })}`,
     assets
   };
 }
@@ -93,31 +101,45 @@ function attachments(inventory) {
   }));
 }
 
+function renderPreparedBenchmarks(benchmarkPreparation) {
+  if (!benchmarkPreparation) return '';
+  return `## Prepared Benchmark Context
+
+以下内容来自受限的项目配置或行业缓存。只提取与当前设计问题相关的可迁移原则；不得为凑数量继续扩展名单。
+
+${json({
+    category: benchmarkPreparation.category,
+    creativeExcellence: benchmarkPreparation.creativeExcellence
+  })}`;
+}
+
 /** Build one model request from maintainable prompt modules without performing reasoning. */
 export async function buildDeepCreativeDirectorPrompt(context) {
   if (!context?.inventory || !context?.config) throw new Error('Prompt Builder 缺少 inventory 或 v5 config');
   const templates = await loadTemplates();
-  const manifest = renderManifest(context.inventory);
+  const manifest = renderManifest(context.inventory, context.visualPreparation);
   const userSections = [
     renderProjectInput(context),
     manifest.markdown,
     renderConstraints(context.config),
     templates.benchmark,
+    renderPreparedBenchmarks(context.benchmarkPreparation),
     '## GPT Execution Core Contract\n\nExecution Core 必须位于报告最前部并控制在约 600～1,200 中文字。不得把完整分析复制进 Core。\n\n' + templates.executionCore,
+    `## Report Budget\n\n整份报告目标为 6,000～${context.config.performance.maxReportCharacters.toLocaleString('en-US')} 个中文字符。优先删除重复解释，不得牺牲资产决策、视觉系统或应用动作。`,
     '## Required Report Schema\n\n严格使用以下章节顺序和标题，不得新增第二份文档：\n\n' + templates.reportSchema
-  ];
+  ].filter(Boolean);
   const messages = Object.freeze([
     Object.freeze({ role: 'system', content: templates.system }),
     Object.freeze({ role: 'user', content: userSections.join('\n\n---\n\n') })
   ]);
-  const attachmentList = Object.freeze(attachments(context.inventory));
+  const attachmentList = context.visualPreparation?.attachments || Object.freeze(attachments(context.inventory));
   const canonical = JSON.stringify({ messages, attachments: attachmentList });
   return Object.freeze({
     contractVersion: '5.0.0',
     modelCalls: 1,
     messages,
     attachments: attachmentList,
-    sections: Object.freeze(['projectInput', 'assetManifest', 'explicitConstraints', 'benchmark', 'executionCore', 'reportSchema']),
+    sections: Object.freeze(['projectInput', 'assetManifest', 'explicitConstraints', 'benchmark', 'executionCore', 'reportBudget', 'reportSchema']),
     promptDigest: crypto.createHash('sha256').update(canonical).digest('hex')
   });
 }

@@ -29,7 +29,7 @@ npm run analyze -- --project "我的品牌"
 
 v5 不再接受 Quick / Standard / Studio 模式，也不计算 Creative Freedom 百分比。默认行为固定为 Deep Mode、Maximum Creative Authority、Logo Locked 和单文档输出。
 
-项目配置模板见 `templates/masterpiece-os-v5.json`。Sprint 1 支持由宿主注入单一 `deepCreativeDirectorReasoner`，或从配置读取一份已完成的 `deepCreativeDirectorResult`。完整 Prompt 和 Benchmark Tool 将在 Sprint 2 接入。
+项目配置模板见 `templates/masterpiece-os-v5.json`。宿主可注入单一 `deepCreativeDirectorReasoner`，或从配置读取一份已完成的 `deepCreativeDirectorResult`。Sprint 2 已接入完整 Prompt；Sprint 2.1 增加批量视觉准备、Benchmark 缓存、精确结果缓存和真实端到端计时。
 
 v5 默认只声明一份正式输出：
 
@@ -56,6 +56,14 @@ System Prompt
 ```
 
 模板位于 `prompts/v5/`。拆分仅用于维护，不会产生第二次总结、压缩、评审或 Compiler 调用。报告使用固定 0–10 章节，资产决策值只允许“保留、升级、替换、删除、新增”。
+
+## v5 性能预算
+
+默认目标为 10 分钟，可接受上限为 15 分钟。超过 5 张图片时，运行时会在 `.runtime/cache/` 生成一张 Contact Sheet，并只附加最多 5 张优先细节图；Logo 素材优先。完整资产索引仍进入 Prompt，资产决策不得遗漏未单独附加的图片。
+
+视觉准备与行业 Benchmark 按素材指纹和行业缓存。完全相同的 Prompt 可以复用上一份完整推理结果，此时 `modelCallsThisRun` 为 0；使用宿主选项 `forceReasoning` 可强制重新推理。报告默认预算为 8,000 字符。
+
+`.runtime/run-report.json` 会分别记录视觉准备、Contact Sheet、Benchmark、Prompt 构建、实际模型等待、输出写入和端到端墙钟时间。`timingScope` 明确计时边界；失败和 15 分钟超限也会写入运行记录。
 
 ## v4.0 兼容入口
 
