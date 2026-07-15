@@ -1,18 +1,15 @@
 # Masterpiece-OS
 
-Masterpiece-OS v3.3 是一个 **Creative Brief Operating System**。它读取视觉素材，完成 Original Intent、Industry Benchmark、Creative Decision 与 Brand DNA Decision，再把完整 Analysis 压缩为任何设计师和 GPT 都能快速理解的 Creative Brief。
+Masterpiece-OS v5.0 是一个 **AI Creative Director Preparation System**。v5 使用一次完整 Deep Creative Director 推理，把全部视觉素材、品牌事实与 Benchmark 组织成唯一正式输出《视觉方案升级报告.md》。
 
-本版本的唯一目标是减少品牌与 GPT 之间的信息损失。Analysis 解释过去，Creative Brief 指导未来。
+当前分支为 v5.0 alpha。v4.0 Pipeline 与历史输出能力仍被完整保留，可通过显式 v4 命令运行。
 
 ```text
 Assets
-→ Original Intent
-→ Industry Benchmark
-→ Creative Decision
-→ Analysis
-→ Creative Brief Compiler
-→ Creative Brief
-→ Design Review
+→ Asset Intake
+→ One Deep Creative Director Session
+→ 视觉方案升级报告.md
+→ .runtime/run-report.json
 ```
 
 ## 环境
@@ -22,7 +19,7 @@ Assets
 
 ## 快速开始
 
-把素材放入 `projects/<项目名称>/input/`，填写项目根目录的 `masterpiece-os.json`：
+把素材放入 `projects/<项目名称>/input/`，填写项目根目录的 `masterpiece-os-v5.json`：
 
 ```bash
 npm run analyze -- --project "我的品牌"
@@ -30,12 +27,24 @@ npm run analyze -- --project "我的品牌"
 
 项目缺少标准目录时，初始化器会安全创建 `input/` 与 `outputs/`，并在无冲突时把根目录素材移入 `input/`。
 
-每次启动视觉分析都会自动读取 [`docs/Project Brief.md`](docs/Project%20Brief.md) 作为 Pipeline 执行契约，并据此启用默认 Standard 模式、全部图片核验、至少三个同品类联网 Benchmark、七阶段 Profiling 与正式输出规则，无需把该文件复制到项目目录。
+v5 不再接受 Quick / Standard / Studio 模式，也不计算 Creative Freedom 百分比。默认行为固定为 Deep Mode、Maximum Creative Authority、Logo Locked 和单文档输出。
 
-如某个项目需要专属规则，可在项目根目录放置 `Project Brief.md` 或 `Project-Brief.md`；项目级文件优先于默认文档，并会被初始化器保留在根目录。也可以显式指定：
+项目配置模板见 `templates/masterpiece-os-v5.json`。Sprint 1 支持由宿主注入单一 `deepCreativeDirectorReasoner`，或从配置读取一份已完成的 `deepCreativeDirectorResult`。完整 Prompt 和 Benchmark Tool 将在 Sprint 2 接入。
+
+v5 默认只声明一份正式输出：
+
+```text
+视觉方案升级报告.md
+```
+
+性能与会话边界记录保存在 `.runtime/run-report.json`，不属于正式输出。
+
+## v4.0 兼容入口
+
+历史项目继续使用原有 `masterpiece-os.json`、模式、Active State、五个 Compiler 和四文件输出：
 
 ```bash
-npm run analyze -- --project "我的品牌" --project-brief "D:/briefs/custom.md"
+npm run analyze:v4 -- --project "我的品牌" --mode standard
 ```
 
 ## 分析模式
@@ -45,7 +54,7 @@ npm run analyze -- --project "我的品牌" --project-brief "D:/briefs/custom.md
 用于快速品牌验证，只生成一份正式文件：
 
 ```bash
-npm run analyze -- --project "我的品牌" --mode quick
+    npm run analyze:v4 -- --project "我的品牌" --mode quick
 ```
 
 ```text
@@ -76,7 +85,7 @@ Masterpiece OS v4.0 Validation Report — <项目名称>.md
 用于正式品牌项目与深度行业研究；自动启用在线对标候选，正式输出仍为同样四份文件：
 
 ```bash
-npm run analyze -- --project "我的品牌" --mode studio
+    npm run analyze:v4 -- --project "我的品牌" --mode studio
 ```
 
 ## 四类信息职责
@@ -144,7 +153,7 @@ Original Intent
 
 ## Performance Profiling
 
-每次运行都会在控制台显示七阶段耗时：Read Assets、Brand Understanding、Industry Benchmark、Creative Decision、Compiler Pipeline、Creative Brief 与 Review，以及 Total。
+显式 v4 运行会在控制台显示原有阶段耗时。v5 将资产读取、唯一 Creative Director Session、输出和总耗时写入 `.runtime/run-report.json`。
 
 需要结构化调试数据时：
 
@@ -170,6 +179,7 @@ GPT 的输入是已核验视觉方案与运行时高密度 Brief。GPT 自主完
 
 ```bash
 npm test
+npm run test:v5
 npm run test:regression
 ```
 

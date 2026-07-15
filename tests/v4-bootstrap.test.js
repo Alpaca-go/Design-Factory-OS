@@ -214,7 +214,7 @@ test('v4 Bootstrap fails closed when a Reasoning Provider result is missing', as
   assert.equal(failedProfile.context.failureStage, 'brandUnderstanding');
 });
 
-test('default analyze CLI executes the v4 Pipeline instead of the legacy v3.3 path', async () => {
+test('explicit v4 analyze CLI preserves the v4 Pipeline instead of the legacy v3.3 path', async () => {
   const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'masterpiece-os-v4-cli-'));
   const input = path.join(projectRoot, 'input');
   const output = path.join(projectRoot, 'outputs');
@@ -225,7 +225,7 @@ test('default analyze CLI executes the v4 Pipeline instead of the legacy v3.3 pa
   const cli = path.resolve('bin', 'masterpiece-os.js');
 
   const { stdout } = await execFileAsync(process.execPath, [
-    cli, 'analyze', input, '--config', configPath, '--output', output
+    cli, 'v4', 'analyze', input, '--config', configPath, '--output', output
   ], { cwd: path.resolve('.'), encoding: 'utf8' });
 
   assert.match(stdout, /v4 Active State：decision-compiler-test/);

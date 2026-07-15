@@ -1,0 +1,17 @@
+{
+  "version": "5.0",
+  "projectName": "品牌名称",
+  "brandFacts": {
+    "brandName": "品牌名称",
+    "industry": "待确认",
+    "factualConstraints": [],
+    "logoAssets": []
+  },
+  "overrides": {
+    "additionalLockedAssets": [],
+    "allowLogoRedesign": false,
+    "requiredApplications": [],
+    "forbiddenChanges": [],
+    "outputLanguage": "zh-CN"
+  }
+}

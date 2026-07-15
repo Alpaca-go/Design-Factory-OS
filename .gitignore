@@ -2,6 +2,7 @@ node_modules/
 masterpiece-os-output/
 coverage/
 .masterpiece-os/
+.runtime/
 .DS_Store
 *.log
 
@@ -34,3 +35,5 @@ Knowledge-Analysis.md
 02-Creative-Brief.md
 03-Knowledge-Review.md
 04-Design-Review.md
+视觉方案升级报告.md
+Creative-Upgrade-Brief.md
