@@ -112,3 +112,33 @@ export {
   V4_QUICK_OUTPUT_FILES,
   runV4Pipeline
 } from './v4-bootstrap.js';
+export {
+  VALIDATION_REPORT_PREFIX,
+  validationReportFilename,
+  createHandoffTiming,
+  renderValidationReport,
+  publishValidationReport
+} from './validation-report.js';
+export {
+  validateProjectDelivery,
+  formatValidationCheck
+} from './validation-check.js';
+export {
+  V5_VERSION,
+  V5_PIPELINE_ID,
+  V5_DEFAULTS,
+  V5_OFFICIAL_OUTPUT_FILES
+} from './v5/config/defaults.js';
+export { V5ConfigError, createV5ProjectConfig } from './v5/config/schema.js';
+export { ReasoningSessionError, ReasoningSessionGuard } from './v5/creative-director/session-guard.js';
+export {
+  DEEP_CREATIVE_DIRECTOR_PROVIDER_ID,
+  DeepCreativeDirectorError,
+  runDeepCreativeDirector
+} from './v5/creative-director/deep-creative-director.js';
+export { buildDeepCreativeDirectorPrompt, clearPromptTemplateCache } from './v5/creative-director/prompt-builder.js';
+export { publishCreativeUpgradeReport } from './v5/creative-director/output-writer.js';
+export { prepareVisualAssets } from './v5/preparation/visual-preparation.js';
+export { prepareBenchmarks } from './v5/preparation/benchmark-preparation.js';
+export { readReasoningCache, writeReasoningCache } from './v5/preparation/reasoning-cache.js';
+export { runV5Pipeline, v5ConfigExists } from './v5/bootstrap.js';

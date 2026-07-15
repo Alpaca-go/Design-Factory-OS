@@ -8,6 +8,8 @@ import { promisify } from 'node:util';
 import { runV4Pipeline, V4_STANDARD_OUTPUT_FILES } from '../src/v4-bootstrap.js';
 import { readCreativeDecisionState } from '../src/creative-decision-state-store.js';
 import { createV4CompilerState } from './fixtures/v4-creative-decision-state.js';
+import { validationReportFilename } from '../src/validation-report.js';
+import { validateProjectDelivery } from '../src/validation-check.js';
 
 const ONE_PIXEL_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
@@ -161,13 +163,24 @@ test('v4 Bootstrap creates one Active State, compiles it and publishes four outp
   const active = await readCreativeDecisionState(projectRoot, { required: true });
   assert.equal(active.meta.stateDigest, first.result.state.meta.stateDigest);
   const markdownFiles = (await fs.readdir(output)).filter((name) => name.endsWith('.md')).sort();
-  assert.deepEqual(markdownFiles, [...V4_STANDARD_OUTPUT_FILES].sort());
+  assert.deepEqual(markdownFiles, [
+    ...V4_STANDARD_OUTPUT_FILES,
+    validationReportFilename(path.basename(projectRoot))
+  ].sort());
+  assert.equal(first.result.validationReport.filename, validationReportFilename(path.basename(projectRoot)));
+  assert.ok(first.result.handoff.handoffDurationMs >= first.result.handoff.analysisDurationMs);
+  const validationReport = await fs.readFile(first.result.validationReport.path, 'utf8');
+  assert.match(validationReport, /Complete Handoff Duration/);
+  assert.match(validationReport, /## Locked/);
+  assert.match(validationReport, /## Evolve/);
+  assert.match(validationReport, /## Flexible/);
   await assert.rejects(fs.access(path.join(output, 'Creative-Brief-GPT.md')), { code: 'ENOENT' });
   const brief = await fs.readFile(path.join(output, '02-Creative-Brief.md'), 'utf8');
   assert.equal((brief.match(/^## \d+\./gm) || []).length, 10);
   const debug = JSON.parse(await fs.readFile(path.join(output, 'masterpiece-os-result.json'), 'utf8'));
   assert.equal(debug.version, '4.0.0');
   assert.equal(debug.compilation.creativeBrief.runtimeGptBrief.content, '[runtime-only content omitted from persistence]');
+  assert.equal((await validateProjectDelivery(projectRoot)).status, 'PASS');
 
   config.reasoningProviderResults.brandUnderstanding.runtimeTrace.durationMs += 5000;
   config.reasoningProviderResults.brandUnderstanding.runtimeTrace.endedAt = new Date(
@@ -201,7 +214,7 @@ test('v4 Bootstrap fails closed when a Reasoning Provider result is missing', as
   assert.equal(failedProfile.context.failureStage, 'brandUnderstanding');
 });
 
-test('default analyze CLI executes the v4 Pipeline instead of the legacy v3.3 path', async () => {
+test('explicit v4 analyze CLI preserves the v4 Pipeline instead of the legacy v3.3 path', async () => {
   const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'masterpiece-os-v4-cli-'));
   const input = path.join(projectRoot, 'input');
   const output = path.join(projectRoot, 'outputs');
@@ -212,7 +225,7 @@ test('default analyze CLI executes the v4 Pipeline instead of the legacy v3.3 pa
   const cli = path.resolve('bin', 'masterpiece-os.js');
 
   const { stdout } = await execFileAsync(process.execPath, [
-    cli, 'analyze', input, '--config', configPath, '--output', output
+    cli, 'v4', 'analyze', input, '--config', configPath, '--output', output
   ], { cwd: path.resolve('.'), encoding: 'utf8' });
 
   assert.match(stdout, /v4 Active State：decision-compiler-test/);
@@ -220,6 +233,6 @@ test('default analyze CLI executes the v4 Pipeline instead of the legacy v3.3 pa
   assert.doesNotMatch(stdout, /Masterpiece-OS v3\.3/);
   assert.deepEqual(
     (await fs.readdir(output)).filter((name) => name.endsWith('.md')).sort(),
-    [...V4_STANDARD_OUTPUT_FILES].sort()
+    [...V4_STANDARD_OUTPUT_FILES, validationReportFilename(path.basename(projectRoot))].sort()
   );
 });

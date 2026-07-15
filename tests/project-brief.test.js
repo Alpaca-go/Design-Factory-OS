@@ -15,6 +15,8 @@ test('没有项目级文件时自动使用 docs/Project Brief.md', async () => {
   assert.equal(brief.requirements.onlineBenchmarks, true);
   assert.equal(brief.requirements.sameIndustryBenchmarks, true);
   assert.equal(brief.requirements.minBenchmarks, 3);
+  assert.equal(brief.requirements.validationReport, true);
+  assert.deepEqual(brief.requirements.performanceTarget, { minMinutes: 10, maxMinutes: 11 });
   assert.equal(brief.sha256.length, 64);
 });
 

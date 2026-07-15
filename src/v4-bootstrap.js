@@ -14,6 +14,7 @@ import {
 import { compileCreativeDecisionState } from './compiler-pipeline.js';
 import { createPerformanceProfiler } from './performance-profiler.js';
 import { runtimeTraceFromError } from './runtime-trace.js';
+import { createHandoffTiming, publishValidationReport } from './validation-report.js';
 
 export const V4_PIPELINE_ID = 'masterpiece-os-v4-pipeline';
 export const V4_STANDARD_OUTPUT_FILES = Object.freeze([
@@ -354,6 +355,14 @@ export async function runV4Pipeline(input, options = {}) {
       schemaValidationFailures: 0
     });
     result.durationMs = result.performance.totalDurationMs;
+    result.handoff = createHandoffTiming(result.performance);
+    if (projectBrief.requirements.validationReport) {
+      result.validationReport = await publishValidationReport(result, output, {
+        projectRoot,
+        projectName: path.basename(projectRoot),
+        performanceTarget: projectBrief.requirements.performanceTarget
+      });
+    }
     await publishDebugArtifacts(result, output, {
       debug: Boolean(options.debug),
       performanceJson

@@ -1,18 +1,15 @@
 # Masterpiece-OS
 
-Masterpiece-OS v3.3 是一个 **Creative Brief Operating System**。它读取视觉素材，完成 Original Intent、Industry Benchmark、Creative Decision 与 Brand DNA Decision，再把完整 Analysis 压缩为任何设计师和 GPT 都能快速理解的 Creative Brief。
+Masterpiece-OS v5.0 是一个 **AI Creative Director Preparation System**。v5 使用一次完整 Deep Creative Director 推理，把全部视觉素材、品牌事实与 Benchmark 组织成唯一正式输出《视觉方案升级报告.md》。
 
-本版本的唯一目标是减少品牌与 GPT 之间的信息损失。Analysis 解释过去，Creative Brief 指导未来。
+当前分支为 v5.0 alpha。v4.0 Pipeline 与历史输出能力仍被完整保留，可通过显式 v4 命令运行。
 
 ```text
 Assets
-→ Original Intent
-→ Industry Benchmark
-→ Creative Decision
-→ Analysis
-→ Creative Brief Compiler
-→ Creative Brief
-→ Design Review
+→ Asset Intake
+→ One Deep Creative Director Session
+→ 视觉方案升级报告.md
+→ .runtime/run-report.json
 ```
 
 ## 环境
@@ -22,7 +19,7 @@ Assets
 
 ## 快速开始
 
-把素材放入 `projects/<项目名称>/input/`，填写项目根目录的 `masterpiece-os.json`：
+把素材放入 `projects/<项目名称>/input/`，填写项目根目录的 `masterpiece-os-v5.json`：
 
 ```bash
 npm run analyze -- --project "我的品牌"
@@ -30,12 +27,50 @@ npm run analyze -- --project "我的品牌"
 
 项目缺少标准目录时，初始化器会安全创建 `input/` 与 `outputs/`，并在无冲突时把根目录素材移入 `input/`。
 
-每次启动视觉分析都会自动读取 [`docs/Project Brief.md`](docs/Project%20Brief.md) 作为 Pipeline 执行契约，并据此启用默认 Standard 模式、全部图片核验、至少三个同品类联网 Benchmark、七阶段 Profiling 与正式输出规则，无需把该文件复制到项目目录。
+v5 不再接受 Quick / Standard / Studio 模式，也不计算 Creative Freedom 百分比。默认行为固定为 Deep Mode、Maximum Creative Authority、Logo Locked 和单文档输出。
 
-如某个项目需要专属规则，可在项目根目录放置 `Project Brief.md` 或 `Project-Brief.md`；项目级文件优先于默认文档，并会被初始化器保留在根目录。也可以显式指定：
+项目配置模板见 `templates/masterpiece-os-v5.json`。宿主可注入单一 `deepCreativeDirectorReasoner`，或从配置读取一份已完成的 `deepCreativeDirectorResult`。Sprint 2 已接入完整 Prompt；Sprint 2.1 增加批量视觉准备、Benchmark 缓存、精确结果缓存和真实端到端计时。
+
+v5 默认只声明一份正式输出：
+
+```text
+视觉方案升级报告.md
+```
+
+性能与会话边界记录保存在 `.runtime/run-report.json`，不属于正式输出。
+
+## v5 Deep Creative Director Prompt
+
+Sprint 2 将一次完整推理所需内容拆分为可维护模板，并在运行时合并成一个模型请求：
+
+```text
+System Prompt
++ Project Input
++ Asset Manifest / Attachments
++ Explicit Constraints
++ Category & Creative Excellence Benchmark
++ GPT Execution Core
++ Fixed Report Schema
+→ One Deep Creative Director Call
+→ 视觉方案升级报告.md
+```
+
+模板位于 `prompts/v5/`。拆分仅用于维护，不会产生第二次总结、压缩、评审或 Compiler 调用。报告使用固定 0–10 章节，资产决策值只允许“保留、升级、替换、删除、新增”。
+
+## v5 性能预算
+
+默认目标为 10 分钟，可接受上限为 15 分钟。超过 5 张图片时，运行时会在 `.runtime/cache/` 生成一张 Contact Sheet，并只附加最多 5 张优先细节图；Logo 素材优先。完整资产索引仍进入 Prompt，资产决策不得遗漏未单独附加的图片。
+
+视觉准备与行业 Benchmark 按素材指纹和行业缓存。完全相同的 Prompt 可以复用上一份完整推理结果，此时 `modelCallsThisRun` 为 0；使用宿主选项 `forceReasoning` 可强制重新推理。报告默认预算为 8,000 字符。
+
+`.runtime/run-report.json` 会分别记录视觉准备、Contact Sheet、Benchmark、Prompt 构建、实际模型等待、输出写入和端到端墙钟时间。`timingScope` 明确计时边界；失败和 15 分钟超限也会写入运行记录。
+
+## v4.0 兼容入口
+
+历史项目继续使用原有 `masterpiece-os.json`、模式、Active State、五个 Compiler 和四文件输出：
 
 ```bash
-npm run analyze -- --project "我的品牌" --project-brief "D:/briefs/custom.md"
+npm run analyze:v4 -- --project "我的品牌" --mode standard
 ```
 
 ## 分析模式
@@ -45,7 +80,7 @@ npm run analyze -- --project "我的品牌" --project-brief "D:/briefs/custom.md
 用于快速品牌验证，只生成一份正式文件：
 
 ```bash
-npm run analyze -- --project "我的品牌" --mode quick
+    npm run analyze:v4 -- --project "我的品牌" --mode quick
 ```
 
 ```text
@@ -63,12 +98,20 @@ npm run analyze -- --project "我的品牌" --mode quick
 04-Design-Review.md
 ```
 
+当 Project Brief 包含 Validation Report 契约时，Pipeline 还会自动生成项目级验证记录：
+
+```text
+Masterpiece OS v4.0 Validation Report — <项目名称>.md
+```
+
+该文件记录 Creative Freedom、三态分类、正式输出完成时间与完整交付时间，但不计入四份正式输出契约。
+
 ### Studio
 
 用于正式品牌项目与深度行业研究；自动启用在线对标候选，正式输出仍为同样四份文件：
 
 ```bash
-npm run analyze -- --project "我的品牌" --mode studio
+    npm run analyze:v4 -- --project "我的品牌" --mode studio
 ```
 
 ## 四类信息职责
@@ -136,7 +179,7 @@ Original Intent
 
 ## Performance Profiling
 
-每次运行都会在控制台显示七阶段耗时：Read Assets、Brand Understanding、Industry Benchmark、Creative Decision、Compiler Pipeline、Creative Brief 与 Review，以及 Total。
+显式 v4 运行会在控制台显示原有阶段耗时。v5 将资产读取、唯一 Creative Director Session、输出和总耗时写入 `.runtime/run-report.json`。
 
 需要结构化调试数据时：
 
@@ -144,7 +187,15 @@ Original Intent
 npm run analyze -- --project "我的品牌" --debug
 ```
 
-这会生成 `outputs/debug/performance.json`。它是调试数据，不属于正式输出，也不会写入任何项目报告。旧 `--profile` 参数继续作为只写 Performance JSON 的兼容入口。
+这会生成 `outputs/debug/performance.json`。它是调试数据，不属于正式输出。旧 `--profile` 参数继续作为只写 Performance JSON 的兼容入口。
+
+日常项目 Validation 不需要运行完整开发测试。四份输出和 Validation Report 生成后，可执行毫秒级交付检查：
+
+```bash
+npm run validate -- --project "我的品牌"
+```
+
+该命令只检查 Active State、Digest、四份正式输出、Validation Report、Design Review 和 Runtime GPT Brief 边界。`npm test` 保留给代码、Prompt 或 Architecture 发生变化时的开发回归。
 
 ## GPT 协作边界
 
@@ -154,6 +205,7 @@ GPT 的输入是已核验视觉方案与运行时高密度 Brief。GPT 自主完
 
 ```bash
 npm test
+npm run test:v5
 npm run test:regression
 ```
 

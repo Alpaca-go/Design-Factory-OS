@@ -1,16 +1,22 @@
 {
   "name": "masterpiece-os",
-  "version": "4.0.0",
-  "description": "Masterpiece OS v4.0：Think Once, Compile Many 的 AI Creative Director Operating System",
+  "version": "5.0.0-alpha.1",
+  "description": "Masterpiece OS v5.0：一次深度 Creative Director 推理，一份视觉方案升级报告",
   "type": "module",
   "bin": { "masterpiece-os": "./bin/masterpiece-os.js" },
   "scripts": {
     "start": "node ./bin/masterpiece-os.js",
     "analyze": "node ./bin/masterpiece-os.js analyze",
+    "analyze:v4": "node ./bin/masterpiece-os.js v4 analyze",
+    "validate": "node ./bin/masterpiece-os.js validate",
+    "test:v5": "node --test tests/v5/*.test.js",
     "test": "node --test",
     "test:regression": "node ./tests/regression-runner.js"
   },
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=20.9.0" },
   "license": "MIT",
-  "keywords": ["design", "brand", "creative-brief", "creative-reasoning"]
+  "keywords": ["design", "brand", "creative-brief", "creative-reasoning"],
+  "dependencies": {
+    "sharp": "^0.35.3"
+  }
 }
