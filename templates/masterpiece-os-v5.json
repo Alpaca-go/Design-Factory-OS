@@ -1,6 +1,7 @@
 {
   "version": "5.0",
   "projectName": "品牌名称",
+  "userTask": "深度审计现有视觉方案并提出唯一、可执行的视觉升级方向",
   "brandFacts": {
     "brandName": "品牌名称",
     "industry": "待确认",

@@ -1,4 +1,5 @@
 import { ReasoningSessionGuard } from './session-guard.js';
+import { buildDeepCreativeDirectorPrompt } from './prompt-builder.js';
 
 export const DEEP_CREATIVE_DIRECTOR_PROVIDER_ID = 'deep-creative-director-provider-v5';
 
@@ -38,11 +39,12 @@ export async function runDeepCreativeDirector(context, options = {}) {
     throw new DeepCreativeDirectorError('INPUT_INVALID', 'Deep Creative Director 缺少 Asset Inventory 或 v5 配置');
   }
   const guard = options.sessionGuard || new ReasoningSessionGuard();
+  const prompt = options.prompt || await buildDeepCreativeDirectorPrompt(context);
   let supplied;
   let executionSource;
   if (typeof options.reasoner === 'function') {
     executionSource = 'reasoner';
-    supplied = await options.reasoner(context);
+    supplied = await options.reasoner(Object.freeze({ ...context, prompt }));
   } else {
     executionSource = 'configured-result';
     supplied = context.config.deepCreativeDirectorResult;
@@ -55,5 +57,5 @@ export async function runDeepCreativeDirector(context, options = {}) {
   }
   const result = validateResult(structuredClone(supplied));
   const session = guard.begin(result.runId);
-  return Object.freeze({ ...result, executionSource, session });
+  return Object.freeze({ ...result, executionSource, session, prompt });
 }

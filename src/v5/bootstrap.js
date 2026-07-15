@@ -87,6 +87,8 @@ export async function runV5Pipeline(input, options = {}) {
     model: creativeDirector.model,
     provider: creativeDirector.provider,
     reasoningRunId: creativeDirector.runId,
+    promptDigest: creativeDirector.prompt.promptDigest,
+    promptModelCalls: creativeDirector.prompt.modelCalls,
     fullReasoningRuns: creativeDirector.session.fullReasoningRuns,
     continuations: creativeDirector.session.continuations,
     status: 'success',

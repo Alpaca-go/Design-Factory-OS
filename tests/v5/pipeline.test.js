@@ -37,20 +37,27 @@ function result() {
 test('v5 performs one reasoning call, skips Compilers and publishes one official document', async () => {
   const { projectRoot, input, output } = await fixture();
   let calls = 0;
+  let receivedPrompt = null;
   const execution = await runV5Pipeline(input, {
     projectRoot,
     output,
-    deepCreativeDirectorReasoner: async () => {
+    deepCreativeDirectorReasoner: async (context) => {
       calls += 1;
+      receivedPrompt = context.prompt;
       return result();
     }
   });
   assert.equal(calls, 1);
+  assert.equal(receivedPrompt.modelCalls, 1);
+  assert.equal(receivedPrompt.messages.length, 2);
+  assert.equal(receivedPrompt.attachments.length, 1);
   assert.equal(execution.result.analysisMode, 'deep');
   assert.equal(execution.result.creativeAuthority, 'maximum');
   assert.deepEqual(execution.result.lockedVisualAssets, ['logo']);
   assert.deepEqual(execution.result.outputFiles, ['视觉方案升级报告.md']);
   assert.equal(execution.result.runReport.fullReasoningRuns, 1);
+  assert.equal(execution.result.runReport.promptDigest.length, 64);
+  assert.equal(execution.result.runReport.promptModelCalls, 1);
   assert.equal('compilation' in execution.result, false);
   assert.match(await fs.readFile(path.join(output, '视觉方案升级报告.md'), 'utf8'), /Sprint 1 pipeline output/);
   assert.match(await fs.readFile(path.join(output, '01-Analysis.md'), 'utf8'), /v4 history/);

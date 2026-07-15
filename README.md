@@ -39,6 +39,24 @@ v5 默认只声明一份正式输出：
 
 性能与会话边界记录保存在 `.runtime/run-report.json`，不属于正式输出。
 
+## v5 Deep Creative Director Prompt
+
+Sprint 2 将一次完整推理所需内容拆分为可维护模板，并在运行时合并成一个模型请求：
+
+```text
+System Prompt
++ Project Input
++ Asset Manifest / Attachments
++ Explicit Constraints
++ Category & Creative Excellence Benchmark
++ GPT Execution Core
++ Fixed Report Schema
+→ One Deep Creative Director Call
+→ 视觉方案升级报告.md
+```
+
+模板位于 `prompts/v5/`。拆分仅用于维护，不会产生第二次总结、压缩、评审或 Compiler 调用。报告使用固定 0–10 章节，资产决策值只允许“保留、升级、替换、删除、新增”。
+
 ## v4.0 兼容入口
 
 历史项目继续使用原有 `masterpiece-os.json`、模式、Active State、五个 Compiler 和四文件输出：

@@ -136,5 +136,6 @@ export {
   DeepCreativeDirectorError,
   runDeepCreativeDirector
 } from './v5/creative-director/deep-creative-director.js';
+export { buildDeepCreativeDirectorPrompt, clearPromptTemplateCache } from './v5/creative-director/prompt-builder.js';
 export { publishCreativeUpgradeReport } from './v5/creative-director/output-writer.js';
 export { runV5Pipeline, v5ConfigExists } from './v5/bootstrap.js';

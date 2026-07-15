@@ -49,6 +49,7 @@ export function createV5ProjectConfig(raw = {}, options = {}) {
   return Object.freeze({
     version: V5_VERSION,
     projectName,
+    userTask: optionalString(raw.userTask, 'userTask'),
     brandFacts: Object.freeze({
       brandName,
       industry,
