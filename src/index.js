@@ -77,6 +77,20 @@ export {
   formatPerformanceProfile
 } from './performance-profiler.js';
 export {
+  RUNTIME_TRACE_SCHEMA_VERSION,
+  RUNTIME_STAGE_ORDER,
+  RUNTIME_STAGE_LABELS,
+  DEFAULT_RUNTIME_THRESHOLDS,
+  failRuntimeTrace,
+  RuntimeTraceCollector,
+  RuntimeTraceValidationError,
+  startRuntimeStage,
+  measureRuntimeStage,
+  measureRuntimeStageSync,
+  sanitizeRuntimeTrace,
+  validateRuntimeTrace
+} from './runtime-trace.js';
+export {
   BRAND_UNDERSTANDING_PROVIDER_ID,
   BrandUnderstandingProviderError,
   runBrandUnderstandingProvider
@@ -89,7 +103,8 @@ export {
 export {
   CREATIVE_DECISION_IR_BUILDER_ID,
   CreativeDecisionIrBuilderError,
-  buildCreativeDecisionIR
+  buildCreativeDecisionIR,
+  buildCreativeDecisionIRWithTrace
 } from './creative-decision-ir-builder.js';
 export {
   V4_PIPELINE_ID,

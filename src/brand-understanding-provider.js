@@ -1,5 +1,13 @@
 import crypto from 'node:crypto';
 import { canonicalStringify } from './creative-decision-state.js';
+import {
+  attachRuntimeTrace,
+  attachResultRuntimeTrace,
+  failRuntimeTrace,
+  measureRuntimeStage,
+  startRuntimeStage,
+  validateRuntimeTrace
+} from './runtime-trace.js';
 
 export const BRAND_UNDERSTANDING_PROVIDER_ID = 'brand-understanding-provider-v4';
 
@@ -79,6 +87,17 @@ async function resolveResult(context, options) {
   return context.config?.reasoningProviderResults?.brandUnderstanding;
 }
 
+function finalizeResult(supplied, inventory, runtimeTrace) {
+  const result = clone(supplied);
+  delete result.runtimeTrace;
+  validateResult(result, inventory);
+  result.resultDigest = crypto.createHash('sha256')
+    .update(canonicalStringify({ ...result, resultDigest: undefined }))
+    .digest('hex');
+  attachResultRuntimeTrace(result, runtimeTrace);
+  return deepFreeze(result);
+}
+
 /**
  * Execute exactly one Brand Understanding reasoning run. The provider owns no
  * downstream Brief or Compiler behavior; it only returns the approved Result
@@ -88,17 +107,54 @@ export async function runBrandUnderstandingProvider(context, options = {}) {
   if (!context?.inventory || !context?.projectBrief || !context?.config) {
     throw new BrandUnderstandingProviderError('INPUT_INVALID', 'Brand Understanding 缺少 inventory、Project Brief 或项目配置');
   }
+  if (typeof options.reasoner === 'function') {
+    const measured = await measureRuntimeStage('brandUnderstanding', {
+      label: 'Brand Understanding',
+      provider: options.provider || 'ai',
+      inputCount: context.inventory.imageCount,
+      resultDetails: (result) => ({
+        outputCount: 1,
+        metrics: {
+          aiCalls: 1,
+          fileReads: context.inventory.imageCount,
+          retries: result.retries || 0
+        }
+      })
+    }, async () => {
+      const supplied = await resolveResult(context, options);
+      if (!supplied) {
+        throw new BrandUnderstandingProviderError('REASONING_RESULT_MISSING', 'Brand Understanding Reasoning Provider 未返回结果');
+      }
+      return clone(supplied);
+    });
+    try {
+      return finalizeResult(measured.value, context.inventory, measured.runtimeTrace);
+    } catch (error) {
+      throw attachRuntimeTrace(error, failRuntimeTrace(measured.runtimeTrace, error));
+    }
+  }
+
   const supplied = await resolveResult(context, options);
   if (!supplied) {
-    throw new BrandUnderstandingProviderError(
+    const error = new BrandUnderstandingProviderError(
       'REASONING_RESULT_MISSING',
       '缺少 Brand Understanding Provider 结果；请配置 reasoning adapter 或 reasoningProviderResults.brandUnderstanding'
     );
+    const span = startRuntimeStage('brandUnderstanding', { label: 'Brand Understanding', provider: 'provider-contract' });
+    throw attachRuntimeTrace(error, span.fail(error));
   }
-  const result = clone(supplied);
-  validateResult(result, context.inventory);
-  result.resultDigest = crypto.createHash('sha256')
-    .update(canonicalStringify({ ...result, resultDigest: undefined }))
-    .digest('hex');
-  return deepFreeze(result);
+  try {
+    validateRuntimeTrace(supplied.runtimeTrace, {
+      stage: 'brandUnderstanding',
+      path: 'brandUnderstanding.runtimeTrace'
+    });
+  } catch (error) {
+    const span = startRuntimeStage('brandUnderstanding', { label: 'Brand Understanding', provider: 'provider-contract' });
+    throw attachRuntimeTrace(error, span.fail(error));
+  }
+  try {
+    return finalizeResult(supplied, context.inventory, supplied.runtimeTrace);
+  } catch (error) {
+    throw attachRuntimeTrace(error, failRuntimeTrace(supplied.runtimeTrace, error));
+  }
 }

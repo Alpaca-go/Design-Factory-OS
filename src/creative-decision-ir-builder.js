@@ -4,6 +4,14 @@ import {
   canonicalStringify,
   finalizeCreativeDecisionState
 } from './creative-decision-state.js';
+import {
+  attachRuntimeTrace,
+  failRuntimeTrace,
+  measureRuntimeStage,
+  startRuntimeStage,
+  stripRuntimeTraceMetadata,
+  validateRuntimeTrace
+} from './runtime-trace.js';
 
 export const CREATIVE_DECISION_IR_BUILDER_ID = 'creative-decision-ir-builder-v4';
 
@@ -193,5 +201,59 @@ export async function buildCreativeDecisionIR(context, options = {}) {
       'Creative Decision 结果无法建立合法 Active State',
       { cause: error }
     );
+  }
+}
+
+/**
+ * Execute the Creative Decision Provider with Provider-owned Runtime Trace.
+ * Telemetry is stripped before State construction so timing never changes the
+ * Creative Decision State or any Compiler input.
+ */
+export async function buildCreativeDecisionIRWithTrace(context, options = {}) {
+  const cleanContext = {
+    ...context,
+    config: stripRuntimeTraceMetadata(context?.config)
+  };
+
+  if (typeof options.reasoner === 'function') {
+    const measured = await measureRuntimeStage('creativeDecision', {
+      label: 'Creative Decision',
+      provider: options.provider || 'ai',
+      inputCount: 2,
+      resultDetails: () => ({ outputCount: 1, metrics: { aiCalls: 1, retries: 0 } })
+    }, async () => {
+      const decision = structuredClone(await options.reasoner(context));
+      if (!decision) {
+        throw new CreativeDecisionIrBuilderError('REASONING_RESULT_MISSING', 'Creative Decision Provider 未返回结果');
+      }
+      delete decision.runtimeTrace;
+      return buildCreativeDecisionIR(cleanContext, { reasoner: async () => decision });
+    });
+    return { state: measured.value, runtimeTrace: measured.runtimeTrace };
+  }
+
+  const supplied = context?.config?.reasoningProviderResults?.creativeDecision;
+  if (!supplied) {
+    const error = new CreativeDecisionIrBuilderError(
+      'REASONING_RESULT_MISSING',
+      '缺少 Creative Decision 结果；请配置 reasoning adapter 或 reasoningProviderResults.creativeDecision'
+    );
+    const span = startRuntimeStage('creativeDecision', { label: 'Creative Decision', provider: 'provider-contract' });
+    throw attachRuntimeTrace(error, span.fail(error));
+  }
+  try {
+    validateRuntimeTrace(supplied.runtimeTrace, {
+      stage: 'creativeDecision',
+      path: 'creativeDecision.runtimeTrace'
+    });
+  } catch (error) {
+    const span = startRuntimeStage('creativeDecision', { label: 'Creative Decision', provider: 'provider-contract' });
+    throw attachRuntimeTrace(error, span.fail(error));
+  }
+  try {
+    const state = await buildCreativeDecisionIR(cleanContext);
+    return { state, runtimeTrace: structuredClone(supplied.runtimeTrace) };
+  } catch (error) {
+    throw attachRuntimeTrace(error, failRuntimeTrace(supplied.runtimeTrace, error));
   }
 }

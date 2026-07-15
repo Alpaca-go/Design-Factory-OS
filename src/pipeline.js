@@ -12,7 +12,7 @@ import { buildBriefReview } from './brief-review.js';
 import { renderAll } from './report.js';
 import { readJson } from './utils.js';
 import { loadProjectBrief } from './project-brief.js';
-import { createPerformanceProfiler } from './performance-profiler.js';
+import { createLegacyPerformanceProfiler as createPerformanceProfiler } from './legacy-performance-profiler.js';
 
 const MODE_ALIASES = {
   quick: 'quick', fast: 'quick',

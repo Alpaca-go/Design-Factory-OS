@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { assertCreativeDecisionState } from './creative-decision-state.js';
+import { measureRuntimeStage } from './runtime-trace.js';
 
 const STATE_DIRECTORY = path.join('.masterpiece-os', 'state');
 const STATE_FILENAME = 'creative-decision.json';
@@ -128,4 +129,15 @@ export async function activateCreativeDecisionState(projectRoot, state) {
     state: active,
     previousDecisionId: current?.meta.decisionId ?? null
   };
+}
+
+/** State Store owns validation/activation timing; the CLI only collects it. */
+export async function activateCreativeDecisionStateWithTrace(projectRoot, state) {
+  const measured = await measureRuntimeStage('stateValidation', {
+    label: 'State Validation',
+    provider: 'state-store',
+    inputCount: 1,
+    resultDetails: () => ({ outputCount: 1, metrics: { fileReads: 1, retries: 0 } })
+  }, () => activateCreativeDecisionState(projectRoot, state));
+  return { stateActivation: measured.value, runtimeTrace: measured.runtimeTrace };
 }

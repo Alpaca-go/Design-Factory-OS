@@ -1,18 +1,19 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { inventoryProject } from './inventory.js';
+import { inventoryProjectWithTrace } from './inventory.js';
 import { loadProjectBrief } from './project-brief.js';
 import { readJson, ensureDir, writeText } from './utils.js';
 import { normalizeMode } from './pipeline.js';
 import { runBrandUnderstandingProvider } from './brand-understanding-provider.js';
 import { runIndustryBenchmarkProvider } from './industry-benchmark-provider.js';
-import { buildCreativeDecisionIR } from './creative-decision-ir-builder.js';
+import { buildCreativeDecisionIRWithTrace } from './creative-decision-ir-builder.js';
 import {
-  activateCreativeDecisionState,
+  activateCreativeDecisionStateWithTrace,
   readCreativeDecisionState
 } from './creative-decision-state-store.js';
 import { compileCreativeDecisionState } from './compiler-pipeline.js';
 import { createPerformanceProfiler } from './performance-profiler.js';
+import { runtimeTraceFromError } from './runtime-trace.js';
 
 export const V4_PIPELINE_ID = 'masterpiece-os-v4-pipeline';
 export const V4_STANDARD_OUTPUT_FILES = Object.freeze([
@@ -130,7 +131,8 @@ ${lineList(evidence, (item) => `${item.evidenceId} — ${item.summary} (${item.l
 `;
 }
 
-function reviewCompilation(state, compilation) {
+function reviewCompilation(state, compilation, profiler) {
+  return profiler.syncStage('designReview', () => {
   const envelopes = [
     compilation.creativeFreedom,
     compilation.creativeStrategy,
@@ -183,6 +185,12 @@ function reviewCompilation(state, compilation) {
     status: checks.every((item) => item.passed) ? 'PASS' : 'FAIL',
     checks
   };
+  }, {
+    label: 'Design Review',
+    provider: 'review',
+    inputCount: 5,
+    resultDetails: () => ({ outputCount: 1 })
+  });
 }
 
 function renderReview(state, review) {
@@ -217,26 +225,37 @@ async function removeEmptyDebugDir(output) {
   }
 }
 
-async function publishOutputs(result, output, options = {}) {
-  await ensureDir(output);
-  for (const name of [...new Set([...RETIRED_OUTPUTS, ...V4_STANDARD_OUTPUT_FILES])]) {
-    await fs.rm(path.join(output, name), { force: true });
-  }
-  await fs.rm(path.join(output, 'Creative-Brief-GPT.md'), { force: true });
-  if (!options.debug) await fs.rm(path.join(output, 'masterpiece-os-result.json'), { force: true });
-  if (!options.performanceJson) {
-    await fs.rm(path.join(output, 'debug', 'performance.json'), { force: true });
-    await removeEmptyDebugDir(output);
-  }
+async function publishOutputs(result, output, profiler, options = {}) {
+  return profiler.asyncStage('outputPublishing', async () => {
+    await ensureDir(output);
+    for (const name of [...new Set([...RETIRED_OUTPUTS, ...V4_STANDARD_OUTPUT_FILES])]) {
+      await fs.rm(path.join(output, name), { force: true });
+    }
+    await fs.rm(path.join(output, 'Creative-Brief-GPT.md'), { force: true });
+    if (!options.debug) await fs.rm(path.join(output, 'masterpiece-os-result.json'), { force: true });
+    if (!options.performanceJson) {
+      await fs.rm(path.join(output, 'debug', 'performance.json'), { force: true });
+      await removeEmptyDebugDir(output);
+    }
 
-  const documents = {
-    '01-Analysis.md': renderAnalysis(result.state, result.brandUnderstanding, result.industryBenchmark),
-    '02-Creative-Brief.md': result.compilation.creativeBrief.creativeBrief.markdown,
-    '03-Design-Decisions.md': result.compilation.designDecisions.markdown,
-    '04-Design-Review.md': renderReview(result.state, result.review)
-  };
-  const names = result.mode === 'quick' ? V4_QUICK_OUTPUT_FILES : V4_STANDARD_OUTPUT_FILES;
-  for (const name of names) await writeText(path.join(output, name), documents[name]);
+    const documents = {
+      '01-Analysis.md': renderAnalysis(result.state, result.brandUnderstanding, result.industryBenchmark),
+      '02-Creative-Brief.md': result.compilation.creativeBrief.creativeBrief.markdown,
+      '03-Design-Decisions.md': result.compilation.designDecisions.markdown,
+      '04-Design-Review.md': renderReview(result.state, result.review)
+    };
+    const names = result.mode === 'quick' ? V4_QUICK_OUTPUT_FILES : V4_STANDARD_OUTPUT_FILES;
+    for (const name of names) await writeText(path.join(output, name), documents[name]);
+    return names;
+  }, {
+    label: 'Output Publishing',
+    provider: 'filesystem',
+    inputCount: result.mode === 'quick' ? 1 : 4,
+    resultDetails: (names) => ({ outputCount: names.length, metrics: { fileReads: 0, retries: 0 } })
+  });
+}
+
+async function publishDebugArtifacts(result, output, options = {}) {
   if (options.performanceJson) {
     await writeText(path.join(output, 'debug', 'performance.json'), `${JSON.stringify(result.performance, null, 2)}\n`);
   }
@@ -256,80 +275,104 @@ async function publishOutputs(result, output, options = {}) {
     };
     await writeText(path.join(output, 'masterpiece-os-result.json'), `${JSON.stringify(debugResult, null, 2)}\n`);
   }
-  return names;
 }
 
 /** Run the approved v4 reasoning → State → Compiler → Outputs pipeline. */
 export async function runV4Pipeline(input, options = {}) {
-  const profiler = createPerformanceProfiler();
+  const profiler = createPerformanceProfiler(options.performanceThresholds || {});
   const root = path.resolve(input);
   const projectRoot = inferProjectRoot(root, options);
   const output = path.resolve(options.output || path.join(projectRoot, 'outputs'));
   const configPath = options.config ? path.resolve(options.config) : path.join(projectRoot, 'masterpiece-os.json');
+  const performanceJson = Boolean(options.debug || options.profile);
+  let mode = null;
 
-  const { inventory, projectBrief, config } = await profiler.asyncStage('readAssets', async () => ({
-    inventory: await inventoryProject(root, {
+  try {
+    const inventoryExecution = await inventoryProjectWithTrace(root, {
       ignore: [options.outputName || 'outputs', 'masterpiece-os-output', '.masterpiece-os'],
       ignorePaths: [output]
-    }),
-    projectBrief: await loadProjectBrief(root, { ...options, projectRoot }),
-    config: await readJson(configPath, {})
-  }));
-  const mode = normalizeMode(options.mode || projectBrief.defaultMode);
-  const currentState = await readCreativeDecisionState(projectRoot);
+    });
+    profiler.add(inventoryExecution.runtimeTrace);
+    const inventory = inventoryExecution.inventory;
+    const projectBrief = await loadProjectBrief(root, { ...options, projectRoot });
+    const config = await readJson(configPath, {});
+    mode = normalizeMode(options.mode || projectBrief.defaultMode);
+    const currentState = await readCreativeDecisionState(projectRoot);
 
-  const brandUnderstanding = await profiler.asyncStage('brandUnderstanding', () => (
-    runBrandUnderstandingProvider(
+    const brandUnderstanding = await runBrandUnderstandingProvider(
       { inventory, projectBrief, config, projectRoot },
       { reasoner: options.brandUnderstandingReasoner }
-    )
-  ));
-  const industryBenchmark = await profiler.asyncStage('industryBenchmark', () => (
-    runIndustryBenchmarkProvider(
+    );
+    profiler.add(brandUnderstanding.runtimeTrace);
+
+    const industryBenchmark = await runIndustryBenchmarkProvider(
       { brandUnderstanding, projectBrief, config, projectRoot },
       { reasoner: options.industryBenchmarkReasoner }
-    )
-  ));
-  const state = await profiler.asyncStage('creativeDecision', () => buildCreativeDecisionIR(
-    { inventory, projectBrief, config, projectRoot, brandUnderstanding, industryBenchmark, currentState },
-    { reasoner: options.creativeDecisionReasoner }
-  ));
-  const stateActivation = await activateCreativeDecisionState(projectRoot, state);
-  const compilation = compileCreativeDecisionState(stateActivation.state, { profiler });
-  const review = profiler.syncStage('review', () => reviewCompilation(stateActivation.state, compilation));
-  const performance = profiler.snapshot({
-    decisionId: stateActivation.state.meta.decisionId,
-    mode,
-    model: stateActivation.state.provenance.reasoningRuns.creativeDecision.model,
-    provider: stateActivation.state.provenance.reasoningRuns.creativeDecision.provider,
-    inputImages: inventory.imageCount,
-    tokens: options.tokens ?? null,
-    publicNetworkRequests: industryBenchmark.publicNetworkRequests ?? null,
-    cacheHits: options.cacheHits ?? null,
-    retries: options.retries ?? null,
-    schemaValidationFailures: 0
-  });
-  const result = {
-    version: '4.0.0',
-    pipelineId: V4_PIPELINE_ID,
-    mode,
-    generatedAt: new Date().toISOString(),
-    configPath,
-    projectBrief,
-    inventory,
-    brandUnderstanding,
-    industryBenchmark,
-    state: stateActivation.state,
-    stateActivation,
-    compilation,
-    runtimeGptBrief: compilation.creativeBrief.runtimeGptBrief,
-    review,
-    performance,
-    durationMs: Math.round(performance.total * 1000)
-  };
-  result.outputFiles = await publishOutputs(result, output, {
-    debug: Boolean(options.debug),
-    performanceJson: Boolean(options.debug || options.profile)
-  });
-  return { result, output };
+    );
+    profiler.add(industryBenchmark.runtimeTrace);
+
+    const decisionExecution = await buildCreativeDecisionIRWithTrace(
+      { inventory, projectBrief, config, projectRoot, brandUnderstanding, industryBenchmark, currentState },
+      { reasoner: options.creativeDecisionReasoner }
+    );
+    profiler.add(decisionExecution.runtimeTrace);
+
+    const activationExecution = await activateCreativeDecisionStateWithTrace(projectRoot, decisionExecution.state);
+    profiler.add(activationExecution.runtimeTrace);
+    const stateActivation = activationExecution.stateActivation;
+
+    const compilation = compileCreativeDecisionState(stateActivation.state, { profiler });
+    const review = reviewCompilation(stateActivation.state, compilation, profiler);
+    const result = {
+      version: '4.0.0',
+      pipelineId: V4_PIPELINE_ID,
+      mode,
+      generatedAt: new Date().toISOString(),
+      configPath,
+      projectBrief,
+      inventory,
+      brandUnderstanding,
+      industryBenchmark,
+      state: stateActivation.state,
+      stateActivation,
+      compilation,
+      runtimeGptBrief: compilation.creativeBrief.runtimeGptBrief,
+      review
+    };
+    result.outputFiles = await publishOutputs(result, output, profiler, {
+      debug: Boolean(options.debug),
+      performanceJson
+    });
+    result.performance = profiler.snapshot({
+      project: path.basename(projectRoot),
+      decisionId: stateActivation.state.meta.decisionId,
+      mode,
+      model: stateActivation.state.provenance.reasoningRuns.creativeDecision.model,
+      provider: stateActivation.state.provenance.reasoningRuns.creativeDecision.provider,
+      inputImages: inventory.imageCount,
+      publicNetworkRequests: industryBenchmark.publicNetworkRequests ?? null,
+      schemaValidationFailures: 0
+    });
+    result.durationMs = result.performance.totalDurationMs;
+    await publishDebugArtifacts(result, output, {
+      debug: Boolean(options.debug),
+      performanceJson
+    });
+    return { result, output };
+  } catch (error) {
+    const failedTrace = profiler.addFromError(error) || runtimeTraceFromError(error);
+    profiler.blockAfter(failedTrace?.stage || 'readAssets', error);
+    const performance = profiler.snapshot({
+      project: path.basename(projectRoot),
+      mode,
+      failed: true,
+      failureStage: failedTrace?.stage || null,
+      errorCode: error?.code || error?.name || 'PIPELINE_FAILED'
+    });
+    Object.defineProperty(error, 'performance', { value: performance, configurable: true });
+    if (performanceJson) {
+      await writeText(path.join(output, 'debug', 'performance.json'), `${JSON.stringify(performance, null, 2)}\n`).catch(() => {});
+    }
+    throw error;
+  }
 }

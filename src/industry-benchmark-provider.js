@@ -1,5 +1,13 @@
 import crypto from 'node:crypto';
 import { canonicalStringify } from './creative-decision-state.js';
+import {
+  attachRuntimeTrace,
+  attachResultRuntimeTrace,
+  failRuntimeTrace,
+  measureRuntimeStage,
+  startRuntimeStage,
+  validateRuntimeTrace
+} from './runtime-trace.js';
 
 export const INDUSTRY_BENCHMARK_PROVIDER_ID = 'industry-benchmark-provider-v4';
 
@@ -72,22 +80,71 @@ async function resolveResult(context, options) {
   return context.config?.reasoningProviderResults?.industryBenchmark;
 }
 
+function finalizeResult(supplied, brandUnderstanding, runtimeTrace) {
+  const result = clone(supplied);
+  delete result.runtimeTrace;
+  validateResult(result, brandUnderstanding);
+  result.resultDigest = crypto.createHash('sha256')
+    .update(canonicalStringify({ ...result, resultDigest: undefined }))
+    .digest('hex');
+  attachResultRuntimeTrace(result, runtimeTrace);
+  return deepFreeze(result);
+}
+
 /** Execute exactly one same-industry benchmark reasoning run. */
 export async function runIndustryBenchmarkProvider(context, options = {}) {
   if (!context?.brandUnderstanding || !context?.projectBrief || !context?.config) {
     throw new IndustryBenchmarkProviderError('INPUT_INVALID', 'Industry Benchmark 缺少 Brand Understanding、Project Brief 或项目配置');
   }
+  if (typeof options.reasoner === 'function') {
+    const measured = await measureRuntimeStage('industryBenchmark', {
+      label: 'Industry Benchmark',
+      provider: options.provider || 'web+ai',
+      inputCount: 1,
+      resultDetails: (result) => ({
+        outputCount: result.cases?.length ?? 0,
+        attempts: result.attempts || 1,
+        metrics: {
+          aiCalls: result.aiCalls ?? 1,
+          webSearchCalls: result.publicNetworkRequests ?? result.webSearchCalls ?? 0,
+          retries: result.retries || 0
+        }
+      })
+    }, async () => {
+      const supplied = await resolveResult(context, options);
+      if (!supplied) {
+        throw new IndustryBenchmarkProviderError('REASONING_RESULT_MISSING', 'Industry Benchmark Reasoning Provider 未返回结果');
+      }
+      return clone(supplied);
+    });
+    try {
+      return finalizeResult(measured.value, context.brandUnderstanding, measured.runtimeTrace);
+    } catch (error) {
+      throw attachRuntimeTrace(error, failRuntimeTrace(measured.runtimeTrace, error));
+    }
+  }
+
   const supplied = await resolveResult(context, options);
   if (!supplied) {
-    throw new IndustryBenchmarkProviderError(
+    const error = new IndustryBenchmarkProviderError(
       'REASONING_RESULT_MISSING',
       '缺少 Industry Benchmark Provider 结果；请配置 reasoning adapter 或 reasoningProviderResults.industryBenchmark'
     );
+    const span = startRuntimeStage('industryBenchmark', { label: 'Industry Benchmark', provider: 'provider-contract' });
+    throw attachRuntimeTrace(error, span.fail(error));
   }
-  const result = clone(supplied);
-  validateResult(result, context.brandUnderstanding);
-  result.resultDigest = crypto.createHash('sha256')
-    .update(canonicalStringify({ ...result, resultDigest: undefined }))
-    .digest('hex');
-  return deepFreeze(result);
+  try {
+    validateRuntimeTrace(supplied.runtimeTrace, {
+      stage: 'industryBenchmark',
+      path: 'industryBenchmark.runtimeTrace'
+    });
+  } catch (error) {
+    const span = startRuntimeStage('industryBenchmark', { label: 'Industry Benchmark', provider: 'provider-contract' });
+    throw attachRuntimeTrace(error, span.fail(error));
+  }
+  try {
+    return finalizeResult(supplied, context.brandUnderstanding, supplied.runtimeTrace);
+  } catch (error) {
+    throw attachRuntimeTrace(error, failRuntimeTrace(supplied.runtimeTrace, error));
+  }
 }

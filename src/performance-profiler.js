@@ -1,102 +1,88 @@
-import { performance } from 'node:perf_hooks';
+import {
+  DEFAULT_RUNTIME_THRESHOLDS,
+  RUNTIME_STAGE_LABELS,
+  RUNTIME_STAGE_ORDER,
+  RuntimeTraceCollector,
+  measureRuntimeStage,
+  measureRuntimeStageSync,
+  runtimeTraceFromError
+} from './runtime-trace.js';
 
-export const PERFORMANCE_PROFILE_SCHEMA_VERSION = '4.0.0';
+export const PERFORMANCE_PROFILE_SCHEMA_VERSION = '1.0.0';
+export const PERFORMANCE_STAGE_KEYS = RUNTIME_STAGE_ORDER;
+export const PERFORMANCE_STAGE_LABELS = RUNTIME_STAGE_LABELS;
 
-export const PERFORMANCE_STAGE_KEYS = Object.freeze([
-  'readAssets',
-  'brandUnderstanding',
-  'industryBenchmark',
-  'creativeDecision',
-  'compilerPipeline',
-  'creativeBrief',
-  'review'
-]);
-
-export const PERFORMANCE_STAGE_LABELS = Object.freeze({
-  readAssets: 'Read Assets',
-  brandUnderstanding: 'Brand Understanding',
-  industryBenchmark: 'Industry Benchmark',
-  creativeDecision: 'Creative Decision',
-  compilerPipeline: 'Compiler Pipeline',
-  creativeBrief: 'Creative Brief',
-  review: 'Review',
-  total: 'Total'
-});
-
-const STAGE_SET = new Set(PERFORMANCE_STAGE_KEYS);
-
-function seconds(milliseconds) {
-  return Number((milliseconds / 1000).toFixed(6));
+function pad(value) {
+  return String(value).padStart(2, '0');
 }
 
-function normalizedContext(context = {}) {
-  return {
-    decisionId: context.decisionId ?? null,
-    mode: context.mode ?? null,
-    model: context.model ?? null,
-    provider: context.provider ?? null,
-    inputImages: context.inputImages ?? null,
-    tokens: context.tokens ?? null,
-    publicNetworkRequests: context.publicNetworkRequests ?? null,
-    cacheHits: context.cacheHits ?? null,
-    retries: context.retries ?? null,
-    schemaValidationFailures: context.schemaValidationFailures ?? null
-  };
+function formatDuration(milliseconds) {
+  const totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return hours > 0 ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
 }
 
-export class PerformanceProfiler {
+/**
+ * Runtime Trace collector. It owns no CLI stopwatch. Actual work modules call
+ * syncStage/asyncStage themselves or contribute Provider-generated traces.
+ */
+export class PerformanceProfiler extends RuntimeTraceCollector {
   constructor(options = {}) {
-    this.now = options.now || (() => performance.now());
-    this.startedAt = this.now();
-    this.completedAt = null;
-    this.milliseconds = Object.fromEntries(PERFORMANCE_STAGE_KEYS.map((key) => [key, 0]));
+    super(options);
+    this.clock = options.clock;
+    this.stack = [];
   }
 
   assertStage(stage) {
-    if (!STAGE_SET.has(stage)) throw new Error(`未知 Performance Stage：${stage}`);
+    if (!RUNTIME_STAGE_ORDER.includes(stage)) throw new Error(`未知 Performance Stage：${stage}`);
   }
 
-  record(stage, startedAt) {
-    this.milliseconds[stage] += Math.max(0, this.now() - startedAt);
-  }
-
-  syncStage(stage, operation) {
+  syncStage(stage, operation, options = {}) {
     this.assertStage(stage);
-    const startedAt = this.now();
+    const parentSpan = this.stack.at(-1) || null;
     try {
-      return operation();
-    } finally {
-      this.record(stage, startedAt);
+      const provider = options.provider || (['compilerPipeline', 'creativeBrief'].includes(stage) ? 'compiler' : 'local');
+      const measured = measureRuntimeStageSync(stage, { ...options, provider, clock: options.clock || this.clock }, (span) => {
+        this.stack.push(span);
+        try { return operation(); }
+        finally { this.stack.pop(); }
+      });
+      if (parentSpan) parentSpan.addChild(measured.runtimeTrace);
+      else this.add(measured.runtimeTrace);
+      return measured.value;
+    } catch (error) {
+      const trace = runtimeTraceFromError(error);
+      if (trace) {
+        if (parentSpan) parentSpan.addChild(trace);
+        else this.add(trace);
+      }
+      throw error;
     }
   }
 
-  async asyncStage(stage, operation) {
+  async asyncStage(stage, operation, options = {}) {
     this.assertStage(stage);
-    const startedAt = this.now();
+    const parentSpan = this.stack.at(-1) || null;
     try {
-      return await operation();
-    } finally {
-      this.record(stage, startedAt);
+      const provider = options.provider || (['compilerPipeline', 'creativeBrief'].includes(stage) ? 'compiler' : 'local');
+      const measured = await measureRuntimeStage(stage, { ...options, provider, clock: options.clock || this.clock }, async (span) => {
+        this.stack.push(span);
+        try { return await operation(); }
+        finally { this.stack.pop(); }
+      });
+      if (parentSpan) parentSpan.addChild(measured.runtimeTrace);
+      else this.add(measured.runtimeTrace);
+      return measured.value;
+    } catch (error) {
+      const trace = runtimeTraceFromError(error);
+      if (trace) {
+        if (parentSpan) parentSpan.addChild(trace);
+        else this.add(trace);
+      }
+      throw error;
     }
-  }
-
-  complete() {
-    if (this.completedAt === null) this.completedAt = this.now();
-    return this;
-  }
-
-  snapshot(context = {}) {
-    this.complete();
-    const stages = Object.fromEntries(
-      PERFORMANCE_STAGE_KEYS.map((key) => [key, seconds(this.milliseconds[key])])
-    );
-    return Object.freeze({
-      schemaVersion: PERFORMANCE_PROFILE_SCHEMA_VERSION,
-      units: 'seconds',
-      ...stages,
-      total: seconds(Math.max(0, this.completedAt - this.startedAt)),
-      context: Object.freeze(normalizedContext(context))
-    });
   }
 }
 
@@ -105,9 +91,26 @@ export function createPerformanceProfiler(options = {}) {
 }
 
 export function formatPerformanceProfile(profile) {
-  const lines = ['Performance Profiling'];
-  for (const stage of [...PERFORMANCE_STAGE_KEYS, 'total']) {
-    lines.push(`${PERFORMANCE_STAGE_LABELS[stage]}: ${Number(profile[stage] || 0).toFixed(4)} s`);
+  const byStage = new Map((profile.stageSummary || []).map((item) => [item.stage, item]));
+  const lines = ['[Performance]', ''];
+  RUNTIME_STAGE_ORDER.forEach((stage, index) => {
+    const item = byStage.get(stage);
+    const duration = item ? formatDuration(item.durationMs) : '--:--';
+    const status = item && item.status !== 'success' ? `  ${item.status.toUpperCase()}` : '';
+    lines.push(`${pad(index + 1)} ${(RUNTIME_STAGE_LABELS[stage] || stage).padEnd(25)} ${duration}${status}`);
+  });
+  lines.push('----------------------------------------');
+  lines.push(`Total${' '.repeat(23)} ${formatDuration(profile.totalDurationMs || 0)}`);
+  if (profile.slowestStage) {
+    const slowest = byStage.get(profile.slowestStage);
+    lines.push('', 'Slowest Stage:');
+    lines.push(`${slowest?.label || profile.slowestStage}  ${formatDuration(profile.slowestStageDurationMs)} (${profile.slowestStagePercent}%)`);
+  }
+  for (const warning of profile.warnings || []) {
+    const marker = warning.severity === 'critical' ? 'CRITICAL' : 'WARNING';
+    lines.push(`⚠ ${warning.stage}: ${warning.message} — ${marker}`);
   }
   return lines.join('\n');
 }
+
+export { DEFAULT_RUNTIME_THRESHOLDS };

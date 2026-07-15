@@ -12,51 +12,67 @@ import {
 import { canonicalStringify } from '../src/creative-decision-state.js';
 import { createV4CompilerState } from './fixtures/v4-creative-decision-state.js';
 
-test('Performance Profiler accumulates fixed stages and total with deterministic units', async () => {
-  let clock = 0;
-  const profiler = createPerformanceProfiler({ now: () => clock });
+function deterministicClock(read) {
+  const base = Date.parse('2026-07-15T00:00:00.000Z');
+  return {
+    monotonicNow: read,
+    wallNow: () => new Date(base + read())
+  };
+}
 
-  profiler.syncStage('readAssets', () => { clock += 1500; });
-  profiler.syncStage('brandUnderstanding', () => { clock += 200; });
-  profiler.syncStage('brandUnderstanding', () => { clock += 300; });
-  await profiler.asyncStage('industryBenchmark', async () => { clock += 2000; });
+function summary(profile, stage) {
+  return profile.stageSummary.find((item) => item.stage === stage);
+}
+
+test('Runtime Trace aggregates module-owned stages without a CLI stopwatch', async () => {
+  let clock = 0;
+  const profiler = createPerformanceProfiler({ clock: deterministicClock(() => clock) });
+
+  profiler.syncStage('readAssets', () => { clock += 1500; }, { provider: 'filesystem' });
+  profiler.syncStage('brandUnderstanding', () => { clock += 200; }, { provider: 'ai' });
+  profiler.syncStage('brandUnderstanding', () => { clock += 300; }, { provider: 'ai' });
+  await profiler.asyncStage('industryBenchmark', async () => { clock += 2000; }, { provider: 'web+ai' });
   profiler.syncStage('compilerPipeline', () => {
     clock += 100;
     profiler.syncStage('creativeBrief', () => { clock += 250; });
     clock += 150;
   });
-  profiler.syncStage('review', () => { clock += 500; });
+  profiler.syncStage('designReview', () => { clock += 500; }, { provider: 'review' });
 
   const profile = profiler.snapshot({ decisionId: 'decision-profile', inputImages: 12 });
-  assert.deepEqual(Object.keys(profile), [
-    'schemaVersion', 'units', ...PERFORMANCE_STAGE_KEYS, 'total', 'context'
-  ]);
-  assert.equal(profile.readAssets, 1.5);
-  assert.equal(profile.brandUnderstanding, 0.5);
-  assert.equal(profile.industryBenchmark, 2);
-  assert.equal(profile.creativeDecision, 0);
-  assert.equal(profile.compilerPipeline, 0.5);
-  assert.equal(profile.creativeBrief, 0.25);
-  assert.equal(profile.review, 0.5);
-  assert.equal(profile.total, 5);
+  assert.equal(profile.schemaVersion, '1.0.0');
+  assert.equal(profile.totalDurationMs, 5000);
+  assert.equal(summary(profile, 'readAssets').durationMs, 1500);
+  assert.equal(summary(profile, 'brandUnderstanding').durationMs, 500);
+  assert.equal(summary(profile, 'brandUnderstanding').attempts, 2);
+  assert.equal(summary(profile, 'brandUnderstanding').duplicateInvocation, true);
+  assert.equal(summary(profile, 'industryBenchmark').durationMs, 2000);
+  assert.equal(summary(profile, 'compilerPipeline').durationMs, 500);
+  assert.equal(summary(profile, 'creativeBrief').durationMs, 250);
+  assert.equal(profile.slowestStage, 'industryBenchmark');
   assert.equal(profile.context.decisionId, 'decision-profile');
   assert.equal(profile.context.inputImages, 12);
-  assert.equal(profile.context.tokens, null);
+  assert.ok(profile.warnings.some((item) => item.code === 'DUPLICATE_STAGE_INVOCATION'));
   assert.equal(Object.isFrozen(profile), true);
 });
-
-test('Profiler rejects unknown stages and still records a failed stage duration', () => {
+test('Profiler rejects unknown stages and preserves failed stage trace', () => {
   let clock = 0;
-  const profiler = createPerformanceProfiler({ now: () => clock });
+  const profiler = createPerformanceProfiler({ clock: deterministicClock(() => clock) });
   assert.throws(() => profiler.syncStage('unknown', () => {}), /未知 Performance Stage/);
-  assert.throws(() => profiler.syncStage('review', () => {
+  assert.throws(() => profiler.syncStage('designReview', () => {
     clock += 400;
-    throw new Error('review failed');
+    const error = new Error('review failed');
+    error.code = 'REVIEW_FAILED';
+    throw error;
   }), /review failed/);
-  assert.equal(profiler.snapshot().review, 0.4);
+  const failed = summary(profiler.snapshot(), 'designReview');
+  assert.equal(failed.durationMs, 400);
+  assert.equal(failed.status, 'failed');
+  assert.equal(failed.errorCode, 'REVIEW_FAILED');
+  assert.equal(failed.errorMessage, 'review failed');
 });
 
-test('v4 Compiler profiling is separate from deterministic Compiler output', () => {
+test('v4 Compiler Runtime Trace is separate from deterministic Compiler output', () => {
   const state = createV4CompilerState();
   const direct = compileCreativeDecisionState(state);
   const profiled = profileCreativeDecisionState(state, { context: { inputImages: 3 } });
@@ -64,20 +80,24 @@ test('v4 Compiler profiling is separate from deterministic Compiler output', () 
   assert.equal(canonicalStringify(profiled.result), canonicalStringify(direct));
   assert.equal(profiled.performance.context.decisionId, state.meta.decisionId);
   assert.equal(profiled.performance.context.inputImages, 3);
-  assert.equal(typeof profiled.performance.compilerPipeline, 'number');
-  assert.equal(typeof profiled.performance.creativeBrief, 'number');
-  assert.ok(profiled.performance.compilerPipeline >= profiled.performance.creativeBrief);
-  for (const stage of ['readAssets', 'brandUnderstanding', 'industryBenchmark', 'creativeDecision', 'review']) {
-    assert.equal(profiled.performance[stage], 0);
-  }
+  assert.equal(typeof summary(profiled.performance, 'compilerPipeline').durationMs, 'number');
+  assert.equal(typeof summary(profiled.performance, 'creativeBrief').durationMs, 'number');
+  assert.ok(summary(profiled.performance, 'compilerPipeline').durationMs >= summary(profiled.performance, 'creativeBrief').durationMs);
   assert.equal('performance' in profiled.result, false);
 });
 
-test('console formatter always presents the seven stages and total', () => {
-  const profiler = createPerformanceProfiler({ now: () => 0 });
+test('console formatter presents all nine Runtime Trace stages, total and slowest stage', () => {
+  let clock = 0;
+  const profiler = createPerformanceProfiler({ clock: deterministicClock(() => clock) });
+  profiler.syncStage('readAssets', () => { clock += 1000; });
   const output = formatPerformanceProfile(profiler.snapshot());
   for (const label of [
     'Read Assets', 'Brand Understanding', 'Industry Benchmark', 'Creative Decision',
-    'Compiler Pipeline', 'Creative Brief', 'Review', 'Total'
-  ]) assert.match(output, new RegExp(`${label}:`));
+    'State Validation', 'Compiler Pipeline', 'Creative Brief', 'Design Review',
+    'Output Publishing', 'Total', 'Slowest Stage'
+  ]) assert.match(output, new RegExp(label));
+  assert.deepEqual(PERFORMANCE_STAGE_KEYS, [
+    'readAssets', 'brandUnderstanding', 'industryBenchmark', 'creativeDecision',
+    'stateValidation', 'compilerPipeline', 'creativeBrief', 'designReview', 'outputPublishing'
+  ]);
 });

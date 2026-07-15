@@ -28,6 +28,24 @@ function benchmarkEvidence(id, url, observedAt) {
   };
 }
 
+function runtimeTrace(stage, label, provider, startedAt, durationMs, counts = {}) {
+  return {
+    stage,
+    label,
+    startedAt,
+    endedAt: new Date(Date.parse(startedAt) + durationMs).toISOString(),
+    durationMs,
+    status: 'success',
+    attempts: 1,
+    provider,
+    inputCount: counts.inputCount ?? 1,
+    outputCount: counts.outputCount ?? 1,
+    errorCode: null,
+    errorMessage: null,
+    metrics: counts.metrics || {}
+  };
+}
+
 function v4Config() {
   const fixture = createV4CompilerState();
   const at = fixture.meta.createdAt;
@@ -43,6 +61,9 @@ function v4Config() {
     projectVersion: fixture.meta.projectVersion,
     reasoningProviderResults: {
       brandUnderstanding: {
+        runtimeTrace: runtimeTrace('brandUnderstanding', 'Brand Understanding', 'ai', at, 120000, {
+          inputCount: 1, outputCount: 1, metrics: { aiCalls: 1, fileReads: 1 }
+        }),
         runId: fixture.provenance.reasoningRuns.brandUnderstanding.runId,
         provider: 'test-reasoning-provider',
         model: 'test-model',
@@ -63,6 +84,9 @@ function v4Config() {
         sourceTimestamps: fixture.provenance.sourceTimestamps
       },
       industryBenchmark: {
+        runtimeTrace: runtimeTrace('industryBenchmark', 'Industry Benchmark', 'web+ai', new Date(Date.parse(at) + 120000).toISOString(), 180000, {
+          inputCount: 1, outputCount: 3, metrics: { aiCalls: 1, webSearchCalls: 3 }
+        }),
         runId: fixture.provenance.reasoningRuns.industryBenchmark.runId,
         provider: 'test-reasoning-provider',
         model: 'test-model',
@@ -76,6 +100,9 @@ function v4Config() {
         publicNetworkRequests: 3
       },
       creativeDecision: {
+        runtimeTrace: runtimeTrace('creativeDecision', 'Creative Decision', 'ai', new Date(Date.parse(at) + 300000).toISOString(), 90000, {
+          inputCount: 2, outputCount: 1, metrics: { aiCalls: 1 }
+        }),
         runId: fixture.provenance.reasoningRuns.creativeDecision.runId,
         provider: 'test-reasoning-provider',
         model: 'test-model',
@@ -109,9 +136,10 @@ test('v4 Bootstrap creates one Active State, compiles it and publishes four outp
   const input = path.join(projectRoot, 'input');
   const output = path.join(projectRoot, 'outputs');
   const configPath = path.join(projectRoot, 'masterpiece-os.json');
+  const config = v4Config();
   await fs.mkdir(input);
   await fs.writeFile(path.join(input, 'asset.png'), ONE_PIXEL_PNG);
-  await fs.writeFile(configPath, JSON.stringify(v4Config(), null, 2));
+  await fs.writeFile(configPath, JSON.stringify(config, null, 2));
 
   const first = await runV4Pipeline(input, { projectRoot, output, config: configPath, debug: true });
   assert.equal(first.result.version, '4.0.0');
@@ -122,6 +150,13 @@ test('v4 Bootstrap creates one Active State, compiles it and publishes four outp
   assert.deepEqual(first.result.outputFiles, V4_STANDARD_OUTPUT_FILES);
   assert.equal(first.result.review.status, 'PASS');
   assert.equal(first.result.performance.context.publicNetworkRequests, 3);
+  assert.equal(first.result.performance.schemaVersion, '1.0.0');
+  assert.deepEqual(
+    first.result.performance.stageSummary.map((item) => item.stage),
+    ['readAssets', 'brandUnderstanding', 'industryBenchmark', 'creativeDecision', 'stateValidation', 'compilerPipeline', 'creativeBrief', 'designReview', 'outputPublishing']
+  );
+  assert.equal(first.result.performance.stageSummary.find((item) => item.stage === 'brandUnderstanding').durationMs, 120000);
+  assert.equal(first.result.performance.stageSummary.find((item) => item.stage === 'industryBenchmark').provider, 'web+ai');
 
   const active = await readCreativeDecisionState(projectRoot, { required: true });
   assert.equal(active.meta.stateDigest, first.result.state.meta.stateDigest);
@@ -134,9 +169,16 @@ test('v4 Bootstrap creates one Active State, compiles it and publishes four outp
   assert.equal(debug.version, '4.0.0');
   assert.equal(debug.compilation.creativeBrief.runtimeGptBrief.content, '[runtime-only content omitted from persistence]');
 
+  config.reasoningProviderResults.brandUnderstanding.runtimeTrace.durationMs += 5000;
+  config.reasoningProviderResults.brandUnderstanding.runtimeTrace.endedAt = new Date(
+    Date.parse(config.reasoningProviderResults.brandUnderstanding.runtimeTrace.startedAt)
+      + config.reasoningProviderResults.brandUnderstanding.runtimeTrace.durationMs
+  ).toISOString();
+  await fs.writeFile(configPath, JSON.stringify(config, null, 2));
   const second = await runV4Pipeline(input, { projectRoot, output, config: configPath });
   assert.equal(second.result.stateActivation.changed, false);
   assert.equal(second.result.state.meta.stateDigest, first.result.state.meta.stateDigest);
+  assert.equal(second.result.performance.stageSummary.find((item) => item.stage === 'brandUnderstanding').durationMs, 125000);
   await assert.rejects(fs.access(path.join(output, 'debug', 'performance.json')), { code: 'ENOENT' });
 });
 
@@ -146,12 +188,17 @@ test('v4 Bootstrap fails closed when a Reasoning Provider result is missing', as
   await fs.mkdir(input);
   await fs.writeFile(path.join(input, 'asset.png'), ONE_PIXEL_PNG);
   const configPath = path.join(projectRoot, 'masterpiece-os.json');
+  const output = path.join(projectRoot, 'outputs');
   await fs.writeFile(configPath, JSON.stringify({ projectId: 'missing', projectVersion: '4.0-test' }));
   await assert.rejects(
-    runV4Pipeline(input, { projectRoot, config: configPath }),
+    runV4Pipeline(input, { projectRoot, output, config: configPath, profile: true }),
     (error) => error?.code === 'REASONING_RESULT_MISSING'
   );
   assert.equal(await readCreativeDecisionState(projectRoot), null);
+  const failedProfile = JSON.parse(await fs.readFile(path.join(output, 'debug', 'performance.json'), 'utf8'));
+  assert.equal(failedProfile.stageSummary.find((item) => item.stage === 'brandUnderstanding').status, 'failed');
+  assert.equal(failedProfile.stageSummary.find((item) => item.stage === 'industryBenchmark').status, 'blocked');
+  assert.equal(failedProfile.context.failureStage, 'brandUnderstanding');
 });
 
 test('default analyze CLI executes the v4 Pipeline instead of the legacy v3.3 path', async () => {

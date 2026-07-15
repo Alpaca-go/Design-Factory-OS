@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { IMAGE_EXTENSIONS, relativePortable } from './utils.js';
 import { parseFile } from './parsers.js';
+import { measureRuntimeStage } from './runtime-trace.js';
 
 const TYPE_NAMES = {
   '.zip': 'ZIP 压缩包', '.pdf': 'PDF 文档', '.ppt': 'PPT 演示文稿', '.pptx': 'PPT 演示文稿',
@@ -53,4 +54,18 @@ export async function inventoryProject(root, options = {}) {
     root: resolved, totalFiles: items.length, totalBytes: items.reduce((sum, x) => sum + x.bytes, 0),
     imageCount: items.filter((x) => x.isImage).length, byType, items
   };
+}
+
+/** Inventory owns the readAssets timer because it performs the filesystem work. */
+export async function inventoryProjectWithTrace(root, options = {}) {
+  const measured = await measureRuntimeStage('readAssets', {
+    label: 'Read Assets',
+    provider: 'filesystem',
+    resultDetails: (result) => ({
+      inputCount: result.totalFiles,
+      outputCount: result.items.length,
+      metrics: { fileReads: result.totalFiles, retries: 0 }
+    })
+  }, () => inventoryProject(root, options));
+  return { inventory: measured.value, runtimeTrace: measured.runtimeTrace };
 }
