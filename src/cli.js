@@ -5,6 +5,7 @@ import { runPipeline } from './pipeline.js';
 import { initializeProject, formatInitializationSummary } from './project-initializer.js';
 import { selectProject } from './project-selector.js';
 import { ensureDir, writeText } from './utils.js';
+import { formatPerformanceProfile } from './performance-profiler.js';
 
 const HELP = `Masterpiece-OS v3.3 — Creative Brief Operating System
 
@@ -39,8 +40,8 @@ Quick 仅输出：
   -c, --config       JSON 配置文件；项目模式默认读取项目根目录 masterpiece-os.json
   --mode             quick、standard（默认）或 studio
   --online           联网检索对标候选；失败时使用内置案例库
-  --debug            额外输出 masterpiece-os-result.json
-  --profile          控制台显示耗时，并写入 outputs/debug/performance.json
+  --debug            额外输出 masterpiece-os-result.json 与 debug/performance.json
+  --profile          兼容选项：写入 debug/performance.json；耗时默认显示在控制台
   --json             inventory 命令输出 JSON
 `;
 
@@ -115,18 +116,7 @@ function initialConfig(name) {
 }
 
 function printPerformance(performance) {
-  const labels = [
-    ['readAssets', 'Stage 1 Read Assets'],
-    ['intent', 'Stage 2 Original Intent'],
-    ['benchmark', 'Stage 3 Benchmark'],
-    ['decision', 'Stage 4 Creative Decision'],
-    ['analysis', 'Stage 5 Analysis'],
-    ['briefCompiler', 'Stage 6 Brief Compiler'],
-    ['review', 'Stage 7 Review'],
-    ['total', 'Total']
-  ];
-  console.log('Performance Profiling');
-  for (const [key, label] of labels) console.log(`${label}: ${Number(performance[key] || 0).toFixed(4)} s`);
+  console.log(formatPerformanceProfile(performance));
 }
 
 async function createStandaloneProject(dir, name) {

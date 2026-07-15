@@ -11,7 +11,11 @@ const briefSections = [
   'Creative Vision', 'Brand Personality', 'Approved Brand DNA', 'Creative Principles',
   'Must Keep', 'Can Explore', 'Photography Direction', 'Design Goal'
 ];
-const performanceStages = ['readAssets', 'intent', 'benchmark', 'decision', 'analysis', 'briefCompiler', 'review', 'total'];
+const performanceStages = [
+  'readAssets', 'brandUnderstanding', 'industryBenchmark', 'creativeDecision',
+  'compilerPipeline', 'creativeBrief', 'review', 'total'
+];
+const performanceProfileKeys = ['schemaVersion', 'units', ...performanceStages, 'context'];
 
 for (const project of projects) {
   test(`v3.3 Standard 长期回归：${project}`, async () => {
@@ -110,7 +114,10 @@ test('--profile 写入 debug/performance.json 且不增加正式输出', async (
   const output = await fs.mkdtemp(path.join(os.tmpdir(), 'masterpiece-os-profile-'));
   const { result } = await runPipeline(path.resolve('examples', '匿名食品Demo'), { output, profile: true });
   const profile = JSON.parse(await fs.readFile(path.join(output, 'debug', 'performance.json'), 'utf8'));
-  assert.deepEqual(Object.keys(profile), performanceStages);
+  assert.deepEqual(Object.keys(profile), performanceProfileKeys);
+  assert.equal(profile.schemaVersion, '4.0.0');
+  assert.equal(profile.units, 'seconds');
+  assert.equal(profile.context.inputImages, result.inventory.imageCount);
   assert.deepEqual(result.outputFiles, standardFiles);
   assert.equal((await fs.readdir(output)).filter((name) => name.endsWith('.md')).length, 4);
 });
@@ -136,4 +143,7 @@ test('调试模式输出 v3.3 结构化运行数据', async () => {
   assert.ok(json.analysis.originalIntent.statement);
   assert.ok(json.creativeBrief.runtimeGptBrief);
   assert.deepEqual(json.outputFiles, standardFiles);
+  const profile = JSON.parse(await fs.readFile(path.join(output, 'debug', 'performance.json'), 'utf8'));
+  assert.deepEqual(Object.keys(profile), performanceProfileKeys);
+  assert.deepEqual(json.performance, profile);
 });

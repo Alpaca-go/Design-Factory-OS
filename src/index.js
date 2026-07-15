@@ -64,5 +64,15 @@ export {
   COMPILER_PIPELINE_ID,
   COMPILER_STAGE_ORDER,
   compileCreativeDecisionState,
-  compileActiveCreativeDecision
+  compileActiveCreativeDecision,
+  profileCreativeDecisionState,
+  profileActiveCreativeDecision
 } from './compiler-pipeline.js';
+export {
+  PERFORMANCE_PROFILE_SCHEMA_VERSION,
+  PERFORMANCE_STAGE_KEYS,
+  PERFORMANCE_STAGE_LABELS,
+  PerformanceProfiler,
+  createPerformanceProfiler,
+  formatPerformanceProfile
+} from './performance-profiler.js';

@@ -150,7 +150,7 @@ export async function renderAll(result, output, options = {}) {
     await fs.rm(path.join(output, name), { force: true });
   }
   if (!options.debug) await fs.rm(path.join(output, 'masterpiece-os-result.json'), { force: true });
-  if (!options.profile) {
+  if (!options.performanceJson) {
     await fs.rm(path.join(output, 'debug', 'performance.json'), { force: true });
     await removeEmptyDebugDir(output);
   }
@@ -164,7 +164,7 @@ export async function renderAll(result, output, options = {}) {
   const names = result.mode === 'quick' ? QUICK_OUTPUT_FILES : STANDARD_OUTPUT_FILES;
   for (const name of names) await writeText(path.join(output, name), allFiles[name]);
   result.outputFiles = names;
-  if (options.profile) {
+  if (options.performanceJson) {
     await writeText(path.join(output, 'debug', 'performance.json'), `${JSON.stringify(result.performance, null, 2)}\n`);
   }
   if (options.debug) {

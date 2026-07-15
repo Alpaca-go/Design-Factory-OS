@@ -136,15 +136,15 @@ Original Intent
 
 ## Performance Profiling
 
-每次运行都会在控制台显示七阶段耗时：Read Assets、Original Intent、Benchmark、Creative Decision、Analysis、Brief Compiler 与 Review。
+每次运行都会在控制台显示七阶段耗时：Read Assets、Brand Understanding、Industry Benchmark、Creative Decision、Compiler Pipeline、Creative Brief 与 Review，以及 Total。
 
 需要结构化调试数据时：
 
 ```bash
-npm run analyze -- --project "我的品牌" --profile
+npm run analyze -- --project "我的品牌" --debug
 ```
 
-这会生成 `outputs/debug/performance.json`。它是调试数据，不属于正式输出，也不会写入任何项目报告。
+这会生成 `outputs/debug/performance.json`。它是调试数据，不属于正式输出，也不会写入任何项目报告。旧 `--profile` 参数继续作为只写 Performance JSON 的兼容入口。
 
 ## GPT 协作边界
 

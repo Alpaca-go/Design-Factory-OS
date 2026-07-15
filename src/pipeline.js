@@ -1,5 +1,4 @@
 import path from 'node:path';
-import { performance } from 'node:perf_hooks';
 import { inventoryProject } from './inventory.js';
 import { analyzeBenchmarks, buildBrandLock } from './analyze.js';
 import {
@@ -13,6 +12,7 @@ import { buildBriefReview } from './brief-review.js';
 import { renderAll } from './report.js';
 import { readJson } from './utils.js';
 import { loadProjectBrief } from './project-brief.js';
+import { createPerformanceProfiler } from './performance-profiler.js';
 
 const MODE_ALIASES = {
   quick: 'quick', fast: 'quick',
@@ -27,31 +27,14 @@ export function normalizeMode(value = 'standard') {
   throw new Error(`未知分析模式：${value}；v3.3 支持 quick、standard、studio`);
 }
 
-function profiler() {
-  const values = {};
-  async function asyncStage(name, operation) {
-    const started = performance.now();
-    try { return await operation(); }
-    finally { values[name] = Number(((performance.now() - started) / 1000).toFixed(6)); }
-  }
-  function syncStage(name, operation) {
-    const started = performance.now();
-    try { return operation(); }
-    finally { values[name] = Number(((performance.now() - started) / 1000).toFixed(6)); }
-  }
-  return { values, asyncStage, syncStage };
-}
-
 export async function runPipeline(input, options = {}) {
-  const totalStarted = performance.now();
+  const timing = createPerformanceProfiler();
   const root = path.resolve(input);
   const projectBrief = await loadProjectBrief(root, options);
   const mode = normalizeMode(options.mode || projectBrief.defaultMode);
   const configPath = options.config ? path.resolve(options.config) : path.join(root, 'masterpiece-os.json');
   const config = await readJson(configPath, {});
   const output = path.resolve(options.output || path.join(root, options.outputName || 'outputs'));
-  const timing = profiler();
-
   const { inventory, brandLock } = await timing.asyncStage('readAssets', async () => {
     const inventoryResult = await inventoryProject(root, {
       ignore: [options.outputName || 'outputs', 'masterpiece-os-output', '.masterpiece-os'],
@@ -60,8 +43,8 @@ export async function runPipeline(input, options = {}) {
     return { inventory: inventoryResult, brandLock: buildBrandLock(inventoryResult, config) };
   });
 
-  const originalIntent = timing.syncStage('intent', () => buildOriginalIntent(config));
-  const { benchmarks, industryBenchmark } = await timing.asyncStage('benchmark', async () => {
+  const originalIntent = timing.syncStage('brandUnderstanding', () => buildOriginalIntent(config));
+  const { benchmarks, industryBenchmark } = await timing.asyncStage('industryBenchmark', async () => {
     const benchmarkOptions = {
       ...options,
       online: options.online === true || mode === 'studio' || projectBrief.requirements.onlineBenchmarks,
@@ -74,12 +57,12 @@ export async function runPipeline(input, options = {}) {
     return { benchmarks: benchmarkResult, industryBenchmark: buildIndustryBenchmark(benchmarkResult, config) };
   });
 
-  const brandDnaDecision = timing.syncStage('decision', () => {
+  const brandDnaDecision = timing.syncStage('creativeDecision', () => {
     const creativeDecision = buildCreativeDecision(config);
     return buildBrandDnaDecision(brandLock, benchmarks, config, { originalIntent, industryBenchmark, creativeDecision });
   });
 
-  const { creativeReasoning, analysis } = timing.syncStage('analysis', () => {
+  const { creativeReasoning, analysis } = timing.syncStage('brandUnderstanding', () => {
     const reasoning = buildCreativeReasoning(inventory, brandLock, benchmarks, config, brandDnaDecision);
     return {
       creativeReasoning: reasoning,
@@ -87,8 +70,10 @@ export async function runPipeline(input, options = {}) {
     };
   });
 
-  const creativeBrief = timing.syncStage('briefCompiler', () => compileCreativeBrief(analysis));
-  const designDecisions = buildDesignDecisions(analysis, creativeBrief);
+  const { creativeBrief, designDecisions } = timing.syncStage('compilerPipeline', () => {
+    const brief = timing.syncStage('creativeBrief', () => compileCreativeBrief(analysis));
+    return { creativeBrief: brief, designDecisions: buildDesignDecisions(analysis, brief) };
+  });
   const result = {
     version: '3.3.0', mode, generatedAt: new Date().toISOString(), configPath, config, projectBrief,
     inventory, brandLock, benchmarks, brandDnaDecision, creativeReasoning,
@@ -96,12 +81,11 @@ export async function runPipeline(input, options = {}) {
   };
   const briefReview = timing.syncStage('review', () => buildBriefReview(result));
   Object.assign(result, { briefReview });
-  timing.values.total = Number(((performance.now() - totalStarted) / 1000).toFixed(6));
-  result.performance = timing.values;
-  result.durationMs = Math.round(timing.values.total * 1000);
+  result.performance = timing.snapshot({ mode, inputImages: inventory.imageCount });
+  result.durationMs = Math.round(result.performance.total * 1000);
   const files = await renderAll(result, output, {
     debug: Boolean(options.debug),
-    profile: Boolean(options.profile)
+    performanceJson: Boolean(options.debug || options.profile)
   });
   result.outputFiles = files;
   return { result, output };
