@@ -54,7 +54,7 @@ export async function runPipeline(input, options = {}) {
 
   const { inventory, brandLock } = await timing.asyncStage('readAssets', async () => {
     const inventoryResult = await inventoryProject(root, {
-      ignore: [options.outputName || 'outputs', 'masterpiece-os-output'],
+      ignore: [options.outputName || 'outputs', 'masterpiece-os-output', '.masterpiece-os'],
       ignorePaths: [output]
     });
     return { inventory: inventoryResult, brandLock: buildBrandLock(inventoryResult, config) };

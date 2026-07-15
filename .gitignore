@@ -1,6 +1,7 @@
 node_modules/
 masterpiece-os-output/
 coverage/
+.masterpiece-os/
 .DS_Store
 *.log
 
