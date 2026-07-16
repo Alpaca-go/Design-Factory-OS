@@ -114,11 +114,15 @@ export async function runV5Pipeline(input, options = {}) {
     error.code = 'TIME_BUDGET_EXCEEDED';
     throw error;
   }
-  modelCallStarted = !cachedResult && typeof options.deepCreativeDirectorReasoner === 'function';
+  const reasoner = !cachedResult && typeof options.deepCreativeDirectorReasoner !== 'function'
+    && typeof options.deepCreativeDirectorReasonerFactory === 'function'
+    ? options.deepCreativeDirectorReasonerFactory()
+    : options.deepCreativeDirectorReasoner;
+  modelCallStarted = !cachedResult && typeof reasoner === 'function';
   const creativeDirector = await runDeepCreativeDirector(
     { inventory, config, projectRoot, projectName, visualPreparation, benchmarkPreparation },
     {
-      reasoner: options.deepCreativeDirectorReasoner,
+      reasoner,
       sessionGuard: options.sessionGuard,
       prompt,
       cachedResult,

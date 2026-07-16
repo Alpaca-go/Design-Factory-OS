@@ -1,0 +1,38 @@
+{
+  "name": "masterpiece-os-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Masterpiece OS Desktop — multimodal API client",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "npm run typecheck && electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "package:dir": "npm run build && electron-builder --dir",
+    "package:win": "npm run build && node scripts/package-win.mjs"
+  },
+  "dependencies": {
+    "adm-zip": "^0.6.0",
+    "dompurify": "^3.4.12",
+    "marked": "^18.0.6",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "sharp": "^0.35.3"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.6"
+  }
+}

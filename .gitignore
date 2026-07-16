@@ -5,6 +5,12 @@ coverage/
 .runtime/
 .DS_Store
 *.log
+.env
+.env.*
+!.env.example
+apps/desktop/out/
+apps/desktop/release/
+apps/desktop/.vite/
 
 # 项目数据永远保留在本地
 Masterpiece-OS-Projects/

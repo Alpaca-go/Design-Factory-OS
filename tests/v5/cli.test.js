@@ -43,3 +43,20 @@ test('default v5 CLI rejects v4 mode selection', async () => {
     (error) => /--mode 已在 v5 废弃/.test(error.stderr)
   );
 });
+
+test('v5 CLI accepts provider and force-reasoning and reports a missing Qwen key safely', async () => {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'masterpiece-v5-provider-cli-'));
+  const input = path.join(projectRoot, 'input');
+  await fs.mkdir(input);
+  await fs.writeFile(path.join(input, 'asset.svg'), '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>');
+  const cli = path.resolve('bin', 'masterpiece-os.js');
+  await assert.rejects(
+    execFileAsync(process.execPath, [
+      cli, 'analyze', input, '--provider', 'qwen', '--force-reasoning'
+    ], {
+      cwd: path.resolve('.'), encoding: 'utf8',
+      env: { ...process.env, MASTERPIECE_PROVIDER: '', QWEN_API_KEY: '', QWEN_MODEL: 'qwen-vl-test' }
+    }),
+    (error) => /未检测到 QWEN_API_KEY/.test(error.stderr) && !/qwen-vl-test.*QWEN_API_KEY/.test(error.stderr)
+  );
+});

@@ -4,7 +4,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPOSITORY_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
-const PROMPT_ROOT = path.join(REPOSITORY_ROOT, 'prompts', 'v5');
+const PROMPT_ROOT = process.env.MASTERPIECE_PROMPT_ROOT
+  ? path.resolve(process.env.MASTERPIECE_PROMPT_ROOT)
+  : path.join(REPOSITORY_ROOT, 'prompts', 'v5');
 
 const PROMPT_FILES = Object.freeze({
   system: 'deep-creative-director.md',

@@ -11,7 +11,11 @@
     "validate": "node ./bin/masterpiece-os.js validate",
     "test:v5": "node --test tests/v5/*.test.js",
     "test": "node --test",
-    "test:regression": "node ./tests/regression-runner.js"
+    "test:regression": "node ./tests/regression-runner.js",
+    "desktop:dev": "npm --prefix apps/desktop run dev",
+    "desktop:build": "npm --prefix apps/desktop run build",
+    "desktop:test": "npm --prefix apps/desktop test",
+    "desktop:package": "npm --prefix apps/desktop run package:win"
   },
   "engines": { "node": ">=20.9.0" },
   "license": "MIT",

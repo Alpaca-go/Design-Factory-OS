@@ -142,3 +142,6 @@ export { prepareVisualAssets } from './v5/preparation/visual-preparation.js';
 export { prepareBenchmarks } from './v5/preparation/benchmark-preparation.js';
 export { readReasoningCache, writeReasoningCache } from './v5/preparation/reasoning-cache.js';
 export { runV5Pipeline, v5ConfigExists } from './v5/bootstrap.js';
+export { ReasonerFactoryError, createReasonerFromEnvironment } from './v5/adapters/reasoner-factory.js';
+export { QwenReasonerError, createQwenReasoner } from './v5/adapters/qwen-reasoner.js';
+export { CodexHostReasonerError, createCodexHostReasoner } from './v5/adapters/codex-host-reasoner.js';

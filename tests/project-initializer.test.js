@@ -131,11 +131,14 @@ test('根目录与旧 inputs 同名时在移动前发现计划冲突', async () 
 test('项目根目录配置与隐藏文件保留原位', async () => {
   const f = await fixture();
   await fs.writeFile(path.join(f.projectRoot, 'masterpiece-os.json'), '{}');
+  await fs.writeFile(path.join(f.projectRoot, 'masterpiece-os-v5.json'), '{}');
   await fs.writeFile(path.join(f.projectRoot, '.local-note'), 'private');
   await initializeProject(f.projectRoot, { projectsRoot: f.projectsRoot });
   assert.equal(await present(path.join(f.projectRoot, 'masterpiece-os.json')), true);
+  assert.equal(await present(path.join(f.projectRoot, 'masterpiece-os-v5.json')), true);
   assert.equal(await present(path.join(f.projectRoot, '.local-note')), true);
   assert.equal(await present(path.join(f.projectRoot, 'input', 'masterpiece-os.json')), false);
+  assert.equal(await present(path.join(f.projectRoot, 'input', 'masterpiece-os-v5.json')), false);
 });
 
 test('项目级 Project Brief 保留在根目录且不作为视觉素材移动', async () => {

@@ -31,6 +31,22 @@ v5 不再接受 Quick / Standard / Studio 模式，也不计算 Creative Freedom
 
 项目配置模板见 `templates/masterpiece-os-v5.json`。宿主可注入单一 `deepCreativeDirectorReasoner`，或从配置读取一份已完成的 `deepCreativeDirectorResult`。Sprint 2 已接入完整 Prompt；Sprint 2.1 增加批量视觉准备、Benchmark 缓存、精确结果缓存和真实端到端计时。
 
+### Reasoner Provider
+
+v5 CLI 可通过统一 Reasoner 接口选择模型。当前提供 Qwen API Adapter，以及仅供具备显式宿主 Runner 时使用的 Codex Host Bridge：
+
+```powershell
+$env:MASTERPIECE_PROVIDER="qwen"
+$env:QWEN_API_KEY="你的 API Key"
+$env:QWEN_MODEL="控制台实际开放的多模态模型 ID"
+$env:QWEN_BASE_URL="你的百炼 OpenAI-compatible base URL"
+npm run analyze -- --project "我的品牌" --provider qwen --force-reasoning
+```
+
+`--force-reasoning` 会跳过精确推理缓存。未使用该选项且 Prompt 完全一致时，CLI 不会创建 Adapter 或发起模型请求。API Key 只从环境变量读取，不进入项目配置、输出或运行日志。可复制 `.env.example` 查看变量名；项目不会自动加载 `.env`。
+
+Codex Host 不假设存在未公开或不稳定的 Headless CLI。只有嵌入宿主显式提供 `hostRunner` 时才能使用 `codex-host`；否则请将 Codex 分析记录为人工 `Agent-hosted baseline`。
+
 v5 默认只声明一份正式输出：
 
 ```text

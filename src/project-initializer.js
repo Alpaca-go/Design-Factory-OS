@@ -3,7 +3,7 @@ import path from 'node:path';
 import { assertSafeProjectRoot, DEFAULT_PROJECTS_ROOT } from './project-paths.js';
 
 const RESERVED = new Set([
-  'input', 'outputs', 'masterpiece-os.json', '.gitkeep',
+  'input', 'outputs', 'masterpiece-os.json', 'masterpiece-os-v5.json', '.gitkeep',
   'project brief.md', 'project-brief.md'
 ]);
 const SYSTEM_FILES = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini']);
