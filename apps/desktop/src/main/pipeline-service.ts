@@ -2,7 +2,12 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { app } from 'electron';
-import type { AnalysisProgress, AnalysisResult, PublicSettings } from '../shared/types';
+import type {
+  AnalysisProgress,
+  AnalysisResult,
+  NormalizedModelUsage,
+  PublicSettings
+} from '../shared/types';
 import {
   buildFusionEnhancedTask,
   buildReportFilename,
@@ -14,6 +19,7 @@ import {
 } from './analysis-contract';
 import type { ProjectStore } from './project-store';
 import type { ProviderCredentials } from './settings-store';
+import { classifyUsageError, type UsageTracker } from './usage-tracker';
 
 // Bundled from the repository core. Desktop remains the consumer, never the dependency.
 // @ts-ignore — JavaScript core module intentionally has no TypeScript declaration file.
@@ -61,7 +67,8 @@ export function createPipelineService(
   projects: ProjectStore,
   readCredentials: CredentialsReader,
   readSettings: SettingsReader,
-  emitProgress: ProgressSink
+  emitProgress: ProgressSink,
+  usageTracker?: UsageTracker
 ) {
   const active = new Map<string, ActiveRun>();
 
@@ -77,6 +84,7 @@ export function createPipelineService(
     const credentials = await readCredentials(apiProfileId || project.apiProfileId || undefined);
     const settings = await readSettings();
     const projectPaths = await projects.paths(projectId);
+    const analysisRunId = crypto.randomUUID();
     const controller = new AbortController();
     const startedAt = new Date().toISOString();
     const started = performance.now();
@@ -108,6 +116,7 @@ export function createPipelineService(
       model: credentials.model,
       apiProfileId: credentials.profileId,
       reasoningQualityTier: credentials.qualityTier,
+      lastAnalysisRunId: analysisRunId,
       lastError: null
     });
 
@@ -156,15 +165,38 @@ export function createPipelineService(
         baseUrl: credentials.baseUrl
       });
       const reasoner = async (context: Record<string, unknown> & { signal: AbortSignal }) => {
+        const usageCall = await usageTracker?.startCall({
+          analysisRunId,
+          projectId,
+          projectName: project.projectName,
+          analysisMode: 'visual-evolution',
+          pipelineStage: 'visual.deep-reasoning',
+          credentials
+        }) || null;
         progress('building-prompt', '正在构建分析任务');
         await Promise.resolve();
         progress('reasoning', '正在执行深度创意导演分析', {
           cacheStatus: forceReasoning ? 'forced' : 'miss'
         });
-        const supplied = await baseReasoner({
-          ...context,
-          signal: combineSignals(context.signal, controller.signal)
-        });
+        let supplied;
+        try {
+          supplied = await baseReasoner({
+            ...context,
+            signal: combineSignals(context.signal, controller.signal)
+          });
+          await usageTracker?.completeCall(usageCall, {
+            status: 'success',
+            usage: supplied.usage as NormalizedModelUsage,
+            providerRequestId: supplied.providerRequestId,
+            httpStatus: supplied.httpStatus
+          });
+        } catch (error) {
+          await usageTracker?.completeCall(
+            usageCall,
+            classifyUsageError(error, controller.signal.aborted)
+          );
+          throw error;
+        }
         progress('generating-report', '正在生成视觉方案升级报告');
         return { ...supplied, provider: providerLabel(credentials.provider) };
       };
@@ -203,6 +235,7 @@ export function createPipelineService(
         ...execution.result.runReport,
         outputFile: reportFilename,
         analysisProfile: 'fusion-enhanced',
+        analysisRunId,
         desktopProjectId: projectId,
         apiProfileId: credentials.profileId,
         provider: credentials.provider,
@@ -229,6 +262,7 @@ export function createPipelineService(
         model: credentials.model,
         apiProfileId: credentials.profileId,
         reasoningQualityTier: credentials.qualityTier,
+        lastAnalysisRunId: analysisRunId,
         lastRunAt: completedAt,
         lastDurationMs: durationMs,
         lastReportFilename: reportFilename,
@@ -241,6 +275,7 @@ export function createPipelineService(
       });
       return {
         project: updated,
+        analysisRunId,
         mode: 'visual-evolution',
         reportFilename,
         reportPath,

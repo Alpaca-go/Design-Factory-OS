@@ -131,25 +131,3 @@ ${corpus.mergedText}`;
     corpusDigestInput: corpus.mergedText
   });
 }
-
-export function buildBrandDnaRepairPrompt(originalPrompt, invalidOutput, validationError) {
-  return Object.freeze({
-    messages: Object.freeze([
-      originalPrompt.messages[0],
-      Object.freeze({
-        role: 'user',
-        content: `${originalPrompt.messages[1].content}
-
----
-
-上一次输出未通过 Schema 校验。
-错误：${validationError}
-
-无效输出：
-${String(invalidOutput).slice(0, 40_000)}
-
-请只返回修复后的完整 JSON 对象。不得省略字段，不要 Markdown 代码围栏。`
-      })
-    ])
-  });
-}

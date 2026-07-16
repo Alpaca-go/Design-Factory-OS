@@ -29,7 +29,9 @@ const api: DesktopApi = {
     clearDocuments: (projectId) => ipcRenderer.invoke('projects:clear-documents', projectId)
   },
   analysis: {
-    start: (projectId, forceReasoning, apiProfileId) => ipcRenderer.invoke('analysis:start', projectId, forceReasoning, apiProfileId),
+    start: (projectId, forceReasoning, apiProfileId, resumeMode) => (
+      ipcRenderer.invoke('analysis:start', projectId, forceReasoning, apiProfileId, resumeMode)
+    ),
     cancel: (projectId) => ipcRenderer.invoke('analysis:cancel', projectId),
     onProgress(callback) {
       const listener = (_event: Electron.IpcRendererEvent, progress: AnalysisProgress) => callback(progress);
@@ -42,6 +44,18 @@ const api: DesktopApi = {
     rename: (projectId, filename) => ipcRenderer.invoke('report:rename', projectId, filename),
     export: (projectId) => ipcRenderer.invoke('report:export', projectId),
     openFolder: (projectId) => ipcRenderer.invoke('report:open-folder', projectId)
+  },
+  usage: {
+    listRecords: (query) => ipcRenderer.invoke('usage:list-records', query),
+    getRunSummary: (analysisRunId) => ipcRenderer.invoke('usage:get-run-summary', analysisRunId),
+    getStageDetails: (analysisRunId) => ipcRenderer.invoke('usage:get-stage-details', analysisRunId),
+    getMonthSummary: (month) => ipcRenderer.invoke('usage:get-month-summary', month),
+    exportCsv: (query) => ipcRenderer.invoke('usage:export-csv', query),
+    openDatabaseFolder: () => ipcRenderer.invoke('usage:open-database-folder'),
+    clearHistory: () => ipcRenderer.invoke('usage:clear-history'),
+    listPricingRules: () => ipcRenderer.invoke('usage:list-pricing-rules'),
+    savePricingRule: (input) => ipcRenderer.invoke('usage:save-pricing-rule', input),
+    deletePricingRule: (ruleId) => ipcRenderer.invoke('usage:delete-pricing-rule', ruleId)
   },
   files: {
     getPathForFile: (file) => webUtils.getPathForFile(file)

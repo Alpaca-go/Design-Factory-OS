@@ -6,6 +6,15 @@ export type AnalysisMode = 'visual-evolution' | 'brand-dna';
 export type AnalysisProfile = 'fusion-enhanced' | 'brand-dna';
 export type ConnectionCapability = 'vision' | 'text';
 export type ReasoningQualityTier = 'benchmark' | 'qualified' | 'experimental' | 'unsupported';
+export type BrandDnaResumeMode = 'continue' | 'rerun-current' | 'restart-all';
+export type UsageSource = 'provider' | 'provider-partial' | 'estimated' | 'missing';
+export type ModelCallStatus = 'pending' | 'success' | 'failed' | 'cancelled' | 'timeout';
+export type CostEstimateStatus =
+  | 'calculated'
+  | 'usage-missing'
+  | 'pricing-rule-missing'
+  | 'unsupported'
+  | 'not-applicable';
 export type ProjectStatus =
   | 'draft'
   | 'ready'
@@ -13,6 +22,8 @@ export type ProjectStatus =
   | 'completed'
   | 'failed'
   | 'failed-schema'
+  | 'failed-timeout'
+  | 'failed-time-budget'
   | 'failed-quality-gate'
   | 'unsupported-model-tier'
   | 'cancelled';
@@ -62,6 +73,15 @@ export interface AnalysisProgress {
   assetCount?: number;
   model?: string;
   failedAtStage?: Exclude<AnalysisStage | BrandDnaAnalysisStage, 'failed' | 'cancelled' | 'completed'>;
+  stageId?: string | null;
+  failedAtStageId?: string | null;
+  completedStageCount?: number;
+  totalStageCount?: number;
+  currentStageStartedAt?: string;
+  completedStageIds?: string[];
+  reusableCheckpointIds?: string[];
+  resumeAvailable?: boolean;
+  resumed?: boolean;
   cacheStatus?: 'checking' | 'hit' | 'miss' | 'forced';
 }
 
@@ -103,6 +123,9 @@ export interface PublicSettings {
   defaultDataPath: string;
   cacheEnabled: boolean;
   logLevel: 'error' | 'info' | 'debug';
+  usageTrackingEnabled: boolean;
+  showUsageSummary: boolean;
+  showCostEstimate: boolean;
   connectionStatus: 'untested' | 'connected' | 'failed';
 }
 
@@ -110,6 +133,9 @@ export interface SaveSettingsInput {
   defaultDataPath: string;
   cacheEnabled: boolean;
   logLevel: 'error' | 'info' | 'debug';
+  usageTrackingEnabled: boolean;
+  showUsageSummary: boolean;
+  showCostEstimate: boolean;
 }
 
 export interface ProjectAsset {
@@ -169,6 +195,7 @@ export interface ProjectRecord {
   updatedAt: string;
   lastRunAt: string | null;
   lastDurationMs: number | null;
+  lastAnalysisRunId: string | null;
   assetCount: number;
   imageCount: number;
   lastReportFilename: string | null;
@@ -290,6 +317,7 @@ export interface DocumentImportResult {
 
 export interface AnalysisResult {
   project: ProjectRecord;
+  analysisRunId: string;
   reportFilename: string;
   reportPath: string;
   runtimeReportPath: string;
@@ -302,6 +330,170 @@ export interface AnalysisResult {
   reasoningCacheHit: boolean;
   mode: AnalysisMode;
   warnings?: string[];
+}
+
+export interface NormalizedModelUsage {
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  cachedInputTokens: number | null;
+  reasoningTokens: number | null;
+  textInputTokens: number | null;
+  imageInputTokens: number | null;
+  videoInputTokens: number | null;
+  audioInputTokens: number | null;
+  textOutputTokens: number | null;
+  audioOutputTokens: number | null;
+  usageSource: UsageSource;
+  providerRawUsage?: Record<string, unknown>;
+}
+
+export interface ModelUsageRecord {
+  id: string;
+  analysisRunId: string;
+  projectId: string | null;
+  projectNameSnapshot: string | null;
+  analysisMode: AnalysisMode | 'packaging' | 'ip-character' | 'ui' | 'illustration' | 'unknown';
+  pipelineStage: string;
+  attemptNumber: number;
+  parentCallId: string | null;
+  apiProfileId: string;
+  apiProfileNameSnapshot: string;
+  provider: string;
+  protocol: string;
+  region: string | null;
+  modelId: string;
+  localRequestId: string;
+  providerRequestId: string | null;
+  startedAt: string;
+  completedAt: string | null;
+  durationMs: number | null;
+  firstTokenDurationMs: number | null;
+  status: ModelCallStatus;
+  httpStatus: number | null;
+  errorCode: string | null;
+  errorCategory: string | null;
+  finishReason: string | null;
+  thinkingEnabled: boolean | null;
+  thinkingBudgetTokens: number | null;
+  structuredOutputMode: string | null;
+  maxOutputTokens: number | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  cachedInputTokens: number | null;
+  reasoningTokens: number | null;
+  textInputTokens: number | null;
+  imageInputTokens: number | null;
+  videoInputTokens: number | null;
+  audioInputTokens: number | null;
+  textOutputTokens: number | null;
+  audioOutputTokens: number | null;
+  usageSource: UsageSource;
+  pricingRuleId: string | null;
+  pricingSnapshotJson: string | null;
+  estimatedCostMicros: number | null;
+  currency: string | null;
+  costEstimateStatus: CostEstimateStatus;
+  providerRawUsageJson: string | null;
+  validationWarningsJson: string | null;
+  createdAt: string;
+}
+
+export interface AnalysisRunUsageSummary {
+  analysisRunId: string;
+  projectId: string | null;
+  projectName: string | null;
+  analysisMode: string;
+  modelCallCount: number;
+  successfulCallCount: number;
+  failedCallCount: number;
+  cancelledCallCount: number;
+  retryCallCount: number;
+  pricedCallCount: number;
+  unpricedCallCount: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalTokens: number;
+  totalCachedInputTokens: number;
+  totalReasoningTokens: number;
+  estimatedCostMicros: number;
+  currency: string;
+  usageCompleteness: 'complete' | 'partial' | 'missing';
+  startedAt: string;
+  completedAt: string | null;
+}
+
+export interface UsageRecordQuery {
+  page?: number;
+  pageSize?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  projectId?: string;
+  analysisMode?: string;
+  provider?: string;
+  modelId?: string;
+  apiProfileId?: string;
+  pipelineStage?: string;
+  status?: ModelCallStatus;
+}
+
+export interface UsageRecordPage {
+  items: ModelUsageRecord[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface ModelUsageSummary {
+  modelId: string;
+  provider: string;
+  callCount: number;
+  unpricedCallCount: number;
+  totalTokens: number;
+  estimatedCostMicros: number;
+  currency: string;
+}
+
+export interface MonthlyUsageSummary {
+  month: string;
+  callCount: number;
+  failedCallCount: number;
+  pricedCallCount: number;
+  unpricedCallCount: number;
+  totalTokens: number;
+  failedCallTokens: number;
+  cachedInputTokens: number;
+  estimatedCostMicros: number;
+  currency: string;
+  models: ModelUsageSummary[];
+}
+
+export interface PricingRule {
+  id: string;
+  provider: string;
+  modelPattern: string;
+  region: string | null;
+  protocol: string | null;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  currency: 'CNY' | 'USD';
+  minInputTokensExclusive: number | null;
+  maxInputTokensInclusive: number | null;
+  inputPricePerMillionMicros: string;
+  outputPricePerMillionMicros: string;
+  cachedInputMultiplierPpm: number | null;
+  batchMultiplierPpm: number | null;
+  sourceName: string | null;
+  sourceUpdatedAt: string | null;
+  notes: string | null;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavePricingRuleInput extends Omit<PricingRule, 'id' | 'createdAt' | 'updatedAt'> {
+  id?: string;
 }
 
 export interface ConnectionTestResult {
@@ -341,7 +533,12 @@ export interface DesktopApi {
     clearDocuments(projectId: string): Promise<DocumentSummary>;
   };
   analysis: {
-    start(projectId: string, forceReasoning: boolean, apiProfileId?: string): Promise<AnalysisResult>;
+    start(
+      projectId: string,
+      forceReasoning: boolean,
+      apiProfileId?: string,
+      resumeMode?: BrandDnaResumeMode
+    ): Promise<AnalysisResult>;
     cancel(projectId: string): Promise<boolean>;
     onProgress(callback: (progress: AnalysisProgress) => void): () => void;
   };
@@ -350,6 +547,18 @@ export interface DesktopApi {
     rename(projectId: string, filename: string): Promise<ProjectRecord>;
     export(projectId: string): Promise<string | null>;
     openFolder(projectId: string): Promise<void>;
+  };
+  usage: {
+    listRecords(query?: UsageRecordQuery): Promise<UsageRecordPage>;
+    getRunSummary(analysisRunId: string): Promise<AnalysisRunUsageSummary>;
+    getStageDetails(analysisRunId: string): Promise<ModelUsageRecord[]>;
+    getMonthSummary(month?: string): Promise<MonthlyUsageSummary>;
+    exportCsv(query?: UsageRecordQuery): Promise<string | null>;
+    openDatabaseFolder(): Promise<void>;
+    clearHistory(): Promise<void>;
+    listPricingRules(): Promise<PricingRule[]>;
+    savePricingRule(input: SavePricingRuleInput): Promise<PricingRule[]>;
+    deletePricingRule(ruleId: string): Promise<PricingRule[]>;
   };
   files: {
     getPathForFile(file: File): string;

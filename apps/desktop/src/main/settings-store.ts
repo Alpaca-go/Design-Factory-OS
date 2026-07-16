@@ -23,6 +23,9 @@ interface StoredSettings {
   defaultDataPath: string;
   cacheEnabled: boolean;
   logLevel: 'error' | 'info' | 'debug';
+  usageTrackingEnabled: boolean;
+  showUsageSummary: boolean;
+  showCostEstimate: boolean;
 }
 
 interface LegacySettings {
@@ -33,11 +36,15 @@ interface LegacySettings {
   defaultDataPath?: string;
   cacheEnabled?: boolean;
   logLevel?: 'error' | 'info' | 'debug';
+  usageTrackingEnabled?: boolean;
+  showUsageSummary?: boolean;
+  showCostEstimate?: boolean;
   connectionStatus?: 'untested' | 'connected' | 'failed';
 }
 
 export interface ProviderCredentials {
   profileId: string;
+  profileName: string;
   provider: ProviderKind;
   baseUrl: string;
   model: string;
@@ -64,7 +71,10 @@ function defaults(): StoredSettings {
     defaultProfileId: null,
     defaultDataPath: path.join(app.getPath('documents'), 'Masterpiece OS Data'),
     cacheEnabled: true,
-    logLevel: 'info'
+    logLevel: 'info',
+    usageTrackingEnabled: true,
+    showUsageSummary: true,
+    showCostEstimate: true
   };
 }
 
@@ -88,6 +98,9 @@ async function migrateLegacy(value: LegacySettings): Promise<StoredSettings> {
   migrated.defaultDataPath = value.defaultDataPath || migrated.defaultDataPath;
   migrated.cacheEnabled = value.cacheEnabled ?? migrated.cacheEnabled;
   migrated.logLevel = value.logLevel || migrated.logLevel;
+  migrated.usageTrackingEnabled = value.usageTrackingEnabled ?? migrated.usageTrackingEnabled;
+  migrated.showUsageSummary = value.showUsageSummary ?? migrated.showUsageSummary;
+  migrated.showCostEstimate = value.showCostEstimate ?? migrated.showCostEstimate;
   if (value.baseUrl || value.model || value.encryptedApiKey) {
     const now = new Date().toISOString();
     const id = 'profile-default';
@@ -158,6 +171,9 @@ async function publicSettings(settings: StoredSettings): Promise<PublicSettings>
     defaultDataPath: settings.defaultDataPath,
     cacheEnabled: settings.cacheEnabled,
     logLevel: settings.logLevel,
+    usageTrackingEnabled: settings.usageTrackingEnabled,
+    showUsageSummary: settings.showUsageSummary,
+    showCostEstimate: settings.showCostEstimate,
     connectionStatus: defaultProfile ? profileStatus(defaultProfile) : 'untested'
   };
 }
@@ -191,6 +207,9 @@ export async function saveSettings(input: SaveSettingsInput): Promise<PublicSett
   settings.defaultDataPath = path.resolve(input.defaultDataPath);
   settings.cacheEnabled = input.cacheEnabled;
   settings.logLevel = input.logLevel;
+  settings.usageTrackingEnabled = input.usageTrackingEnabled;
+  settings.showUsageSummary = input.showUsageSummary;
+  settings.showCostEstimate = input.showCostEstimate;
   await writeStored(settings);
   return publicSettings(settings);
 }
@@ -307,6 +326,7 @@ export async function getProviderCredentials(profileId?: string): Promise<Provid
   if (!profile.modelId) throw new Error('Model ID 尚未配置');
   return {
     profileId: profile.id,
+    profileName: profile.displayName,
     provider: profile.provider,
     baseUrl: profile.baseUrl,
     model: profile.modelId,

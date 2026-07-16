@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
+import { extractOpenAiCompatibleUsage } from '../usage/normalized-usage.js';
 
 const DEFAULT_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
 const TEXT_EXTENSIONS = new Set(['.md', '.markdown', '.txt', '.json']);
@@ -19,10 +20,11 @@ const MAX_IMAGE_EDGE = 1600;
 const IMAGE_JPEG_QUALITY = 82;
 
 export class QwenReasonerError extends Error {
-  constructor(code, message) {
+  constructor(code, message, details = {}) {
     super(message);
     this.name = 'QwenReasonerError';
     this.code = code;
+    this.details = Object.freeze({ ...details });
   }
 }
 
@@ -58,10 +60,24 @@ async function defaultClient(request) {
   try { value = raw ? JSON.parse(raw) : null; } catch { /* handled as a bounded provider error below */ }
   if (!response.ok) {
     const detail = value?.error?.message || value?.message || response.statusText || 'unknown error';
-    throw new QwenReasonerError('QWEN_API_ERROR', `Qwen API 请求失败（HTTP ${response.status}）：${detail}`);
+    throw new QwenReasonerError(
+      'QWEN_API_ERROR',
+      `Qwen API 请求失败（HTTP ${response.status}）：${detail}`,
+      {
+        httpStatus: response.status,
+        providerRequestId: value?.id || value?.request_id || null,
+        usage: extractOpenAiCompatibleUsage(value)
+      }
+    );
   }
-  if (!value) throw new QwenReasonerError('QWEN_RESPONSE_INVALID', 'Qwen API 返回了无效 JSON');
-  return value;
+  if (!value) {
+    throw new QwenReasonerError(
+      'QWEN_RESPONSE_INVALID',
+      'Qwen API 返回了无效 JSON',
+      { httpStatus: response.status }
+    );
+  }
+  return { ...value, masterpieceHttpStatus: response.status };
 }
 
 function responseText(response) {
@@ -173,12 +189,25 @@ export function createQwenReasoner(options = {}) {
       throw new QwenReasonerError('QWEN_REQUEST_FAILED', `Qwen 请求失败：${redact(error.message, apiKey)}`);
     }
     const reportMarkdown = responseText(response);
-    if (!reportMarkdown) throw new QwenReasonerError('QWEN_EMPTY_REPORT', 'Qwen 返回了空报告，分析失败');
+    if (!reportMarkdown) {
+      throw new QwenReasonerError(
+        'QWEN_EMPTY_REPORT',
+        'Qwen 返回了空报告，分析失败',
+        {
+          httpStatus: Number(response.masterpieceHttpStatus || 200),
+          providerRequestId: response.id || response.request_id || null,
+          usage: extractOpenAiCompatibleUsage(response)
+        }
+      );
+    }
     return {
       runId: String(response.id || `qwen-${crypto.randomUUID()}`),
       provider: 'qwen',
       model: String(response.model || model),
       completedAt: new Date().toISOString(),
+      providerRequestId: String(response.id || response.request_id || '') || null,
+      httpStatus: Number(response.masterpieceHttpStatus || 200),
+      usage: extractOpenAiCompatibleUsage(response),
       reportMarkdown,
       benchmarkSources: [],
       inspectedAssetIds: prepared.inspectedAssetIds

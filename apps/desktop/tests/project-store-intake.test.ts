@@ -39,6 +39,9 @@ test('folder intake creates fixed metadata, imports assets, and detects Logo wit
       defaultDataPath: data,
       cacheEnabled: true,
       logLevel: 'info',
+      usageTrackingEnabled: true,
+      showUsageSummary: true,
+      showCostEstimate: true,
       connectionStatus: 'untested'
     };
     const store = createProjectStore(async () => settings);
@@ -94,6 +97,9 @@ test('ZIP intake persists only extracted valid assets, deduplicates by SHA-256, 
       defaultDataPath: data,
       cacheEnabled: true,
       logLevel: 'info',
+      usageTrackingEnabled: true,
+      showUsageSummary: true,
+      showCostEstimate: true,
       connectionStatus: 'untested'
     };
     const store = createProjectStore(async () => settings);

@@ -1,5 +1,5 @@
 {
-  "protocolVersion": "brand-dna-v1",
+  "protocolVersion": "brand-dna-v1.1",
   "status": "pending-real-model-evaluation",
   "comparisonGroups": [
     "single-prompt",

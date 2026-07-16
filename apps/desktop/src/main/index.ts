@@ -6,8 +6,10 @@ import type {
   AnalysisProgress,
   ConnectionCapability,
   CreateProjectInput,
+  SavePricingRuleInput,
   SaveApiProfileInput,
-  SaveSettingsInput
+  SaveSettingsInput,
+  UsageRecordQuery
 } from '../shared/types';
 import { createProjectStore } from './project-store';
 import {
@@ -23,22 +25,81 @@ import {
 import { createPipelineService } from './pipeline-service';
 import { createBrandDnaPipelineService } from './brand-dna-pipeline-service';
 import { assertInside, sanitizeFilenamePart } from './analysis-contract';
+import { createUsageDatabase, type UsageDatabase } from './usage-database';
+import { createUsageTracker } from './usage-tracker';
+
+// @ts-ignore JavaScript core module intentionally has no TypeScript declaration file.
+import { usageRecordsToCsv } from '../../../../src/v5/usage/usage-exporter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let mainWindow: BrowserWindow | null = null;
 
 const projects = createProjectStore(getSettings);
+let usageDatabase: UsageDatabase | null = null;
+try {
+  usageDatabase = createUsageDatabase(path.join(app.getPath('userData'), 'usage', 'usage.sqlite'));
+  usageDatabase.markInterruptedPending();
+} catch (error) {
+  console.warn('Usage 数据库初始化失败，模型分析将继续但本次不会记录用量', error);
+}
+const usageTracker = usageDatabase
+  ? createUsageTracker(
+      usageDatabase,
+      getSettings,
+      (message, error) => console.warn(message, error)
+    )
+  : undefined;
 const pipeline = createPipelineService(
   projects,
   getProviderCredentials,
   getSettings,
-  (progress: AnalysisProgress) => mainWindow?.webContents.send('analysis:progress', progress)
+  (progress: AnalysisProgress) => mainWindow?.webContents.send('analysis:progress', progress),
+  usageTracker
 );
 const brandDnaPipeline = createBrandDnaPipelineService(
   projects,
   getProviderCredentials,
-  (progress: AnalysisProgress) => mainWindow?.webContents.send('analysis:progress', progress)
+  (progress: AnalysisProgress) => mainWindow?.webContents.send('analysis:progress', progress),
+  usageTracker
 );
+
+function safeUsageQuery(input: UsageRecordQuery | undefined): UsageRecordQuery {
+  const query = input && typeof input === 'object' ? input : {};
+  const text = (value: unknown, maximum = 200) => (
+    typeof value === 'string' && value.length <= maximum ? value : undefined
+  );
+  const date = (value: unknown) => {
+    const normalized = text(value);
+    return normalized && Number.isFinite(Date.parse(normalized)) ? normalized : undefined;
+  };
+  const statuses = new Set(['pending', 'success', 'failed', 'cancelled', 'timeout']);
+  const status = text(query.status, 30);
+  return {
+    page: Number.isFinite(query.page) ? Math.max(1, Math.trunc(query.page!)) : 1,
+    pageSize: Number.isFinite(query.pageSize) ? Math.min(200, Math.max(1, Math.trunc(query.pageSize!))) : 50,
+    dateFrom: date(query.dateFrom),
+    dateTo: date(query.dateTo),
+    projectId: text(query.projectId),
+    analysisMode: text(query.analysisMode),
+    provider: text(query.provider),
+    modelId: text(query.modelId),
+    apiProfileId: text(query.apiProfileId),
+    pipelineStage: text(query.pipelineStage),
+    status: status && statuses.has(status) ? status as UsageRecordQuery['status'] : undefined
+  };
+}
+
+function safeIdentifier(value: unknown, label: string): string {
+  if (typeof value !== 'string' || !value.trim() || value.length > 200) {
+    throw new Error(`${label} 无效`);
+  }
+  return value.trim();
+}
+
+function requireUsageDatabase(): UsageDatabase {
+  if (!usageDatabase) throw new Error('Usage 数据库当前不可用，模型分析功能不受影响');
+  return usageDatabase;
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -121,10 +182,16 @@ function registerIpc(): void {
     kind: 'assets' | 'logo' | 'brief'
   ) => projects.importFiles(projectId, paths, kind));
 
-  ipcMain.handle('analysis:start', async (_event, projectId: string, forceReasoning: boolean, apiProfileId?: string) => {
+  ipcMain.handle('analysis:start', async (
+    _event,
+    projectId: string,
+    forceReasoning: boolean,
+    apiProfileId?: string,
+    resumeMode?: 'continue' | 'rerun-current' | 'restart-all'
+  ) => {
     const project = await projects.get(projectId);
     return project.mode === 'brand-dna'
-      ? brandDnaPipeline.start(projectId, forceReasoning, apiProfileId)
+      ? brandDnaPipeline.start(projectId, forceReasoning, apiProfileId, resumeMode)
       : pipeline.start(projectId, forceReasoning, apiProfileId);
   });
   ipcMain.handle('analysis:cancel', (_event, projectId: string) => (
@@ -169,6 +236,50 @@ function registerIpc(): void {
     const result = await shell.openPath(paths.outputs);
     if (result) throw new Error(result);
   });
+
+  ipcMain.handle('usage:list-records', (_event, query?: UsageRecordQuery) => (
+    requireUsageDatabase().listRecords(safeUsageQuery(query))
+  ));
+  ipcMain.handle('usage:get-run-summary', (_event, analysisRunId: string) => (
+    requireUsageDatabase().runSummary(safeIdentifier(analysisRunId, '分析运行 ID'))
+  ));
+  ipcMain.handle('usage:get-stage-details', (_event, analysisRunId: string) => (
+    requireUsageDatabase().stageDetails(safeIdentifier(analysisRunId, '分析运行 ID'))
+  ));
+  ipcMain.handle('usage:get-month-summary', (_event, month?: string) => (
+    requireUsageDatabase().monthSummary(month ? safeIdentifier(month, '月份') : undefined)
+  ));
+  ipcMain.handle('usage:export-csv', async (_event, query?: UsageRecordQuery) => {
+    const database = requireUsageDatabase();
+    const normalized = safeUsageQuery(query);
+    const records = [];
+    let page = 1;
+    while (true) {
+      const result = database.listRecords({ ...normalized, page, pageSize: 200 });
+      records.push(...result.items);
+      if (records.length >= result.total) break;
+      page += 1;
+    }
+    const result = await dialog.showSaveDialog(mainWindow!, {
+      defaultPath: `masterpiece-os-model-usage-${new Date().toISOString().slice(0, 10)}.csv`,
+      filters: [{ name: 'CSV', extensions: ['csv'] }]
+    });
+    if (result.canceled || !result.filePath) return null;
+    await fs.writeFile(result.filePath, usageRecordsToCsv(records), 'utf8');
+    return result.filePath;
+  });
+  ipcMain.handle('usage:open-database-folder', async () => {
+    const result = await shell.openPath(path.dirname(requireUsageDatabase().databasePath));
+    if (result) throw new Error(result);
+  });
+  ipcMain.handle('usage:clear-history', () => requireUsageDatabase().clearHistory());
+  ipcMain.handle('usage:list-pricing-rules', () => requireUsageDatabase().listPricingRules());
+  ipcMain.handle('usage:save-pricing-rule', (_event, input: SavePricingRuleInput) => (
+    requireUsageDatabase().savePricingRule(input)
+  ));
+  ipcMain.handle('usage:delete-pricing-rule', (_event, ruleId: string) => (
+    requireUsageDatabase().deletePricingRule(safeIdentifier(ruleId, '价格规则 ID'))
+  ));
 }
 
 app.whenReady().then(() => {

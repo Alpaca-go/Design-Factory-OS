@@ -88,6 +88,7 @@ function normalizeProjectRecord(record: ProjectRecord): ProjectRecord {
     outputLanguage: 'zh-CN',
     analysisProfile: record.mode === 'brand-dna' ? 'brand-dna' : 'fusion-enhanced',
     reasoningQualityTier: record.reasoningQualityTier || 'experimental',
+    lastAnalysisRunId: record.lastAnalysisRunId || null,
     assets: Array.isArray(record.assets) ? record.assets : [],
     documents: Array.isArray(record.documents) ? record.documents : []
   };
@@ -197,7 +198,7 @@ export function createProjectStore(readSettings: SettingsReader) {
     const id = crypto.randomUUID();
     const directory = `${sanitizeFilenamePart(identity.projectName)}-${id.slice(0, 8)}`;
     const root = assertInside(await projectsRoot(), path.join(await projectsRoot(), directory));
-    await Promise.all(['input/assets', 'input/documents', 'prepared', 'outputs', 'runtime'].map((folder) => fs.mkdir(path.join(root, folder), { recursive: true })));
+    await Promise.all(['input/assets', 'input/documents', 'prepared', 'outputs', 'runtime', 'brand-dna'].map((folder) => fs.mkdir(path.join(root, folder), { recursive: true })));
     const now = new Date().toISOString();
     const record: ProjectRecord = {
       id,
@@ -230,6 +231,7 @@ export function createProjectStore(readSettings: SettingsReader) {
       updatedAt: now,
       lastRunAt: null,
       lastDurationMs: null,
+      lastAnalysisRunId: null,
       assetCount: 0,
       imageCount: 0,
       lastReportFilename: null,
@@ -563,6 +565,7 @@ export function createProjectStore(readSettings: SettingsReader) {
         normalized = cached?.sha256 === document.sha256 ? cached.document : await parseBrandDocument(absolute);
         if (abortSignal?.aborted) throw new DOMException('用户主动取消', 'AbortError');
         normalized.id = document.id;
+        normalized.filename = document.originalName;
         if (!cached || cached.sha256 !== document.sha256) {
           await fs.writeFile(cachePath, `${JSON.stringify({ sha256: document.sha256, document: normalized }, null, 2)}\n`, 'utf8');
         }
@@ -872,7 +875,8 @@ export function createProjectStore(readSettings: SettingsReader) {
       input: path.join(root, 'input'),
       prepared: path.join(root, 'prepared'),
       outputs: path.join(root, 'outputs'),
-      runtime: path.join(root, 'runtime')
+      runtime: path.join(root, 'runtime'),
+      brandDna: path.join(root, 'brand-dna')
     };
   }
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type {
   AnalysisProgress,
   AssetSummary,
+  BrandDnaResumeMode,
   DocumentSummary,
   ProjectRecord,
   PublicSettings
@@ -10,9 +11,10 @@ import { AnalysisView } from './components/AnalysisView';
 import { ProjectWizard } from './components/ProjectWizard';
 import { ReportView } from './components/ReportView';
 import { SettingsPanel } from './components/SettingsPanel';
+import { UsageDashboardPage } from './components/UsageDashboardPage';
 import { cleanError, formatBytes, formatDuration } from './utils';
 
-type Screen = 'home' | 'settings' | 'create' | 'project' | 'analysis' | 'report';
+type Screen = 'home' | 'settings' | 'usage' | 'create' | 'project' | 'analysis' | 'report';
 
 function StatusBadge({ status }: { status: ProjectRecord['status'] }) {
   const labels: Record<ProjectRecord['status'], string> = {
@@ -22,6 +24,8 @@ function StatusBadge({ status }: { status: ProjectRecord['status'] }) {
     completed: '已完成',
     failed: '失败',
     'failed-schema': '结构失败',
+    'failed-timeout': '阶段超时',
+    'failed-time-budget': '总时限',
     'failed-quality-gate': '质量未通过',
     'unsupported-model-tier': '模型不支持',
     cancelled: '已取消'
@@ -120,7 +124,12 @@ export function App() {
     return project;
   }
 
-  async function run(project: ProjectRecord, forceReasoning: boolean, apiProfileId = selectedProfile?.id || '') {
+  async function run(
+    project: ProjectRecord,
+    forceReasoning: boolean,
+    apiProfileId = selectedProfile?.id || '',
+    resumeMode?: BrandDnaResumeMode
+  ) {
     if (!apiProfileId) {
       setError('请先选择一个已启用的 API Profile。');
       setScreen('project');
@@ -133,7 +142,12 @@ export function App() {
     setProgress(null);
     setScreen('analysis');
     try {
-      const result = await window.masterpiece.analysis.start(project.id, forceReasoning, apiProfileId);
+      const result = await window.masterpiece.analysis.start(
+        project.id,
+        forceReasoning,
+        apiProfileId,
+        resumeMode
+      );
       setSelected(result.project);
       setProjects(await window.masterpiece.projects.list());
       if (result.project.mode === 'brand-dna') {
@@ -248,7 +262,8 @@ export function App() {
   if (loading) return <div className="splash"><div className="brand-mark">M</div><p>正在启动 Masterpiece OS…</p></div>;
   if (!settings) return <div className="splash"><div className="brand-mark">!</div><p>{error || '客户端初始化失败，请重新启动。'}</p></div>;
 
-  if (screen === 'settings') return <SettingsPanel settings={settings} onSaved={saveSettings} onClose={() => setScreen('home')} />;
+  if (screen === 'settings') return <SettingsPanel settings={settings} onSaved={saveSettings} onOpenUsage={() => setScreen('usage')} onClose={() => setScreen('home')} />;
+  if (screen === 'usage') return <UsageDashboardPage onClose={() => setScreen('home')} />;
   if (screen === 'create') return <ProjectWizard settings={settings} onCancel={() => setScreen('home')} onStart={(project, profileId) => {
     setSelected(project);
     setSelectedApiProfileId(profileId);
@@ -259,10 +274,12 @@ export function App() {
     progress={progress}
     error={runFailure}
     onCancel={() => window.masterpiece.analysis.cancel(selected.id)}
-    onRetry={() => void run(selected, true, selectedApiProfileId)}
+    onResume={() => void run(selected, false, selectedApiProfileId, 'continue')}
+    onRetryCurrent={() => void run(selected, false, selectedApiProfileId, 'rerun-current')}
+    onRestart={() => void run(selected, true, selectedApiProfileId, 'restart-all')}
     onBack={() => { setError(runFailure); setRunFailure(''); setScreen('project'); }}
   />;
-  if (screen === 'report' && selected) return <ReportView project={selected} onBack={() => setScreen('project')} onRerun={(force) => void run(selected, force, selectedApiProfileId)} />;
+  if (screen === 'report' && selected) return <ReportView project={selected} settings={settings} onBack={() => setScreen('project')} onRerun={(force) => void run(selected, force, selectedApiProfileId)} />;
 
   if (screen === 'project' && selected) {
     const isBrandDna = selected.mode === 'brand-dna';
@@ -305,7 +322,7 @@ export function App() {
     || settings.profiles.find((profile) => profile.isEnabled);
   const hasUsableProfile = enabledProfiles.some((profile) => profile.hasApiKey && profile.baseUrl && profile.modelId);
   return <div className="app-shell">
-    <aside className="sidebar"><div className="logo-lockup"><div className="brand-mark">M</div><div><strong>Masterpiece OS</strong><small>Desktop / v5</small></div></div><nav><button className="active">项目</button><button onClick={() => setScreen('settings')}>设置</button></nav><div className="sidebar-footer"><span className={`status-dot ${settings.connectionStatus}`} /><div><small>默认模型</small><strong>{defaultProfile?.modelId || '未配置'}</strong></div></div></aside>
+    <aside className="sidebar"><div className="logo-lockup"><div className="brand-mark">M</div><div><strong>Masterpiece OS</strong><small>Desktop / v5</small></div></div><nav><button className="active">项目</button><button onClick={() => setScreen('usage')}>模型用量</button><button onClick={() => setScreen('settings')}>设置</button></nav><div className="sidebar-footer"><span className={`status-dot ${settings.connectionStatus}`} /><div><small>默认模型</small><strong>{defaultProfile?.modelId || '未配置'}</strong></div></div></aside>
     <main className="home-main"><header className="home-header"><div><p className="eyebrow">CREATIVE DIRECTOR PREPARATION SYSTEM</p><h1>让品牌判断<br />成为可执行的系统。</h1></div><div className="header-actions"><button className="button ghost" onClick={() => setScreen('settings')}>API 设置</button><button className="button primary large" onClick={() => setScreen('create')}>新建分析 <span>↗</span></button></div></header>
       {!hasUsableProfile && <div className="setup-banner"><div><strong>完成首次 API 配置</strong><p>请添加并启用一个包含 API Key、Base URL 与 Model ID 的 Profile。</p></div><button className="button secondary" onClick={() => setScreen('settings')}>前往设置</button></div>}
       {error && <div className="notice error">{error}</div>}

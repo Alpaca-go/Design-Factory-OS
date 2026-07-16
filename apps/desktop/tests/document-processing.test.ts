@@ -53,6 +53,9 @@ function settings(dataRoot: string): PublicSettings {
     defaultDataPath: dataRoot,
     cacheEnabled: true,
     logLevel: 'info',
+    usageTrackingEnabled: true,
+    showUsageSummary: true,
+    showCostEstimate: true,
     connectionStatus: 'untested'
   };
 }

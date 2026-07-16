@@ -11,6 +11,7 @@ import { cleanError } from '../utils';
 interface Props {
   settings: PublicSettings;
   onSaved(settings: PublicSettings): void;
+  onOpenUsage(): void;
   onClose(): void;
 }
 
@@ -33,11 +34,14 @@ function statusLabel(profile: ApiProfile): string {
   return '尚未测试';
 }
 
-export function SettingsPanel({ settings, onSaved, onClose }: Props) {
+export function SettingsPanel({ settings, onSaved, onOpenUsage, onClose }: Props) {
   const [localForm, setLocalForm] = useState<SaveSettingsInput>({
     defaultDataPath: settings.defaultDataPath,
     cacheEnabled: settings.cacheEnabled,
-    logLevel: settings.logLevel
+    logLevel: settings.logLevel,
+    usageTrackingEnabled: settings.usageTrackingEnabled,
+    showUsageSummary: settings.showUsageSummary,
+    showCostEstimate: settings.showCostEstimate
   });
   const [editor, setEditor] = useState<SaveApiProfileInput | null>(null);
   const [showKey, setShowKey] = useState(false);
@@ -111,6 +115,33 @@ export function SettingsPanel({ settings, onSaved, onClose }: Props) {
       `已删除“${profile.displayName}”及其安全凭据。`
     );
     if (editor?.id === profile.id) setEditor(null);
+  }
+
+  async function exportUsage() {
+    setBusy('usage-export');
+    setNotice(null);
+    try {
+      const saved = await window.masterpiece.usage.exportCsv();
+      if (saved) setNotice({ tone: 'ok', text: `用量记录已导出：${saved}` });
+    } catch (error) {
+      setNotice({ tone: 'error', text: cleanError(error) });
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function clearUsage() {
+    if (!window.confirm('确定清空全部模型用量历史吗？价格规则会保留，此操作不可撤销。')) return;
+    setBusy('usage-clear');
+    setNotice(null);
+    try {
+      await window.masterpiece.usage.clearHistory();
+      setNotice({ tone: 'ok', text: '模型用量历史已清空。' });
+    } catch (error) {
+      setNotice({ tone: 'error', text: cleanError(error) });
+    } finally {
+      setBusy('');
+    }
   }
 
   return <div className="page settings-page">
@@ -189,6 +220,19 @@ export function SettingsPanel({ settings, onSaved, onClose }: Props) {
         <div className="section-heading"><span>02</span><div><h2>本地行为</h2><p>项目数据始终位于仓库之外</p></div></div>
         <label>项目数据目录<input value={localForm.defaultDataPath} onChange={(event) => updateLocal('defaultDataPath', event.target.value)} /></label>
         <label className="toggle"><input type="checkbox" checked={localForm.cacheEnabled} onChange={(event) => updateLocal('cacheEnabled', event.target.checked)} /><span>启用视觉准备与精确结果缓存</span></label>
+        <div className="settings-subsection">
+          <strong>Token 用量与成本</strong>
+          <p>只记录调用元数据和 Provider 返回的 Usage，不保存提示词、响应正文、素材或 API Key。</p>
+          <label className="toggle"><input type="checkbox" checked={localForm.usageTrackingEnabled} onChange={(event) => updateLocal('usageTrackingEnabled', event.target.checked)} /><span>记录模型 Token 用量</span></label>
+          <label className="toggle"><input type="checkbox" disabled={!localForm.usageTrackingEnabled} checked={localForm.showUsageSummary} onChange={(event) => updateLocal('showUsageSummary', event.target.checked)} /><span>在报告完成页显示用量摘要</span></label>
+          <label className="toggle"><input type="checkbox" disabled={!localForm.usageTrackingEnabled} checked={localForm.showCostEstimate} onChange={(event) => updateLocal('showCostEstimate', event.target.checked)} /><span>显示按本地标准价计算的费用估算</span></label>
+          <div className="button-row compact-buttons">
+            <button className="button secondary" type="button" onClick={onOpenUsage}>管理模型价格与历史</button>
+            <button className="button ghost" type="button" disabled={Boolean(busy)} onClick={() => void exportUsage()}>{busy === 'usage-export' ? '导出中…' : '导出全部记录'}</button>
+            <button className="button ghost" type="button" onClick={() => void window.masterpiece.usage.openDatabaseFolder().catch((error) => setNotice({ tone: 'error', text: cleanError(error) }))}>打开数据库目录</button>
+            <button className="button danger" type="button" disabled={Boolean(busy)} onClick={() => void clearUsage()}>{busy === 'usage-clear' ? '清除中…' : '清除历史记录'}</button>
+          </div>
+        </div>
         <label>日志级别<select value={localForm.logLevel} onChange={(event) => updateLocal('logLevel', event.target.value as SaveSettingsInput['logLevel'])}><option value="error">仅错误</option><option value="info">标准</option><option value="debug">调试</option></select></label>
         <button className="button primary full" disabled={Boolean(busy)} onClick={() => void saveLocal()}>{busy === 'local' ? '保存中…' : '保存本地设置'}</button>
         <div className="security-card"><strong>Windows 安全存储</strong><p>每个 API Key 使用 Electron safeStorage 加密后独立保存，仅在主进程发起请求时短暂解密。删除 Profile 会同步删除对应凭据。</p></div>

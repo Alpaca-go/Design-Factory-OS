@@ -105,7 +105,9 @@ function generationTasks(value) {
     atmosphere: text(item?.atmosphere),
     lockedAssetInstructions: stringList(item?.lockedAssetInstructions),
     textPolicy: text(item?.textPolicy),
+    allowedText: stringList(item?.allowedText),
     logoPolicy: text(item?.logoPolicy),
+    consistencyWithGlobalSystem: stringList(item?.consistencyWithGlobalSystem),
     consistencyWithPreviousTasks: stringList(item?.consistencyWithPreviousTasks),
     intentionalDifferenceFromPreviousTasks: stringList(item?.intentionalDifferenceFromPreviousTasks),
     aspectRatio: text(item?.aspectRatio),
@@ -167,6 +169,9 @@ export function normalizeBrandDna(value) {
       id: text(gene?.id),
       type: text(gene?.type),
       statement: text(gene?.statement),
+      culturalMaturity: ['embedded', 'declared', 'aspirational'].includes(gene?.culturalMaturity)
+        ? gene.culturalMaturity
+        : null,
       evidence: Array.isArray(gene?.evidence) ? gene.evidence.map(reference).filter(Boolean) : [],
       evidenceIds: stringList(gene?.evidenceIds),
       relationships: stringList(gene?.relationships),
@@ -197,6 +202,14 @@ export function normalizeBrandDna(value) {
       lightingDirection: directionList(creative.lightingDirection),
       motionDirection: directionList(creative.motionDirection),
       suggestedAssets: stringList(creative.suggestedAssets),
+      distinctiveAssetCandidates: Array.isArray(creative.distinctiveAssetCandidates)
+        ? creative.distinctiveAssetCandidates.map((item) => ({
+            name: text(item?.name),
+            sourceBasis: stringList(item?.sourceBasis),
+            mechanism: text(item?.mechanism),
+            genericRisk: ['low', 'medium', 'high'].includes(item?.genericRisk) ? item.genericRisk : 'high'
+          })).filter((item) => item.name && item.mechanism)
+        : [],
       avoidDirections: stringList(creative.avoidDirections),
       generationPlan: generationTasks(creative.generationPlan),
       mappings: Array.isArray(creative.mappings) ? creative.mappings : []

@@ -1,0 +1,1 @@
+apps/desktop/release-*/Masterpiece-OS-Desktop-Portable-*.exe filter=lfs diff=lfs merge=lfs -text

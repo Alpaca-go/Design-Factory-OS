@@ -1,10 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import {
   createOpenAICompatibleTextReasoner
 } from '../../src/v5/adapters/openai-compatible-text-reasoner.js';
 import { runBrandDnaPipeline } from '../../src/v5/brand-dna/run-brand-dna-pipeline.js';
-import { validateBrandDnaReport } from '../../src/v5/brand-dna/report-compiler.js';
+import {
+  compileBrandDnaReport,
+  validateBrandDnaReport
+} from '../../src/v5/brand-dna/report-compiler.js';
+import { normalizeStructuredStageOutput } from '../../src/v5/brand-dna/normalization/normalize-image-task-output.js';
+import {
+  createBrandDnaCheckpointStore,
+  stableJsonHash
+} from '../../src/v5/brand-dna/runtime/checkpoint-store.js';
 
 const evidenceId = 'evidence-0001';
 
@@ -159,8 +170,13 @@ function imageTasks() {
     lockedAssetInstructions: ['没有现有 Logo 可使用，不得自行生成'],
     textPolicy: '不生成正式品牌文字，为后期排版预留清晰区域',
     logoPolicy: '不得伪造、重绘或替代正式 Logo',
-    consistencyWithPreviousTasks: ['沿用 brand-image-system-v1 的色彩、留白、材质与光线'],
-    intentionalDifferenceFromPreviousTasks: [index === 0 ? '负责建立锚点' : `本图只负责${['', '情绪表达', '使用关系', '工艺细节'][index]}`],
+    consistencyWithGlobalSystem: ['沿用 brand-image-system-v1 的色彩、留白、材质与光线'],
+    consistencyWithPreviousTasks: index === 0 ? [] : ['延续前序任务的低饱和色彩、稳定留白和柔和侧光'],
+    intentionalDifferenceFromPreviousTasks: [
+      index === 0
+        ? '负责建立锚点'
+        : `本图新增证明${['', '情绪表达', '使用关系', '工艺细节'][index]}，采用不同场景视角，并避免重复前图构图`
+    ],
     aspectRatio: index === 1 ? '4:5' : '3:2',
     outputResponsibility: ['建立母题', '表达情绪', '验证场景', '强化质感'][index],
     finalPrompt: `图片职责：${['建立全局视觉母题', '表达品牌核心情绪', '验证真实使用关系', '验证材质与工艺语言'][index]}。依据品牌 DNA 中“可进入日常生活”和“安定从容”，在有自然光进入的当代居住空间中呈现不带品牌文字的真实生活静物组合。采用稳定重心、大面积留白、平视中近景与自然透视；使用低饱和自然中性色、哑光纸张和自然纤维，以柔和侧光表现真实使用痕迹。沿用统一视觉锚点，但本图承担独立职责。禁止虚构 Logo、乱码长文字、未经确认的产品功效和市场信息；不生成正式品牌文字，只预留后期排版区域。`
@@ -172,14 +188,15 @@ function audit(passed = true) {
     passed,
     totalScore: passed ? 91 : 70,
     dimensionScores: {
-      evidence: passed ? 18 : 13,
-      strategy: passed ? 18 : 14,
-      diagnosis: 13,
+      projectIdentityAndBoundaries: passed ? 14 : 10,
+      evidence: passed ? 14 : 10,
+      strategy: passed ? 14 : 10,
+      diagnosis: 9,
       brandDna: 10,
       creativeThesis: 10,
-      visualTranslation: 9,
+      visualSpecificity: 9,
       imageExecution: passed ? 9 : 6,
-      reusability: 4
+      crossFieldTechnical: passed ? 5 : 2
     },
     hardFailures: passed ? [] : ['生图任务缺少足够的限制'],
     repairInstructions: passed ? [] : ['补齐所有图片任务的限制与一致性说明']
@@ -215,6 +232,9 @@ function responseForStage(stage, options = {}) {
   };
   const visual = visualTranslation();
   const system = imageSystem();
+  if (options.visualCreativeFreedomAsString) {
+    system.creativeFreedom = system.creativeFreedom[0];
+  }
   const tasks = imageTasks();
   const outputs = {
     'atomic-evidence': {
@@ -276,11 +296,12 @@ function responseForStage(stage, options = {}) {
     'gpt-image-task-compiler': { imageTasks: tasks },
     'quality-auditor': { qualityAudit: audit(options.auditPassed !== false) },
     'targeted-repair': {
-      brandDna: dna,
-      creativeThesisDecision: thesis,
-      visualTranslation: visual,
-      imageSystem: system,
-      imageTasks: tasks
+      stageId: 'targeted-repair',
+      operations: [{
+        op: 'replace',
+        path: '/imageTasks/1/finalPrompt',
+        value: `${tasks[1].finalPrompt} subtle but distinct precision`
+      }]
     }
   };
   return outputs[stage];
@@ -289,16 +310,84 @@ function responseForStage(stage, options = {}) {
 function mockReasoner(options = {}) {
   const attempts = new Map();
   const calls = [];
-  const reasoner = async (messages) => {
+  const contexts = [];
+  const prompts = [];
+  const reasoner = async (messages, context = {}) => {
     const text = messages[1].content;
     const stage = text.match(/PROTOCOL_STAGE=([^\n]+)/)?.[1];
     assert.ok(stage);
     assert.ok(messages.every((message) => typeof message.content === 'string'));
     calls.push(stage);
+    contexts.push(context);
+    prompts.push(text);
+    if (stage === 'structured-patch-repair') {
+      const targetStage = text.match(/"stageId":"([^"]+)"/)?.[1];
+      const allowedPaths = JSON.parse(
+        text.match(/"allowedPaths":(\[[^\]]*\])/)?.[1] || '[]'
+      );
+      return {
+        runId: `run-${calls.length}`,
+        usageCallId: `usage-${calls.length}`,
+        provider: 'mock',
+        model: 'text-model',
+        finishReason: 'stop',
+        text: JSON.stringify({
+          stageId: targetStage,
+          targetObjectId: 'task-2',
+          operations: allowedPaths.map((allowedPath) => ({
+            op: 'replace',
+            path: allowedPath,
+            value: options.patchFails
+              ? []
+              : allowedPath.endsWith('/evidenceIds')
+                ? [evidenceId]
+                : ['延续第一张锚点图的低饱和色彩、稳定留白和柔和侧光']
+          }))
+        })
+      };
+    }
     const attempt = (attempts.get(stage) || 0) + 1;
     attempts.set(stage, attempt);
     if (options.invalidFirstStage === stage && attempt === 1) {
-      return { runId: `run-${calls.length}`, provider: 'mock', model: 'text-model', text: '{}' };
+      if (stage === 'gpt-image-task-compiler') {
+        const invalidTasks = imageTasks();
+        invalidTasks[1].consistencyWithPreviousTasks = [];
+        return {
+          runId: `run-${calls.length}`,
+          usageCallId: `usage-${calls.length}`,
+          provider: 'mock',
+          model: 'text-model',
+          finishReason: 'stop',
+          text: JSON.stringify({ imageTasks: invalidTasks })
+        };
+      }
+      if (stage === 'strategic-critic') {
+        const invalidIssues = responseForStage(stage, {
+          chunkId: text.match(/"chunkId":"([^"]+)"/)?.[1],
+          sourceId: text.match(/"sourceId":"([^"]+)"/)?.[1]
+        });
+        invalidIssues.strategicIssues[0].evidenceIds = ['evidence-does-not-exist'];
+        invalidIssues.strategicIssues.push({
+          ...structuredClone(invalidIssues.strategicIssues[0]),
+          id: 'issue-2',
+          evidenceIds: ['another-evidence-that-does-not-exist']
+        });
+        return {
+          runId: `run-${calls.length}`,
+          usageCallId: `usage-${calls.length}`,
+          provider: 'mock',
+          model: 'text-model',
+          finishReason: 'stop',
+          text: JSON.stringify(invalidIssues)
+        };
+      }
+      return {
+        runId: `run-${calls.length}`,
+        usageCallId: `usage-${calls.length}`,
+        provider: 'mock',
+        model: 'text-model',
+        text: '{}'
+      };
     }
     const chunkId = text.match(/"chunkId":"([^"]+)"/)?.[1];
     const sourceId = text.match(/"sourceId":"([^"]+)"/)?.[1];
@@ -309,14 +398,19 @@ function mockReasoner(options = {}) {
       runId: `run-${calls.length}`,
       provider: 'mock',
       model: 'text-model',
-      text: JSON.stringify(responseForStage(stage, { chunkId, sourceId, auditPassed }))
+      text: JSON.stringify(responseForStage(stage, {
+        chunkId,
+        sourceId,
+        auditPassed,
+        visualCreativeFreedomAsString: options.visualCreativeFreedomAsString
+      }))
     };
   };
-  return { reasoner, calls };
+  return { reasoner, calls, contexts, prompts };
 }
 
-test('Brand DNA deep protocol runs all stages, repairs one malformed stage, and compiles GPT image specs', async () => {
-  const { reasoner, calls } = mockReasoner({ invalidFirstStage: 'atomic-evidence' });
+test('Brand DNA deep protocol runs all stages, patches one malformed field, and compiles GPT image specs', async () => {
+  const { reasoner, calls, contexts } = mockReasoner({ invalidFirstStage: 'gpt-image-task-compiler' });
   const stages = [];
   const result = await runBrandDnaPipeline({
     corpus,
@@ -325,18 +419,26 @@ test('Brand DNA deep protocol runs all stages, repairs one malformed stage, and 
     reasoner,
     onProgress: ({ stage }) => stages.push(stage)
   });
-  assert.equal(result.metadata.protocolVersion, 'brand-dna-v1');
-  assert.equal(result.metadata.imageTaskSchemaVersion, 'gpt-image-task-v1');
+  assert.equal(result.metadata.protocolVersion, 'brand-dna-v1.1');
+  assert.equal(result.metadata.imageTaskSchemaVersion, 'gpt-image-task-v2');
   assert.equal(result.qualityAudit.totalScore, 91);
   assert.equal(result.deepBenchmarkPassed, false);
   assert.equal(result.schemaRetryCount, 1);
   assert.ok(calls.includes('atomic-evidence'));
   assert.ok(calls.includes('strategic-model'));
   assert.ok(calls.includes('quality-auditor'));
-  assert.match(result.reportMarkdown, /GPT Image System Spec/);
-  assert.match(result.reportMarkdown, /Locked Facts/);
-  assert.match(result.reportMarkdown, /Logo Policy/);
-  assert.match(result.reportMarkdown, /未宣称达到 GPT-5.6 Benchmark/);
+  assert.equal(contexts[0].pipelineStage, 'brand-dna.evidence-extraction');
+  assert.equal(contexts[0].attemptNumber, 1);
+  const repairIndex = calls.indexOf('structured-patch-repair');
+  assert.ok(repairIndex > 0);
+  assert.equal(contexts[repairIndex].pipelineStage, 'brand-dna.repair');
+  assert.equal(contexts[repairIndex].attemptNumber, 2);
+  assert.ok(contexts[repairIndex].parentCallId);
+  assert.equal(result.metadata.reportSchemaVersion, 'brand-dna-report-v2');
+  assert.match(result.reportMarkdown, /## 6\. 视觉创意系统/);
+  assert.match(result.reportMarkdown, /已确认且必须保持的事实/);
+  assert.match(result.reportMarkdown, /Logo 政策/);
+  assert.match(result.reportMarkdown, /## E\. 协议、模型与运行元数据/);
   assert.doesNotThrow(() => validateBrandDnaReport(result.reportMarkdown, {
     imageSystem: result.intermediateObjects.imageSystem,
     imageTasks: result.intermediateObjects.imageTasks
@@ -345,8 +447,223 @@ test('Brand DNA deep protocol runs all stages, repairs one malformed stage, and 
   assert.ok(stages.includes('planning-generation-tasks'));
 });
 
+test('visual stage normalizes scalar Creative Freedom and report compiler remains defensive', async () => {
+  const { reasoner } = mockReasoner({ visualCreativeFreedomAsString: true });
+  const stageProgress = [];
+  const result = await runBrandDnaPipeline({
+    corpus,
+    projectNameHint: '临时项目',
+    qualityTier: 'experimental',
+    reasoner,
+    onStageProgress: (event) => stageProgress.push(event)
+  });
+  assert.deepEqual(result.intermediateObjects.imageSystem.creativeFreedom, [
+    '可在不新增业务事实的前提下设计概念静物场景'
+  ]);
+  assert.ok(result.warnings.some((warning) => (
+    warning.includes('STRING_TO_SINGLE_ITEM_ARRAY')
+      && warning.includes('imageSystem.creativeFreedom')
+  )));
+  assert.match(result.reportMarkdown, /可发挥空间[\s\S]*可在不新增业务事实的前提下设计概念静物场景/);
+  const reportSystem = {
+    ...result.intermediateObjects.imageSystem,
+    creativeFreedom: '兼容旧检查点中的字符串值'
+  };
+  assert.doesNotThrow(() => compileBrandDnaReport(result.brandDna, {
+    metadata: result.metadata,
+    qualityAudit: result.qualityAudit,
+    imageSystem: reportSystem,
+    imageTasks: result.intermediateObjects.imageTasks
+  }));
+  assert.ok(stageProgress.some((event) => (
+    event.stageId === 'report-compiler' && event.status === 'running'
+  )));
+  assert.ok(stageProgress.some((event) => (
+    event.stageId === 'report-compiler' && event.status === 'completed'
+  )));
+});
+
+test('visual stage normalizer wraps Qwen scalar string fields without changing their content', () => {
+  const system = imageSystem();
+  system.creativeFreedom = system.creativeFreedom[0];
+  const normalized = normalizeStructuredStageOutput({
+    stageId: 'visual-causal-translation',
+    output: {
+      visualTranslation: visualTranslation(),
+      imageSystem: system
+    }
+  });
+  assert.deepEqual(normalized.output.imageSystem.creativeFreedom, [
+    '可在不新增业务事实的前提下设计概念静物场景'
+  ]);
+  assert.deepEqual(normalized.warnings, [{
+    code: 'STRING_TO_SINGLE_ITEM_ARRAY',
+    jsonPath: 'imageSystem.creativeFreedom',
+    action: 'wrap-string-in-array',
+    sourcePath: null
+  }]);
+});
+
+test('strategic critic repairs every invalid evidenceIds field in one safe patch', async () => {
+  const { reasoner, calls, prompts } = mockReasoner({ invalidFirstStage: 'strategic-critic' });
+  const result = await runBrandDnaPipeline({
+    corpus,
+    projectNameHint: '临时项目',
+    qualityTier: 'experimental',
+    reasoner
+  });
+  assert.equal(result.success, true);
+  assert.equal(result.schemaRetryCount, 1);
+  assert.ok(calls.includes('structured-patch-repair'));
+  const repairPrompt = prompts.find((prompt) => prompt.includes('PROTOCOL_STAGE=structured-patch-repair'));
+  assert.match(repairPrompt, /"approvedReferenceContext":\{"approvedEvidence":\[\{"id":"evidence-0001"/);
+  assert.match(repairPrompt, /"targetContainers":\{.*"id":"issue-1"/);
+  assert.deepEqual(
+    result.intermediateObjects.strategicIssues[0].evidenceIds,
+    [evidenceId]
+  );
+  assert.deepEqual(
+    result.intermediateObjects.strategicIssues[1].evidenceIds,
+    [evidenceId]
+  );
+});
+
+test('Brand DNA resumes from validated checkpoints after image task compilation fails', async () => {
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'masterpiece-resume-'));
+  const checkpointRoot = path.join(temporary, 'brand-dna');
+  const checkpointOptions = {
+    root: checkpointRoot,
+    corpus,
+    projectId: 'project-resume',
+    provider: 'mock',
+    modelId: 'text-model',
+    apiProfileId: 'profile-1'
+  };
+  const first = mockReasoner({
+    invalidFirstStage: 'gpt-image-task-compiler',
+    patchFails: true
+  });
+  await assert.rejects(
+    runBrandDnaPipeline({
+      corpus,
+      projectNameHint: '临时项目',
+      qualityTier: 'experimental',
+      reasoner: first.reasoner,
+      checkpointStore: createBrandDnaCheckpointStore({
+        ...checkpointOptions,
+        analysisRunId: 'run-1'
+      }),
+      resumeMode: 'continue'
+    }),
+    (error) => error.code === 'FAILED_SCHEMA_AFTER_PATCH'
+  );
+
+  const second = mockReasoner();
+  const stageProgress = [];
+  const result = await runBrandDnaPipeline({
+    corpus,
+    projectNameHint: '临时项目',
+    qualityTier: 'experimental',
+    reasoner: second.reasoner,
+    checkpointStore: createBrandDnaCheckpointStore({
+      ...checkpointOptions,
+      analysisRunId: 'run-2'
+    }),
+    resumeMode: 'continue',
+    onStageProgress: (event) => stageProgress.push(event)
+  });
+  assert.equal(result.success, true);
+  assert.equal(second.calls.includes('atomic-evidence'), false);
+  assert.equal(second.calls.includes('strategic-model'), false);
+  assert.equal(second.calls.includes('gpt-image-task-compiler'), true);
+  assert.ok(stageProgress.some((event) => (
+    event.stageId === 'visual-causal-translation' && event.status === 'reused'
+  )));
+  await fs.rm(temporary, { recursive: true, force: true });
+});
+
+test('legacy visual checkpoint normalization preserves downstream checkpoint reuse', async () => {
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'masterpiece-legacy-visual-'));
+  const checkpointRoot = path.join(temporary, 'brand-dna');
+  const checkpointOptions = {
+    root: checkpointRoot,
+    corpus,
+    projectId: 'project-legacy-visual',
+    provider: 'mock',
+    modelId: 'text-model',
+    apiProfileId: 'profile-1'
+  };
+  const first = mockReasoner();
+  await runBrandDnaPipeline({
+    corpus,
+    projectNameHint: '临时项目',
+    qualityTier: 'experimental',
+    reasoner: first.reasoner,
+    checkpointStore: createBrandDnaCheckpointStore({
+      ...checkpointOptions,
+      analysisRunId: 'run-1'
+    }),
+    resumeMode: 'continue'
+  });
+
+  const stage7OutputPath = path.join(checkpointRoot, 'stage-outputs', '07-visual-causal-translation.json');
+  const stage7CheckpointPath = path.join(checkpointRoot, 'checkpoints', '07-visual-causal-translation.checkpoint.json');
+  const stage8OutputPath = path.join(checkpointRoot, 'stage-outputs', '08-gpt-image-task-compiler.json');
+  const stage8CheckpointPath = path.join(checkpointRoot, 'checkpoints', '08-gpt-image-task-compiler.checkpoint.json');
+  const stage9CheckpointPath = path.join(checkpointRoot, 'checkpoints', '09-quality-auditor.checkpoint.json');
+  const stage7Output = JSON.parse(await fs.readFile(stage7OutputPath, 'utf8'));
+  const stage7Checkpoint = JSON.parse(await fs.readFile(stage7CheckpointPath, 'utf8'));
+  const stage8Output = JSON.parse(await fs.readFile(stage8OutputPath, 'utf8'));
+  const stage8Checkpoint = JSON.parse(await fs.readFile(stage8CheckpointPath, 'utf8'));
+  const stage9Checkpoint = JSON.parse(await fs.readFile(stage9CheckpointPath, 'utf8'));
+
+  stage7Output.system.creativeFreedom = stage7Output.system.creativeFreedom[0];
+  stage7Checkpoint.outputHash = stableJsonHash(stage7Output);
+  const afterStage7 = stableJsonHash({
+    upstreamOutputHash: stage7Checkpoint.upstreamOutputHash,
+    stageId: 'visual-causal-translation',
+    value: stage7Output
+  });
+  stage8Checkpoint.upstreamOutputHash = afterStage7;
+  stage9Checkpoint.upstreamOutputHash = stableJsonHash({
+    upstreamOutputHash: afterStage7,
+    stageId: 'gpt-image-task-compiler',
+    value: stage8Output
+  });
+  await fs.writeFile(stage7OutputPath, `${JSON.stringify(stage7Output, null, 2)}\n`);
+  await fs.writeFile(stage7CheckpointPath, `${JSON.stringify(stage7Checkpoint, null, 2)}\n`);
+  await fs.writeFile(stage8CheckpointPath, `${JSON.stringify(stage8Checkpoint, null, 2)}\n`);
+  await fs.writeFile(stage9CheckpointPath, `${JSON.stringify(stage9Checkpoint, null, 2)}\n`);
+
+  let modelCalls = 0;
+  const stageProgress = [];
+  const result = await runBrandDnaPipeline({
+    corpus,
+    projectNameHint: '临时项目',
+    qualityTier: 'experimental',
+    reasoner: async () => {
+      modelCalls += 1;
+      throw new Error('不应重新调用模型');
+    },
+    checkpointStore: createBrandDnaCheckpointStore({
+      ...checkpointOptions,
+      analysisRunId: 'run-2'
+    }),
+    resumeMode: 'continue',
+    onStageProgress: (event) => stageProgress.push(event)
+  });
+  assert.equal(modelCalls, 0);
+  assert.deepEqual(result.intermediateObjects.imageSystem.creativeFreedom, [
+    '可在不新增业务事实的前提下设计概念静物场景'
+  ]);
+  assert.ok(stageProgress
+    .filter((event) => event.status === 'reused')
+    .some((event) => event.stageId === 'quality-auditor'));
+  await fs.rm(temporary, { recursive: true, force: true });
+});
+
 test('quality gate performs one targeted repair and fails closed when the second audit still fails', async () => {
-  const { reasoner, calls } = mockReasoner({ auditSequence: [false, false] });
+  const { reasoner, calls, prompts } = mockReasoner({ auditSequence: [false, false] });
   await assert.rejects(
     runBrandDnaPipeline({
       corpus,
@@ -361,6 +678,25 @@ test('quality gate performs one targeted repair and fails closed when the second
   );
   assert.equal(calls.filter((stage) => stage === 'targeted-repair').length, 1);
   assert.equal(calls.filter((stage) => stage === 'quality-auditor').length, 2);
+  const repairPrompt = prompts.find((prompt) => prompt.includes('PROTOCOL_STAGE=targeted-repair'));
+  assert.match(repairPrompt, /返回差异补丁/);
+  assert.match(repairPrompt, /"stageId":"targeted-repair","operations"/);
+});
+
+test('targeted quality repair returns a compact patch and preserves the validated package', async () => {
+  const { reasoner } = mockReasoner({ auditSequence: [false, true] });
+  const result = await runBrandDnaPipeline({
+    corpus,
+    projectNameHint: '临时项目',
+    qualityTier: 'qualified',
+    reasoner
+  });
+  assert.equal(result.success, true);
+  assert.equal(result.qualityRepairCount, 1);
+  assert.match(
+    result.intermediateObjects.imageTasks[1].finalPrompt,
+    /subtle but distinct precision/
+  );
 });
 
 test('unsupported model tier is rejected before any model request', async () => {
@@ -373,6 +709,21 @@ test('unsupported model tier is rejected before any model request', async () => 
       reasoner: async () => { calls += 1; }
     }),
     (error) => error.code === 'UNSUPPORTED_MODEL_TIER'
+  );
+  assert.equal(calls, 0);
+});
+
+test('pipeline time budget stops new requests with a distinct error code', async () => {
+  let calls = 0;
+  await assert.rejects(
+    runBrandDnaPipeline({
+      corpus,
+      projectNameHint: '临时项目',
+      qualityTier: 'experimental',
+      pipelineBudgetMs: 0,
+      reasoner: async () => { calls += 1; }
+    }),
+    (error) => error.code === 'PIPELINE_TIME_BUDGET_EXCEEDED'
   );
   assert.equal(calls, 0);
 });
@@ -406,4 +757,117 @@ test('OpenAI-compatible text reasoner never sends image_url content', async () =
   assert.ok(body.messages.every((message) => typeof message.content === 'string'));
   assert.doesNotMatch(requests[0].options.body, /image_url|data:image/);
   assert.equal(result.provider, 'generic-provider');
+});
+
+test('Qwen structured reasoner sends JSON mode, output limit, and explicit thinking setting', async () => {
+  const requests = [];
+  const reasoner = createOpenAICompatibleTextReasoner({
+    apiKey: 'secret-key',
+    baseUrl: 'https://workspace.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
+    model: 'qwen3-vl-plus',
+    provider: 'qwen',
+    jsonMode: true,
+    client: async (url, options) => {
+      requests.push({ url, options });
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({
+          id: 'response-json-mode',
+          model: 'qwen3-vl-plus',
+          choices: [{ finish_reason: 'stop', message: { content: '{"ok":true}' } }]
+        })
+      };
+    }
+  });
+  await reasoner([
+    { role: 'system', content: '只返回严格 JSON' },
+    { role: 'user', content: '输出 JSON 对象' }
+  ], {
+    structuredOutputMode: 'json-object',
+    maxOutputTokens: 10_000,
+    thinkingEnabled: false
+  });
+  const body = JSON.parse(requests[0].options.body);
+  assert.deepEqual(body.response_format, { type: 'json_object' });
+  assert.equal(body.max_tokens, 10_000);
+  assert.equal('max_completion_tokens' in body, false);
+  assert.equal(body.enable_thinking, false);
+});
+
+test('OpenAI-compatible reasoner prefers json_schema when the adapter declares reliable support', async () => {
+  const requests = [];
+  const reasoner = createOpenAICompatibleTextReasoner({
+    apiKey: 'secret-key',
+    baseUrl: 'https://example.test/v1',
+    model: 'schema-model',
+    provider: 'schema-provider',
+    jsonMode: true,
+    jsonSchema: true,
+    strictJsonSchema: true,
+    client: async (_url, options) => {
+      requests.push(options);
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({
+          id: 'schema-response',
+          choices: [{ finish_reason: 'stop', message: { content: '{"ok":true}' } }]
+        })
+      };
+    }
+  });
+  await reasoner([{ role: 'user', content: 'JSON' }], {
+    structuredOutputMode: 'json-schema',
+    jsonSchema: {
+      name: 'test_schema',
+      strict: true,
+      schema: {
+        type: 'object',
+        properties: { ok: { type: 'boolean' } },
+        required: ['ok'],
+        additionalProperties: false
+      }
+    },
+    maxOutputTokens: 100
+  });
+  const body = JSON.parse(requests[0].body);
+  assert.equal(body.response_format.type, 'json_schema');
+  assert.equal(body.response_format.json_schema.strict, true);
+  assert.equal(body.max_tokens, 100);
+});
+
+test('OpenAI-compatible text reasoner rejects responses truncated by the provider', async () => {
+  const reasoner = createOpenAICompatibleTextReasoner({
+    apiKey: 'secret-key',
+    baseUrl: 'https://example.test/v1',
+    model: 'text-model',
+    client: async () => ({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({
+        choices: [{ finish_reason: 'length', message: { content: '{"partial":' } }]
+      })
+    })
+  });
+  await assert.rejects(
+    reasoner([{ role: 'user', content: 'JSON' }]),
+    (error) => error.code === 'OUTPUT_TRUNCATED' && /JSON 被截断/.test(error.message)
+  );
+});
+
+test('OpenAI-compatible text reasoner distinguishes request timeout from user cancellation', async () => {
+  const reasoner = createOpenAICompatibleTextReasoner({
+    apiKey: 'secret-key',
+    baseUrl: 'https://example.test/v1',
+    model: 'slow-model',
+    client: async (_url, options) => new Promise((_resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true });
+    })
+  });
+  await assert.rejects(
+    reasoner([{ role: 'user', content: 'JSON' }], { requestTimeoutMs: 10 }),
+    (error) => error.code === 'REQUEST_TIMEOUT'
+      && error.details.abortReason === 'request-timeout'
+  );
 });
