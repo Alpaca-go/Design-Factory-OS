@@ -11,6 +11,7 @@ coverage/
 apps/desktop/out/
 apps/desktop/release/
 apps/desktop/.vite/
+apps/desktop/Masterpiece-OS-Desktop-Portable-*.exe
 
 # 项目数据永远保留在本地
 Masterpiece-OS-Projects/

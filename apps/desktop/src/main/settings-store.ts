@@ -4,10 +4,12 @@ import path from 'node:path';
 import { app, safeStorage } from 'electron';
 import sharp from 'sharp';
 import type {
+  ConnectionCapability,
   ApiProfile,
   ConnectionTestResult,
   ProviderKind,
   PublicSettings,
+  ReasoningQualityTier,
   SaveApiProfileInput,
   SaveSettingsInput
 } from '../shared/types';
@@ -40,6 +42,7 @@ export interface ProviderCredentials {
   baseUrl: string;
   model: string;
   apiKey: string;
+  qualityTier: ReasoningQualityTier;
 }
 
 function settingsPath(): string {
@@ -102,7 +105,8 @@ async function migrateLegacy(value: LegacySettings): Promise<StoredSettings> {
       lastTestedAt: value.connectionStatus === 'untested' ? undefined : now,
       lastTestStatus: value.connectionStatus === 'connected'
         ? 'success'
-        : value.connectionStatus === 'failed' ? 'failed' : undefined
+        : value.connectionStatus === 'failed' ? 'failed' : undefined,
+      qualityTier: 'experimental'
     };
     migrated.profiles.push(profile);
     migrated.defaultProfileId = id;
@@ -124,6 +128,7 @@ async function readStored(): Promise<StoredSettings> {
       ...profile,
       provider: String(profile.provider || 'openai-compatible').trim(),
       credentialKey: profile.credentialKey || `masterpiece-os/${profile.id}`,
+      qualityTier: profile.qualityTier || 'experimental',
       isEnabled: profile.isEnabled !== false,
       isDefault: profile.id === stored.defaultProfileId
     }));
@@ -223,7 +228,8 @@ export async function saveApiProfile(input: SaveApiProfileInput): Promise<Public
     createdAt: current?.createdAt || now,
     updatedAt: now,
     lastTestedAt: connectionChanged ? undefined : current?.lastTestedAt,
-    lastTestStatus: connectionChanged ? undefined : current?.lastTestStatus
+    lastTestStatus: connectionChanged ? undefined : current?.lastTestStatus,
+    qualityTier: current?.qualityTier || 'experimental'
   };
   settings.profiles = current
     ? settings.profiles.map((item) => item.id === id ? profile : item)
@@ -304,7 +310,8 @@ export async function getProviderCredentials(profileId?: string): Promise<Provid
     provider: profile.provider,
     baseUrl: profile.baseUrl,
     model: profile.modelId,
-    apiKey
+    apiKey,
+    qualityTier: profile.qualityTier || 'experimental'
   };
 }
 
@@ -318,14 +325,27 @@ function endpoint(baseUrl: string): string {
     : `${parsed.toString().replace(/\/$/, '')}/chat/completions`;
 }
 
-async function connectionRequest(credentials: Omit<ProviderCredentials, 'profileId'>): Promise<ConnectionTestResult> {
+async function connectionRequest(
+  credentials: Pick<ProviderCredentials, 'provider' | 'baseUrl' | 'model' | 'apiKey'>,
+  capability: ConnectionCapability
+): Promise<ConnectionTestResult> {
   const started = performance.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25_000);
   try {
-    const testImage = await sharp({
-      create: { width: 96, height: 96, channels: 3, background: { r: 112, g: 68, b: 216 } }
-    }).png().toBuffer();
+    const content = capability === 'vision'
+      ? [
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:image/png;base64,${(await sharp({
+                create: { width: 96, height: 96, channels: 3, background: { r: 112, g: 68, b: 216 } }
+              }).png().toBuffer()).toString('base64')}`
+            }
+          },
+          { type: 'text', text: 'Reply with OK if you can read this image.' }
+        ]
+      : 'Reply with OK.';
     const response = await fetch(endpoint(credentials.baseUrl), {
       method: 'POST',
       headers: { Authorization: `Bearer ${credentials.apiKey}`, 'Content-Type': 'application/json' },
@@ -333,10 +353,7 @@ async function connectionRequest(credentials: Omit<ProviderCredentials, 'profile
         model: credentials.model,
         messages: [{
           role: 'user',
-          content: [
-            { type: 'image_url', image_url: { url: `data:image/png;base64,${testImage.toString('base64')}` } },
-            { type: 'text', text: 'Reply with OK if you can read this image.' }
-          ]
+          content
         }],
         max_tokens: 8,
         stream: false
@@ -358,9 +375,10 @@ async function connectionRequest(credentials: Omit<ProviderCredentials, 'profile
     }
     return {
       ok: true,
-      message: '连接成功，模型可接收图片输入',
+      message: capability === 'vision' ? '连接成功，模型可接收图片输入' : '连接成功，模型可接收文本输入',
       model: String(body.model || credentials.model),
-      supportsImages: true,
+      supportsImages: capability === 'vision',
+      supportsText: true,
       elapsedMs: Math.round(performance.now() - started)
     };
   } catch (error) {
@@ -373,7 +391,10 @@ async function connectionRequest(credentials: Omit<ProviderCredentials, 'profile
   }
 }
 
-export async function testApiProfile(input: SaveApiProfileInput): Promise<ConnectionTestResult> {
+export async function testApiProfile(
+  input: SaveApiProfileInput,
+  capability: ConnectionCapability = 'vision'
+): Promise<ConnectionTestResult> {
   validateProfileInput(input);
   const storedKey = input.id ? await decryptApiKey(input.id) : '';
   const apiKey = input.apiKey?.trim() || storedKey;
@@ -384,7 +405,7 @@ export async function testApiProfile(input: SaveApiProfileInput): Promise<Connec
       baseUrl: input.baseUrl.trim(),
       model: input.modelId.trim(),
       apiKey
-    });
+    }, capability);
     if (input.id) {
       const settings = await readStored();
       settings.profiles = settings.profiles.map((profile) => profile.id === input.id

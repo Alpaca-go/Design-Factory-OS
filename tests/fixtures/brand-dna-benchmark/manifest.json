@@ -1,0 +1,23 @@
+{
+  "protocolVersion": "brand-dna-v1",
+  "status": "pending-real-model-evaluation",
+  "comparisonGroups": [
+    "single-prompt",
+    "deep-protocol",
+    "gpt-5.6-benchmark"
+  ],
+  "projects": [
+    { "id": "consumer-01", "domain": "consumer", "scenario": "信息完整的成熟消费品牌策划案", "comparisonGroups": ["single-prompt", "deep-protocol", "gpt-5.6-benchmark"] },
+    { "id": "service-01", "domain": "service", "scenario": "服务品牌与复杂用户旅程", "comparisonGroups": ["single-prompt", "deep-protocol", "gpt-5.6-benchmark"] },
+    { "id": "b2b-01", "domain": "b2b", "scenario": "B2B 品牌的多角色决策链", "comparisonGroups": ["single-prompt", "deep-protocol", "gpt-5.6-benchmark"] },
+    { "id": "health-01", "domain": "healthcare", "scenario": "健康相关品牌与敏感合规信息", "comparisonGroups": ["single-prompt", "deep-protocol", "gpt-5.6-benchmark"] },
+    { "id": "food-01", "domain": "food-and-beverage", "scenario": "餐饮品牌与真实消费场景", "comparisonGroups": ["single-prompt", "deep-protocol", "gpt-5.6-benchmark"] },
+    { "id": "real-estate-01", "domain": "real-estate", "scenario": "地产项目与多文档冲突", "comparisonGroups": ["single-prompt", "deep-protocol", "gpt-5.6-benchmark"] },
+    { "id": "culture-01", "domain": "culture", "scenario": "文化文创与符号模板化风险", "comparisonGroups": ["single-prompt", "deep-protocol", "gpt-5.6-benchmark"] },
+    { "id": "technology-01", "domain": "technology", "scenario": "科技工具与抽象能力转译", "comparisonGroups": ["single-prompt", "deep-protocol", "gpt-5.6-benchmark"] },
+    { "id": "early-brief-01", "domain": "cross-industry", "scenario": "只有少量事实的新品牌早期 Brief", "comparisonGroups": ["single-prompt", "deep-protocol", "gpt-5.6-benchmark"] },
+    { "id": "multi-document-01", "domain": "cross-industry", "scenario": "多份相互补充的品牌资料", "comparisonGroups": ["single-prompt", "deep-protocol", "gpt-5.6-benchmark"] },
+    { "id": "conflict-01", "domain": "cross-industry", "scenario": "两份受众与定位互相冲突的文档", "comparisonGroups": ["single-prompt", "deep-protocol", "gpt-5.6-benchmark"] },
+    { "id": "long-document-01", "domain": "cross-industry", "scenario": "含表格、扫描页告警和超长章节的策划文档", "comparisonGroups": ["single-prompt", "deep-protocol", "gpt-5.6-benchmark"] }
+  ]
+}

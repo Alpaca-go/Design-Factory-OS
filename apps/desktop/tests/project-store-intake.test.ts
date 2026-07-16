@@ -27,6 +27,7 @@ test('folder intake creates fixed metadata, imports assets, and detects Logo wit
         hasApiKey: true,
         isDefault: true,
         isEnabled: true,
+        qualityTier: 'experimental',
         createdAt: '2026-07-16T00:00:00.000Z',
         updatedAt: '2026-07-16T00:00:00.000Z'
       }],
@@ -81,6 +82,7 @@ test('ZIP intake persists only extracted valid assets, deduplicates by SHA-256, 
         hasApiKey: true,
         isDefault: true,
         isEnabled: true,
+        qualityTier: 'experimental',
         createdAt: '2026-07-16T00:00:00.000Z',
         updatedAt: '2026-07-16T00:00:00.000Z'
       }],

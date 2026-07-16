@@ -69,6 +69,7 @@ export function createPipelineService(
     if (active.has(projectId)) throw new Error('该项目正在分析中');
     const summary = await projects.scan(projectId);
     const project = await projects.get(projectId);
+    if (project.mode !== 'visual-evolution') throw new Error('当前项目不是视觉方案进化模式');
     if (!summary.totalFiles) throw new Error('项目素材为空，请先上传视觉方案');
     if (summary.imageCount + summary.pdfCount === 0) throw new Error('项目中没有可分析的图片或 PDF');
     if (!project.logoLocked) throw new Error('Desktop 极简模式要求原始 Logo 默认锁定');
@@ -90,6 +91,7 @@ export function createPipelineService(
       currentStage = stage;
       emitProgress({
         projectId,
+        mode: 'visual-evolution',
         stage,
         message,
         startedAt,
@@ -105,6 +107,7 @@ export function createPipelineService(
       provider: credentials.provider,
       model: credentials.model,
       apiProfileId: credentials.profileId,
+      reasoningQualityTier: credentials.qualityTier,
       lastError: null
     });
 
@@ -225,6 +228,7 @@ export function createPipelineService(
         provider: credentials.provider,
         model: credentials.model,
         apiProfileId: credentials.profileId,
+        reasoningQualityTier: credentials.qualityTier,
         lastRunAt: completedAt,
         lastDurationMs: durationMs,
         lastReportFilename: reportFilename,
@@ -237,6 +241,7 @@ export function createPipelineService(
       });
       return {
         project: updated,
+        mode: 'visual-evolution',
         reportFilename,
         reportPath,
         runtimeReportPath,

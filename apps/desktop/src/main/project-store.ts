@@ -7,18 +7,26 @@ import sharp from 'sharp';
 import type {
   AssetItem,
   AssetSummary,
+  BrandStrategyCorpus,
   CreateProjectInput,
+  DocumentImportResult,
+  DocumentItem,
+  DocumentSummary,
   ImportResult,
+  NormalizedDocument,
   ProjectAsset,
+  ProjectDocument,
   ProjectRecord,
   PublicSettings
 } from '../shared/types';
 import { assertInside, sanitizeFilenamePart } from './analysis-contract.ts';
+import { buildBrandStrategyCorpus, parseBrandDocument } from './document-processing.ts';
 import { detectIntakeIdentity, type IntakeSource } from './project-intake.ts';
 
 const SUPPORTED_DIRECT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.zip']);
 const SUPPORTED_ASSET = new Set(['.jpg', '.jpeg', '.png', '.webp', '.pdf']);
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+const SUPPORTED_DOCUMENTS = new Set(['.pdf', '.docx', '.md', '.markdown', '.txt']);
 const MAX_ZIP_ENTRIES = 2_000;
 const MAX_ZIP_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024;
 const MAX_IMPORTED_FILES = 2_000;
@@ -33,6 +41,35 @@ const MIME_TYPES: Record<string, string> = {
   '.pdf': 'application/pdf'
 };
 
+const DOCUMENT_MIME_TYPES: Record<string, string> = {
+  '.pdf': 'application/pdf',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.md': 'text/markdown',
+  '.markdown': 'text/markdown',
+  '.txt': 'text/plain'
+};
+
+const GENERIC_DOCUMENT_NAMES = new Set([
+  '品牌策划案', '品牌方案', '前期策划', '项目方案', '策划方案', '方案终稿',
+  '最终版', '新建文档', '未命名', 'input', 'project', 'document'
+]);
+
+function brandTimestampName(now = new Date()): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `品牌项目-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+}
+
+function brandTemporaryName(sourcePaths: string[]): string {
+  for (const supplied of sourcePaths) {
+    const stem = path.parse(supplied).name
+      .replace(/(?:品牌策划案|品牌方案|前期策划|项目方案|策划方案|方案终稿|最终版)$/i, '')
+      .replace(/^[\s._\-—–()（）【】\[\]0-9]+|[\s._\-—–()（）【】\[\]0-9]+$/g, '')
+      .trim();
+    if (stem.length >= 2 && !GENERIC_DOCUMENT_NAMES.has(stem.toLowerCase())) return stem;
+  }
+  return brandTimestampName();
+}
+
 function normalizeProjectRecord(record: ProjectRecord): ProjectRecord {
   return {
     ...record,
@@ -46,10 +83,13 @@ function normalizeProjectRecord(record: ProjectRecord): ProjectRecord {
       industry: record.industry ? 1 : 0
     },
     apiProfileId: record.apiProfileId || null,
+    mode: record.mode || 'visual-evolution',
     logoLocked: record.logoLocked !== false,
     outputLanguage: 'zh-CN',
-    analysisProfile: 'fusion-enhanced',
-    assets: Array.isArray(record.assets) ? record.assets : []
+    analysisProfile: record.mode === 'brand-dna' ? 'brand-dna' : 'fusion-enhanced',
+    reasoningQualityTier: record.reasoningQualityTier || 'experimental',
+    assets: Array.isArray(record.assets) ? record.assets : [],
+    documents: Array.isArray(record.documents) ? record.documents : []
   };
 }
 
@@ -140,18 +180,28 @@ export function createProjectStore(readSettings: SettingsReader) {
   }
 
   async function create(input: CreateProjectInput): Promise<ProjectRecord> {
+    const mode = input.mode || 'visual-evolution';
     const intake = await inspectSources(input.sourcePaths);
-    const identity = detectIntakeIdentity(intake.sources, intake.labels);
+    const identity = mode === 'brand-dna'
+      ? {
+          projectName: brandTemporaryName(input.sourcePaths),
+          projectNameSource: 'common-file-prefix' as const,
+          detectedBrandName: brandTemporaryName(input.sourcePaths),
+          detectedIndustry: '待确认（基于策划文档提取）',
+          factConfidence: { brandName: 0.35, industry: 0 }
+        }
+      : detectIntakeIdentity(intake.sources, intake.labels);
     const settings = await readSettings();
     const profile = settings.profiles.find((item) => item.id === input.apiProfileId && item.isEnabled);
     if (!profile) throw new Error('请选择一个已启用的 API Profile');
     const id = crypto.randomUUID();
     const directory = `${sanitizeFilenamePart(identity.projectName)}-${id.slice(0, 8)}`;
     const root = assertInside(await projectsRoot(), path.join(await projectsRoot(), directory));
-    await Promise.all(['input/assets', 'prepared', 'outputs', 'runtime'].map((folder) => fs.mkdir(path.join(root, folder), { recursive: true })));
+    await Promise.all(['input/assets', 'input/documents', 'prepared', 'outputs', 'runtime'].map((folder) => fs.mkdir(path.join(root, folder), { recursive: true })));
     const now = new Date().toISOString();
     const record: ProjectRecord = {
       id,
+      mode,
       projectName: identity.projectName,
       detectedProjectName: identity.projectName,
       projectNameSource: identity.projectNameSource,
@@ -161,7 +211,9 @@ export function createProjectStore(readSettings: SettingsReader) {
       detectedBrandName: identity.detectedBrandName,
       detectedIndustry: identity.detectedIndustry,
       factConfidence: identity.factConfidence,
-      description: '基于已上传的视觉方案完成融合增强分析；品牌与行业信息由素材线索自动识别，低置信度事实必须标记为待确认。',
+      description: mode === 'brand-dna'
+        ? '基于已上传的品牌策划文档提取事实、建立品牌 DNA、诊断战略问题并生成创意转译与 GPT 生图任务。'
+        : '基于已上传的视觉方案完成融合增强分析；品牌与行业信息由素材线索自动识别，低置信度事实必须标记为待确认。',
       logoLocked: true,
       lockedFacts: [
         '原始 Logo Locked：不得修改、重绘、拆解、替换、仿造或改变内部字形。',
@@ -171,7 +223,8 @@ export function createProjectStore(readSettings: SettingsReader) {
       provider: profile.provider,
       model: profile.modelId,
       apiProfileId: profile.id,
-      analysisProfile: 'fusion-enhanced',
+      analysisProfile: mode === 'brand-dna' ? 'brand-dna' : 'fusion-enhanced',
+      reasoningQualityTier: profile.qualityTier || 'experimental',
       status: 'draft',
       createdAt: now,
       updatedAt: now,
@@ -183,12 +236,18 @@ export function createProjectStore(readSettings: SettingsReader) {
       lastError: null,
       logoFiles: [],
       briefFiles: [],
-      assets: []
+      assets: [],
+      documents: []
     };
     await writeProject(root, record);
     try {
-      const imported = await importFiles(id, input.sourcePaths, 'assets');
-      if (imported.summary.totalFiles === 0) throw new Error('上传内容中未发现可分析的图片或 PDF');
+      if (mode === 'brand-dna') {
+        const imported = await importDocuments(id, input.sourcePaths);
+        if (imported.summary.parsedCount === 0) throw new Error('上传内容中未发现可解析的 PDF、DOCX、Markdown 或 TXT');
+      } else {
+        const imported = await importFiles(id, input.sourcePaths, 'assets');
+        if (imported.summary.totalFiles === 0) throw new Error('上传内容中未发现可分析的图片或 PDF');
+      }
       return get(id);
     } catch (error) {
       await fs.rm(root, { recursive: true, force: true }).catch(() => {});
@@ -383,6 +442,241 @@ export function createProjectStore(readSettings: SettingsReader) {
     await invalidatePrepared(root);
     await reidentifyProject(projectId);
     return { imported, extracted, skipped, summary: await scan(projectId) };
+  }
+
+  async function importDocuments(projectId: string, paths: string[]): Promise<DocumentImportResult> {
+    const root = await rootForId(projectId);
+    const project = await readProject(root);
+    if (project.mode !== 'brand-dna') throw new Error('当前项目不是品牌 DNA 分析模式');
+    const input = path.join(root, 'input');
+    const documentsRoot = path.join(input, 'documents');
+    await fs.mkdir(documentsRoot, { recursive: true });
+    const documents = [...project.documents.filter((document) => document.status === 'ready')];
+    const knownHashes = new Set(documents.map((document) => document.sha256));
+    const imported: string[] = [];
+    const skipped: string[] = [];
+    const createdFiles: string[] = [];
+
+    async function collect(directory: string): Promise<string[]> {
+      const result: string[] = [];
+      const pending = [directory];
+      while (pending.length) {
+        const current = pending.shift()!;
+        for (const entry of await fs.readdir(current, { withFileTypes: true })) {
+          const target = path.join(current, entry.name);
+          if (entry.isDirectory()) pending.push(target);
+          else result.push(target);
+          if (result.length > MAX_IMPORTED_FILES) throw new Error(`文件夹内文件超过 ${MAX_IMPORTED_FILES} 个安全上限`);
+        }
+      }
+      return result;
+    }
+
+    async function persist(source: string): Promise<void> {
+      const extension = path.extname(source).toLowerCase();
+      if (!SUPPORTED_DOCUMENTS.has(extension)) {
+        skipped.push(path.basename(source));
+        return;
+      }
+      const sha256 = await hashFile(source);
+      if (knownHashes.has(sha256)) {
+        skipped.push(`${path.basename(source)}（重复）`);
+        return;
+      }
+      const id = crypto.randomUUID();
+      const destination = assertInside(input, path.join(documentsRoot, `${id}${extension === '.markdown' ? '.md' : extension}`));
+      await fs.copyFile(source, destination);
+      createdFiles.push(destination);
+      const stat = await fs.stat(destination);
+      documents.push({
+        id,
+        originalName: path.basename(source),
+        relativePath: path.relative(input, destination).replaceAll('\\', '/'),
+        mimeType: DOCUMENT_MIME_TYPES[extension] || 'application/octet-stream',
+        sizeBytes: stat.size,
+        sha256,
+        sourceType: extension === '.pdf' ? 'pdf' : extension === '.docx' ? 'docx' : extension === '.txt' ? 'text' : 'markdown',
+        status: 'ready',
+        parseStatus: 'pending',
+        parseWarnings: []
+      });
+      knownHashes.add(sha256);
+      imported.push(path.relative(input, destination).replaceAll('\\', '/'));
+    }
+
+    try {
+      for (const supplied of paths) {
+        const source = path.resolve(supplied);
+        const stat = await fs.stat(source).catch(() => null);
+        if (!stat) {
+          skipped.push(path.basename(source));
+          continue;
+        }
+        if (stat.isDirectory()) {
+          for (const filename of await collect(source)) await persist(filename);
+        } else if (stat.isFile()) {
+          await persist(source);
+        }
+      }
+    } catch (error) {
+      await Promise.all(createdFiles.map((filename) => fs.rm(filename, { force: true }).catch(() => {})));
+      throw error;
+    }
+
+    await invalidateReport(root, project);
+    await writeProject(root, {
+      ...project,
+      documents,
+      status: documents.length ? 'ready' : 'draft',
+      lastReportFilename: null,
+      lastError: null
+    });
+    await invalidatePrepared(root);
+    return { imported, skipped, summary: await scanDocuments(projectId) };
+  }
+
+  function usableDocumentTitle(value: string): boolean {
+    const cleaned = value.trim().replace(/\.(?:pdf|docx|md|markdown|txt)$/i, '');
+    return cleaned.length >= 2 && !GENERIC_DOCUMENT_NAMES.has(cleaned.toLowerCase());
+  }
+
+  async function scanDocuments(projectId: string, abortSignal?: AbortSignal): Promise<DocumentSummary> {
+    const root = await rootForId(projectId);
+    const input = path.join(root, 'input');
+    const preparedRoot = path.join(root, 'prepared', 'documents');
+    await fs.mkdir(preparedRoot, { recursive: true });
+    const project = await readProject(root);
+    const updatedDocuments: ProjectDocument[] = [];
+    const items: DocumentItem[] = [];
+    const titles: Array<{ title: string; sourceType: ProjectDocument['sourceType'] }> = [];
+    for (const document of project.documents.filter((item) => item.status === 'ready')) {
+      if (abortSignal?.aborted) throw new DOMException('用户主动取消', 'AbortError');
+      const absolute = assertInside(input, path.join(input, document.relativePath));
+      const stat = await fs.stat(absolute).catch(() => null);
+      if (!stat?.isFile()) continue;
+      const cachePath = assertInside(preparedRoot, path.join(preparedRoot, `${document.id}.json`));
+      let normalized: NormalizedDocument;
+      try {
+        const cached = await fs.readFile(cachePath, 'utf8')
+          .then((value) => JSON.parse(value) as { sha256: string; document: Awaited<ReturnType<typeof parseBrandDocument>> })
+          .catch(() => null);
+        normalized = cached?.sha256 === document.sha256 ? cached.document : await parseBrandDocument(absolute);
+        if (abortSignal?.aborted) throw new DOMException('用户主动取消', 'AbortError');
+        normalized.id = document.id;
+        if (!cached || cached.sha256 !== document.sha256) {
+          await fs.writeFile(cachePath, `${JSON.stringify({ sha256: document.sha256, document: normalized }, null, 2)}\n`, 'utf8');
+        }
+        const warnings = normalized.parseWarnings || [];
+        const next: ProjectDocument = {
+          ...document,
+          sizeBytes: stat.size,
+          parseStatus: warnings.length ? 'warning' : 'parsed',
+          pageCount: normalized.pageCount,
+          characterCount: normalized.characterCount,
+          parseWarnings: warnings
+        };
+        updatedDocuments.push(next);
+        if (normalized.title && usableDocumentTitle(normalized.title)) {
+          titles.push({ title: normalized.title, sourceType: document.sourceType });
+        }
+      } catch (error) {
+        await fs.rm(cachePath, { force: true });
+        updatedDocuments.push({
+          ...document,
+          sizeBytes: stat.size,
+          parseStatus: 'failed',
+          parseWarnings: [(error as Error).message]
+        });
+      }
+    }
+    for (const document of updatedDocuments) {
+      items.push({
+        id: document.id,
+        relativePath: document.relativePath,
+        name: document.originalName,
+        extension: path.extname(document.originalName).toLowerCase(),
+        bytes: document.sizeBytes,
+        sourceType: document.sourceType,
+        parseStatus: document.parseStatus,
+        pageCount: document.pageCount,
+        characterCount: document.characterCount,
+        parseWarnings: document.parseWarnings
+      });
+    }
+    const summary: DocumentSummary = {
+      totalFiles: items.length,
+      totalBytes: items.reduce((sum, item) => sum + item.bytes, 0),
+      totalPages: items.reduce((sum, item) => sum + (item.pageCount || 0), 0),
+      totalCharacters: items.reduce((sum, item) => sum + (item.characterCount || 0), 0),
+      parsedCount: items.filter((item) => item.parseStatus === 'parsed' || item.parseStatus === 'warning').length,
+      warningCount: items.filter((item) => item.parseStatus === 'warning').length,
+      failedCount: items.filter((item) => item.parseStatus === 'failed').length,
+      items
+    };
+    const title = titles.find((item) => usableDocumentTitle(item.title));
+    const shouldReplaceName = title && (project.projectName.startsWith('品牌项目-') || project.projectNameConfidence < 0.7);
+    await writeProject(root, {
+      ...project,
+      documents: updatedDocuments,
+      projectName: shouldReplaceName ? title.title : project.projectName,
+      detectedProjectName: shouldReplaceName ? title.title : project.detectedProjectName,
+      projectNameSource: shouldReplaceName ? (title.sourceType === 'pdf' ? 'pdf-content' : 'common-file-prefix') : project.projectNameSource,
+      projectNameConfidence: shouldReplaceName ? 0.72 : project.projectNameConfidence,
+      brandName: shouldReplaceName ? title.title : project.brandName,
+      detectedBrandName: shouldReplaceName ? title.title : project.detectedBrandName,
+      assetCount: summary.totalFiles,
+      imageCount: 0,
+      status: summary.parsedCount ? (project.status === 'draft' ? 'ready' : project.status) : 'draft'
+    });
+    return summary;
+  }
+
+  async function loadBrandCorpus(projectId: string, abortSignal?: AbortSignal): Promise<BrandStrategyCorpus> {
+    const summary = await scanDocuments(projectId, abortSignal);
+    if (!summary.parsedCount) throw new Error('未从文档中提取到有效文本');
+    const root = await rootForId(projectId);
+    const project = await readProject(root);
+    const preparedRoot = path.join(root, 'prepared', 'documents');
+    const normalized = [];
+    for (const document of project.documents.filter((item) => item.parseStatus === 'parsed' || item.parseStatus === 'warning')) {
+      if (abortSignal?.aborted) throw new DOMException('用户主动取消', 'AbortError');
+      const cachePath = assertInside(preparedRoot, path.join(preparedRoot, `${document.id}.json`));
+      const cached = JSON.parse(await fs.readFile(cachePath, 'utf8')) as {
+        sha256: string;
+        document: Awaited<ReturnType<typeof parseBrandDocument>>;
+      };
+      if (cached.sha256 === document.sha256) normalized.push(cached.document);
+    }
+    return buildBrandStrategyCorpus(normalized);
+  }
+
+  async function removeDocuments(projectId: string, predicate: (document: ProjectDocument) => boolean): Promise<DocumentSummary> {
+    const root = await rootForId(projectId);
+    const input = path.join(root, 'input');
+    const project = await readProject(root);
+    const preparedRoot = assertInside(root, path.join(root, 'prepared', 'documents'));
+    for (const document of project.documents.filter(predicate)) {
+      await fs.rm(assertInside(input, path.join(input, document.relativePath)), { force: true });
+      await fs.rm(assertInside(preparedRoot, path.join(preparedRoot, `${document.id}.json`)), { force: true });
+    }
+    await invalidateReport(root, project);
+    const remaining = project.documents.filter((document) => !predicate(document));
+    await writeProject(root, {
+      ...project,
+      documents: remaining,
+      status: remaining.length ? 'ready' : 'draft',
+      lastReportFilename: null,
+      lastError: null
+    });
+    return scanDocuments(projectId);
+  }
+
+  async function removeDocument(projectId: string, documentId: string): Promise<DocumentSummary> {
+    return removeDocuments(projectId, (document) => document.id === documentId);
+  }
+
+  async function clearDocuments(projectId: string): Promise<DocumentSummary> {
+    return removeDocuments(projectId, () => true);
   }
 
   async function migrateLegacyAssets(projectId: string, root: string, project: ProjectRecord): Promise<ProjectRecord> {
@@ -589,9 +883,14 @@ export function createProjectStore(readSettings: SettingsReader) {
     update,
     scan,
     importFiles,
+    importDocuments,
+    scanDocuments,
+    loadBrandCorpus,
     removeAsset,
     removeBatch,
     clearAssets,
+    removeDocument,
+    clearDocuments,
     remove,
     paths
   };

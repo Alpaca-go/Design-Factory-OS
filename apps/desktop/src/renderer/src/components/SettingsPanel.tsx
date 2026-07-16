@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type {
   ApiProfile,
+  ConnectionCapability,
   PublicSettings,
   SaveApiProfileInput,
   SaveSettingsInput
@@ -83,11 +84,15 @@ export function SettingsPanel({ settings, onSaved, onClose }: Props) {
     }
   }
 
-  async function testProfile(input: SaveApiProfileInput, busyKey: string) {
+  async function testProfile(
+    input: SaveApiProfileInput,
+    busyKey: string,
+    capability: ConnectionCapability = 'vision'
+  ) {
     setBusy(busyKey);
     setNotice(null);
     try {
-      const result = await window.masterpiece.settings.testProfile(input);
+      const result = await window.masterpiece.settings.testProfile(input, capability);
       onSaved(await window.masterpiece.settings.get());
       setNotice({ tone: 'ok', text: `${result.message} · ${result.elapsedMs} ms` });
     } catch (error) {
@@ -137,9 +142,11 @@ export function SettingsPanel({ settings, onSaved, onClose }: Props) {
               <div><dt>Provider</dt><dd>{profile.provider}</dd></div>
               <div><dt>Model</dt><dd>{profile.modelId}</dd></div>
               <div><dt>状态</dt><dd>{statusLabel(profile)} · {profile.hasApiKey ? 'Key 已保存' : '缺少 Key'}</dd></div>
+              <div><dt>Brand DNA 等级</dt><dd>{profile.qualityTier === 'benchmark' ? 'Benchmark' : profile.qualityTier === 'qualified' ? 'Qualified' : profile.qualityTier === 'unsupported' ? 'Unsupported' : 'Experimental'}</dd></div>
             </dl>
             <div className="button-row compact-buttons">
-              <button className="button secondary" disabled={Boolean(busy) || !profile.isEnabled} onClick={() => void testProfile(profileInput(profile), `test-${profile.id}`)}>{busy === `test-${profile.id}` ? '测试中…' : '测试连接'}</button>
+              <button className="button secondary" disabled={Boolean(busy) || !profile.isEnabled} onClick={() => void testProfile(profileInput(profile), `test-text-${profile.id}`, 'text')}>{busy === `test-text-${profile.id}` ? '测试中…' : '测试文本'}</button>
+              <button className="button secondary" disabled={Boolean(busy) || !profile.isEnabled} onClick={() => void testProfile(profileInput(profile), `test-vision-${profile.id}`, 'vision')}>{busy === `test-vision-${profile.id}` ? '测试中…' : '测试图片'}</button>
               <button className="button ghost" disabled={Boolean(busy)} onClick={() => { setEditor(profileInput(profile)); setShowKey(false); }}>编辑</button>
               {!profile.isDefault && <button className="button ghost" disabled={Boolean(busy) || !profile.isEnabled} onClick={() => void perform(`default-${profile.id}`, () => window.masterpiece.settings.setDefaultProfile(profile.id), '默认 API Profile 已更新。')}>设为默认</button>}
               <button className="button ghost" disabled={Boolean(busy)} onClick={() => void perform(`enable-${profile.id}`, () => window.masterpiece.settings.setProfileEnabled(profile.id, !profile.isEnabled), profile.isEnabled ? 'API Profile 已停用。' : 'API Profile 已启用。')}>{profile.isEnabled ? '停用' : '启用'}</button>
@@ -163,14 +170,16 @@ export function SettingsPanel({ settings, onSaved, onClose }: Props) {
           </datalist>
           <label>API Key<div className="secret-field"><input type={showKey ? 'text' : 'password'} value={editor.apiKey || ''} placeholder={editor.id ? '留空则保持现有 Key' : '输入 API Key'} onChange={(event) => updateProfile('apiKey', event.target.value)} /><button onClick={() => setShowKey(!showKey)} type="button">{showKey ? '隐藏' : '显示'}</button></div></label>
           <label>Base URL<input value={editor.baseUrl} placeholder="https://…/compatible-mode/v1" onChange={(event) => updateProfile('baseUrl', event.target.value)} /></label>
-          <label>Model ID<input value={editor.modelId} placeholder="输入端点实际支持的多模态 Model ID" onChange={(event) => updateProfile('modelId', event.target.value)} /></label>
+          <label>Model ID<input value={editor.modelId} placeholder="输入端点实际支持的文本或多模态 Model ID" onChange={(event) => updateProfile('modelId', event.target.value)} /></label>
+          <small className="field-help">新模型默认标记为 Experimental。只有完成固定样本与 GPT-5.6 对照盲评后，开发版本注册表才可将其提升为 Qualified 或 Benchmark。</small>
           <div className="field-grid">
             <label className="toggle"><input type="checkbox" checked={editor.isEnabled} onChange={(event) => updateProfile('isEnabled', event.target.checked)} /><span>启用此配置</span></label>
             <label className="toggle"><input type="checkbox" checked={editor.isDefault} onChange={(event) => updateProfile('isDefault', event.target.checked)} /><span>设为默认配置</span></label>
           </div>
           <div className="button-row">
             <button className="button primary" disabled={Boolean(busy)} onClick={() => void saveProfile()}>{busy === 'profile-save' ? '保存中…' : '保存配置'}</button>
-            <button className="button secondary" disabled={Boolean(busy)} onClick={() => void testProfile(editor, 'editor-test')}>{busy === 'editor-test' ? '测试中…' : '测试图片连接'}</button>
+            <button className="button secondary" disabled={Boolean(busy)} onClick={() => void testProfile(editor, 'editor-text-test', 'text')}>{busy === 'editor-text-test' ? '测试中…' : '测试文本连接'}</button>
+            <button className="button secondary" disabled={Boolean(busy)} onClick={() => void testProfile(editor, 'editor-vision-test', 'vision')}>{busy === 'editor-vision-test' ? '测试中…' : '测试图片连接'}</button>
             <button className="button ghost" disabled={Boolean(busy)} onClick={() => setEditor(null)}>取消编辑</button>
           </div>
         </div>}

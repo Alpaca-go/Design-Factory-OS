@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import type {
   AnalysisProgress,
+  ConnectionCapability,
   CreateProjectInput,
   SaveApiProfileInput,
   SaveSettingsInput
@@ -20,6 +21,7 @@ import {
   testApiProfile
 } from './settings-store';
 import { createPipelineService } from './pipeline-service';
+import { createBrandDnaPipelineService } from './brand-dna-pipeline-service';
 import { assertInside, sanitizeFilenamePart } from './analysis-contract';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -30,6 +32,11 @@ const pipeline = createPipelineService(
   projects,
   getProviderCredentials,
   getSettings,
+  (progress: AnalysisProgress) => mainWindow?.webContents.send('analysis:progress', progress)
+);
+const brandDnaPipeline = createBrandDnaPipelineService(
+  projects,
+  getProviderCredentials,
   (progress: AnalysisProgress) => mainWindow?.webContents.send('analysis:progress', progress)
 );
 
@@ -65,7 +72,11 @@ function registerIpc(): void {
   ipcMain.handle('settings:delete-profile', (_event, profileId: string) => deleteApiProfile(profileId));
   ipcMain.handle('settings:set-default-profile', (_event, profileId: string) => setDefaultApiProfile(profileId));
   ipcMain.handle('settings:set-profile-enabled', (_event, profileId: string, enabled: boolean) => setApiProfileEnabled(profileId, enabled));
-  ipcMain.handle('settings:test-profile', (_event, input: SaveApiProfileInput) => testApiProfile(input));
+  ipcMain.handle('settings:test-profile', (
+    _event,
+    input: SaveApiProfileInput,
+    capability?: ConnectionCapability
+  ) => testApiProfile(input, capability));
 
   ipcMain.handle('projects:list', () => projects.list());
   ipcMain.handle('projects:create', (_event, input: CreateProjectInput) => projects.create(input));
@@ -79,8 +90,14 @@ function registerIpc(): void {
   ipcMain.handle('projects:remove-asset', (_event, projectId: string, assetId: string) => projects.removeAsset(projectId, assetId));
   ipcMain.handle('projects:remove-batch', (_event, projectId: string, batchId: string) => projects.removeBatch(projectId, batchId));
   ipcMain.handle('projects:clear-assets', (_event, projectId: string) => projects.clearAssets(projectId));
-  ipcMain.handle('projects:choose-files', async (_event, kind: 'assets' | 'logo' | 'brief') => {
-    const filters = kind === 'logo'
+  ipcMain.handle('projects:import-documents', (_event, projectId: string, paths: string[]) => projects.importDocuments(projectId, paths));
+  ipcMain.handle('projects:scan-documents', (_event, projectId: string) => projects.scanDocuments(projectId));
+  ipcMain.handle('projects:remove-document', (_event, projectId: string, documentId: string) => projects.removeDocument(projectId, documentId));
+  ipcMain.handle('projects:clear-documents', (_event, projectId: string) => projects.clearDocuments(projectId));
+  ipcMain.handle('projects:choose-files', async (_event, kind: 'assets' | 'logo' | 'brief' | 'documents') => {
+    const filters = kind === 'documents'
+      ? [{ name: '品牌策划文档', extensions: ['pdf', 'docx', 'md', 'markdown', 'txt'] }]
+      : kind === 'logo'
       ? [{ name: 'Logo 图片', extensions: ['jpg', 'jpeg', 'png', 'webp'] }]
       : kind === 'brief'
         ? [{ name: '项目说明', extensions: ['md', 'txt', 'json', 'pdf'] }]
@@ -104,8 +121,15 @@ function registerIpc(): void {
     kind: 'assets' | 'logo' | 'brief'
   ) => projects.importFiles(projectId, paths, kind));
 
-  ipcMain.handle('analysis:start', (_event, projectId: string, forceReasoning: boolean, apiProfileId?: string) => pipeline.start(projectId, forceReasoning, apiProfileId));
-  ipcMain.handle('analysis:cancel', (_event, projectId: string) => pipeline.cancel(projectId));
+  ipcMain.handle('analysis:start', async (_event, projectId: string, forceReasoning: boolean, apiProfileId?: string) => {
+    const project = await projects.get(projectId);
+    return project.mode === 'brand-dna'
+      ? brandDnaPipeline.start(projectId, forceReasoning, apiProfileId)
+      : pipeline.start(projectId, forceReasoning, apiProfileId);
+  });
+  ipcMain.handle('analysis:cancel', (_event, projectId: string) => (
+    pipeline.cancel(projectId) || brandDnaPipeline.cancel(projectId)
+  ));
 
   ipcMain.handle('report:read', async (_event, projectId: string) => {
     const project = await projects.get(projectId);

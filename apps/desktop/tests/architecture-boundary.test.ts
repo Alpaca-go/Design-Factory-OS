@@ -27,6 +27,27 @@ test('Desktop calls runV5Pipeline directly and does not build terminal commands'
   assert.doesNotMatch(source, /child_process|exec\s*\(|spawn\s*\(|npm run analyze/);
 });
 
+test('Brand DNA has an independent text-only pipeline and leaves visual prompts untouched', async () => {
+  const brandService = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'main', 'brand-dna-pipeline-service.ts'), 'utf8');
+  const visualService = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'main', 'pipeline-service.ts'), 'utf8');
+  const deepProtocol = await fs.readFile(path.join(repositoryRoot, 'src', 'v5', 'brand-dna', 'deep-protocol.js'), 'utf8');
+  const qualityAuditor = await fs.readFile(path.join(repositoryRoot, 'src', 'v5', 'brand-dna', 'prompts', 'quality-auditor.js'), 'utf8');
+  assert.match(brandService, /runBrandDnaPipeline/);
+  assert.match(brandService, /createOpenAICompatibleTextReasoner/);
+  assert.doesNotMatch(brandService, /createQwenReasoner|image_url|contact-sheet/);
+  assert.match(visualService, /createQwenReasoner/);
+  assert.doesNotMatch(visualService, /brand-dna\/prompt-builder|runBrandDnaPipeline/);
+  assert.match(deepProtocol, /atomic-evidence/);
+  assert.match(deepProtocol, /strategic-model/);
+  assert.match(deepProtocol, /gpt-image-task-compiler/);
+  assert.match(deepProtocol, /FAILED_QUALITY_GATE/);
+  assert.match(qualityAuditor, /totalScore>=85/);
+  assert.match(qualityAuditor, /targeted-repair/);
+  assert.ok(brandService.indexOf('runBrandDnaPipeline') < brandService.indexOf("fs.writeFile(outputPath"));
+  assert.match(brandService, /failed-quality-gate/);
+  assert.match(brandService, /brand-dna-intermediates\.json/);
+});
+
 test('sandboxed renderer loads the bundled CommonJS preload artifact', async () => {
   const source = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'main', 'index.ts'), 'utf8');
   const config = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'electron.vite.config.ts'), 'utf8');

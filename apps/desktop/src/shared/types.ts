@@ -2,8 +2,20 @@
 // multimodal endpoint instead of restricting profiles to a vendor allow-list.
 export type ProviderKind = string;
 export type OutputLanguage = 'zh-CN' | 'en';
-export type AnalysisProfile = 'fusion-enhanced';
-export type ProjectStatus = 'draft' | 'ready' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type AnalysisMode = 'visual-evolution' | 'brand-dna';
+export type AnalysisProfile = 'fusion-enhanced' | 'brand-dna';
+export type ConnectionCapability = 'vision' | 'text';
+export type ReasoningQualityTier = 'benchmark' | 'qualified' | 'experimental' | 'unsupported';
+export type ProjectStatus =
+  | 'draft'
+  | 'ready'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'failed-schema'
+  | 'failed-quality-gate'
+  | 'unsupported-model-tier'
+  | 'cancelled';
 export type ProjectNameSource =
   | 'visual-content'
   | 'logo-or-guideline'
@@ -25,15 +37,31 @@ export type AnalysisStage =
   | 'failed'
   | 'cancelled';
 
+export type BrandDnaAnalysisStage =
+  | 'preparing-documents'
+  | 'parsing-documents'
+  | 'normalizing-content'
+  | 'extracting-project-facts'
+  | 'building-brand-dna'
+  | 'diagnosing-strategy'
+  | 'translating-creative-direction'
+  | 'planning-generation-tasks'
+  | 'validating-output'
+  | 'generating-report'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
 export interface AnalysisProgress {
   projectId: string;
-  stage: AnalysisStage;
+  mode: AnalysisMode;
+  stage: AnalysisStage | BrandDnaAnalysisStage;
   message: string;
   startedAt: string;
   elapsedMs?: number;
   assetCount?: number;
   model?: string;
-  failedAtStage?: Exclude<AnalysisStage, 'failed' | 'cancelled' | 'completed'>;
+  failedAtStage?: Exclude<AnalysisStage | BrandDnaAnalysisStage, 'failed' | 'cancelled' | 'completed'>;
   cacheStatus?: 'checking' | 'hit' | 'miss' | 'forced';
 }
 
@@ -51,6 +79,7 @@ export interface ApiProfile {
   updatedAt: string;
   lastTestedAt?: string;
   lastTestStatus?: 'success' | 'failed';
+  qualityTier: ReasoningQualityTier;
 }
 
 export interface SaveApiProfileInput {
@@ -96,8 +125,24 @@ export interface ProjectAsset {
   archiveSourceName?: string;
 }
 
+export interface ProjectDocument {
+  id: string;
+  originalName: string;
+  relativePath: string;
+  mimeType: string;
+  sizeBytes: number;
+  sha256: string;
+  sourceType: 'pdf' | 'docx' | 'markdown' | 'text';
+  status: 'ready' | 'failed';
+  parseStatus: 'pending' | 'parsed' | 'warning' | 'failed';
+  pageCount?: number;
+  characterCount?: number;
+  parseWarnings: string[];
+}
+
 export interface ProjectRecord {
   id: string;
+  mode: AnalysisMode;
   projectName: string;
   detectedProjectName: string;
   projectNameSource: ProjectNameSource;
@@ -118,6 +163,7 @@ export interface ProjectRecord {
   model: string;
   apiProfileId: string | null;
   analysisProfile: AnalysisProfile;
+  reasoningQualityTier: ReasoningQualityTier;
   status: ProjectStatus;
   createdAt: string;
   updatedAt: string;
@@ -130,11 +176,13 @@ export interface ProjectRecord {
   logoFiles: string[];
   briefFiles: string[];
   assets: ProjectAsset[];
+  documents: ProjectDocument[];
 }
 
 export interface CreateProjectInput {
   sourcePaths: string[];
   apiProfileId: string;
+  mode?: AnalysisMode;
 }
 
 export interface AssetItem {
@@ -169,6 +217,77 @@ export interface ImportResult {
   summary: AssetSummary;
 }
 
+export interface DocumentSection {
+  heading?: string;
+  level?: number;
+  content: string;
+  page?: number;
+}
+
+export interface DocumentTable {
+  rows: string[][];
+  markdown: string;
+}
+
+export interface NormalizedDocument {
+  id: string;
+  filename: string;
+  mimeType: string;
+  sourceType: 'pdf' | 'docx' | 'markdown' | 'text';
+  title?: string;
+  rawText: string;
+  sections: DocumentSection[];
+  tables: DocumentTable[];
+  pageCount?: number;
+  characterCount: number;
+  parseWarnings: string[];
+}
+
+export interface SourceIndexItem {
+  documentId: string;
+  filename: string;
+  section: string;
+  page?: number;
+  characterCount: number;
+}
+
+export interface BrandStrategyCorpus {
+  documents: NormalizedDocument[];
+  sourceIndex: SourceIndexItem[];
+  mergedText: string;
+  warnings: string[];
+}
+
+export interface DocumentItem {
+  id: string;
+  relativePath: string;
+  name: string;
+  extension: string;
+  bytes: number;
+  sourceType: ProjectDocument['sourceType'];
+  parseStatus: ProjectDocument['parseStatus'];
+  pageCount?: number;
+  characterCount?: number;
+  parseWarnings: string[];
+}
+
+export interface DocumentSummary {
+  totalFiles: number;
+  totalBytes: number;
+  totalPages: number;
+  totalCharacters: number;
+  parsedCount: number;
+  warningCount: number;
+  failedCount: number;
+  items: DocumentItem[];
+}
+
+export interface DocumentImportResult {
+  imported: string[];
+  skipped: string[];
+  summary: DocumentSummary;
+}
+
 export interface AnalysisResult {
   project: ProjectRecord;
   reportFilename: string;
@@ -181,6 +300,8 @@ export interface AnalysisResult {
   assetCount: number;
   imageCount: number;
   reasoningCacheHit: boolean;
+  mode: AnalysisMode;
+  warnings?: string[];
 }
 
 export interface ConnectionTestResult {
@@ -188,6 +309,7 @@ export interface ConnectionTestResult {
   message: string;
   model: string;
   supportsImages: boolean;
+  supportsText: boolean;
   elapsedMs: number;
 }
 
@@ -199,20 +321,24 @@ export interface DesktopApi {
     deleteProfile(profileId: string): Promise<PublicSettings>;
     setDefaultProfile(profileId: string): Promise<PublicSettings>;
     setProfileEnabled(profileId: string, enabled: boolean): Promise<PublicSettings>;
-    testProfile(input: SaveApiProfileInput): Promise<ConnectionTestResult>;
+    testProfile(input: SaveApiProfileInput, capability?: ConnectionCapability): Promise<ConnectionTestResult>;
   };
   projects: {
     list(): Promise<ProjectRecord[]>;
     create(input: CreateProjectInput): Promise<ProjectRecord>;
     get(projectId: string): Promise<ProjectRecord>;
     remove(projectId: string): Promise<void>;
-    chooseFiles(kind: 'assets' | 'logo' | 'brief'): Promise<string[]>;
+    chooseFiles(kind: 'assets' | 'logo' | 'brief' | 'documents'): Promise<string[]>;
     chooseFolder(): Promise<string[]>;
     importFiles(projectId: string, paths: string[], kind: 'assets' | 'logo' | 'brief'): Promise<ImportResult>;
     scanAssets(projectId: string): Promise<AssetSummary>;
     removeAsset(projectId: string, assetId: string): Promise<AssetSummary>;
     removeBatch(projectId: string, batchId: string): Promise<AssetSummary>;
     clearAssets(projectId: string): Promise<AssetSummary>;
+    importDocuments(projectId: string, paths: string[]): Promise<DocumentImportResult>;
+    scanDocuments(projectId: string): Promise<DocumentSummary>;
+    removeDocument(projectId: string, documentId: string): Promise<DocumentSummary>;
+    clearDocuments(projectId: string): Promise<DocumentSummary>;
   };
   analysis: {
     start(projectId: string, forceReasoning: boolean, apiProfileId?: string): Promise<AnalysisResult>;

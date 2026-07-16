@@ -9,7 +9,7 @@ const api: DesktopApi = {
     deleteProfile: (profileId) => ipcRenderer.invoke('settings:delete-profile', profileId),
     setDefaultProfile: (profileId) => ipcRenderer.invoke('settings:set-default-profile', profileId),
     setProfileEnabled: (profileId, enabled) => ipcRenderer.invoke('settings:set-profile-enabled', profileId, enabled),
-    testProfile: (input) => ipcRenderer.invoke('settings:test-profile', input)
+    testProfile: (input, capability) => ipcRenderer.invoke('settings:test-profile', input, capability)
   },
   projects: {
     list: () => ipcRenderer.invoke('projects:list'),
@@ -22,7 +22,11 @@ const api: DesktopApi = {
     scanAssets: (projectId) => ipcRenderer.invoke('projects:scan-assets', projectId),
     removeAsset: (projectId, assetId) => ipcRenderer.invoke('projects:remove-asset', projectId, assetId),
     removeBatch: (projectId, batchId) => ipcRenderer.invoke('projects:remove-batch', projectId, batchId),
-    clearAssets: (projectId) => ipcRenderer.invoke('projects:clear-assets', projectId)
+    clearAssets: (projectId) => ipcRenderer.invoke('projects:clear-assets', projectId),
+    importDocuments: (projectId, paths) => ipcRenderer.invoke('projects:import-documents', projectId, paths),
+    scanDocuments: (projectId) => ipcRenderer.invoke('projects:scan-documents', projectId),
+    removeDocument: (projectId, documentId) => ipcRenderer.invoke('projects:remove-document', projectId, documentId),
+    clearDocuments: (projectId) => ipcRenderer.invoke('projects:clear-documents', projectId)
   },
   analysis: {
     start: (projectId, forceReasoning, apiProfileId) => ipcRenderer.invoke('analysis:start', projectId, forceReasoning, apiProfileId),
