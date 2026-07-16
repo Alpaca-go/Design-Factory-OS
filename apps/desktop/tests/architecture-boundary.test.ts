@@ -55,6 +55,24 @@ test('new analysis UI contains intake actions and API Profile choice without met
   assert.match(source, /sourcePaths/);
 });
 
+test('API Profile provider is free-form and not restricted to Qwen choices', async () => {
+  const types = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'shared', 'types.ts'), 'utf8');
+  const settings = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'renderer', 'src', 'components', 'SettingsPanel.tsx'), 'utf8');
+  assert.match(types, /type ProviderKind = string/);
+  assert.match(settings, /Provider 标识/);
+  assert.match(settings, /provider-suggestions/);
+  assert.doesNotMatch(settings, /<select value=\{editor\.provider\}/);
+});
+
+test('recent project rows expose a destructive local-folder delete action', async () => {
+  const app = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'renderer', 'src', 'App.tsx'), 'utf8');
+  const store = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'main', 'project-store.ts'), 'utf8');
+  assert.match(app, /project-delete/);
+  assert.match(app, /永久删除该项目对应的本地文件夹/);
+  assert.match(app, /projects\.remove\(project\.id\)/);
+  assert.match(store, /fs\.rm\(root,\s*\{\s*recursive:\s*true/);
+});
+
 test('API Key is encrypted outside project records', async () => {
   const credentials = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'main', 'settings-store.ts'), 'utf8');
   const projects = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'main', 'project-store.ts'), 'utf8');

@@ -23,6 +23,7 @@ export function App() {
   const [progress, setProgress] = useState<AnalysisProgress | null>(null);
   const [error, setError] = useState('');
   const [runFailure, setRunFailure] = useState('');
+  const [deletingProjectId, setDeletingProjectId] = useState('');
   const [loading, setLoading] = useState(true);
   const enabledProfiles = settings?.profiles.filter((profile) => profile.isEnabled) || [];
   const selectedProfile = enabledProfiles.find((profile) => profile.id === selectedApiProfileId)
@@ -150,6 +151,25 @@ export function App() {
     catch (reason) { setError(cleanError(reason)); }
   }
 
+  async function deleteProject(project: ProjectRecord) {
+    if (project.status === 'running') return;
+    if (!window.confirm(`确定删除项目“${project.projectName}”吗？\n\n此操作会同时永久删除该项目对应的本地文件夹，包括素材、缓存、报告和运行记录，且无法撤销。`)) return;
+    setDeletingProjectId(project.id);
+    setError('');
+    try {
+      await window.masterpiece.projects.remove(project.id);
+      setProjects((current) => current.filter((item) => item.id !== project.id));
+      if (selected?.id === project.id) {
+        setSelected(null);
+        setAssets(null);
+      }
+    } catch (reason) {
+      setError(cleanError(reason));
+    } finally {
+      setDeletingProjectId('');
+    }
+  }
+
   function saveSettings(next: PublicSettings) {
     setSettings(next);
     const currentStillEnabled = next.profiles.some((profile) => profile.id === selectedApiProfileId && profile.isEnabled);
@@ -212,7 +232,23 @@ export function App() {
       {!hasUsableProfile && <div className="setup-banner"><div><strong>完成首次 API 配置</strong><p>请添加并启用一个包含 API Key、Base URL 与 Model ID 的 Profile。</p></div><button className="button secondary" onClick={() => setScreen('settings')}>前往设置</button></div>}
       {error && <div className="notice error">{error}</div>}
       <section className="recent-section"><div className="section-title"><div><span>RECENT PROJECTS</span><h2>最近项目</h2></div><small>{projects.length} 个本地项目</small></div>
-        {projects.length ? <div className="project-list">{projects.map((project, index) => <button className="project-row" key={project.id} onClick={() => void openProject(project)}><span className="project-index">{String(index + 1).padStart(2, '0')}</span><div className="project-name"><strong>{project.projectName}</strong><small>{project.industry} · {project.assetCount} 个素材</small></div><StatusBadge status={project.status} /><div className="project-model"><small>MODEL</small><strong>{project.model || '—'}</strong></div><div className="project-time"><small>DURATION</small><strong>{formatDuration(project.lastDurationMs)}</strong></div><span className="row-arrow">→</span></button>)}</div> : <div className="empty-home"><div className="empty-orbit" /><strong>还没有分析项目</strong><p>创建项目、导入视觉方案，开始第一次融合增强分析。</p><button className="button primary" onClick={() => setScreen('create')}>创建第一个项目</button></div>}
+        {projects.length ? <div className="project-list">{projects.map((project, index) => <div className="project-row" key={project.id}>
+          <button className="project-row-open" onClick={() => void openProject(project)}>
+            <span className="project-index">{String(index + 1).padStart(2, '0')}</span>
+            <div className="project-name"><strong>{project.projectName}</strong><small>{project.industry} · {project.assetCount} 个素材</small></div>
+            <StatusBadge status={project.status} />
+            <div className="project-model"><small>MODEL</small><strong>{project.model || '—'}</strong></div>
+            <div className="project-time"><small>DURATION</small><strong>{formatDuration(project.lastDurationMs)}</strong></div>
+            <span className="row-arrow">→</span>
+          </button>
+          <button
+            className="project-delete"
+            disabled={project.status === 'running' || deletingProjectId === project.id}
+            title={project.status === 'running' ? '请先取消正在运行的分析' : `删除 ${project.projectName} 及本地文件夹`}
+            aria-label={`删除项目 ${project.projectName}`}
+            onClick={() => void deleteProject(project)}
+          >{deletingProjectId === project.id ? '…' : '删除'}</button>
+        </div>)}</div> : <div className="empty-home"><div className="empty-orbit" /><strong>还没有分析项目</strong><p>创建项目、导入视觉方案，开始第一次融合增强分析。</p><button className="button primary" onClick={() => setScreen('create')}>创建第一个项目</button></div>}
       </section>
     </main>
   </div>;

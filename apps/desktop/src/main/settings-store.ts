@@ -91,7 +91,7 @@ async function migrateLegacy(value: LegacySettings): Promise<StoredSettings> {
     const profile: StoredProfile = {
       id,
       displayName: value.model || '默认 API 配置',
-      provider: value.provider || 'qwen',
+      provider: value.provider || 'openai-compatible',
       modelId: value.model || '',
       baseUrl: value.baseUrl || '',
       credentialKey: `masterpiece-os/${id}`,
@@ -122,6 +122,7 @@ async function readStored(): Promise<StoredSettings> {
     const stored = { ...defaults(), ...(parsed as StoredSettings) };
     stored.profiles = stored.profiles.map((profile) => ({
       ...profile,
+      provider: String(profile.provider || 'openai-compatible').trim(),
       credentialKey: profile.credentialKey || `masterpiece-os/${profile.id}`,
       isEnabled: profile.isEnabled !== false,
       isDefault: profile.id === stored.defaultProfileId
@@ -145,7 +146,7 @@ async function publicSettings(settings: StoredSettings): Promise<PublicSettings>
   return {
     profiles,
     defaultProfileId: defaultProfile?.id || null,
-    provider: defaultProfile?.provider || 'qwen',
+    provider: defaultProfile?.provider || '',
     baseUrl: defaultProfile?.baseUrl || '',
     model: defaultProfile?.modelId || '',
     hasApiKey: Boolean(defaultProfile?.hasApiKey),
@@ -191,6 +192,7 @@ export async function saveSettings(input: SaveSettingsInput): Promise<PublicSett
 
 function validateProfileInput(input: SaveApiProfileInput): void {
   if (!input.displayName.trim()) throw new Error('配置名称不能为空');
+  if (!input.provider.trim()) throw new Error('Provider 标识不能为空');
   if (!input.baseUrl.trim()) throw new Error('Base URL 不能为空');
   if (!input.modelId.trim()) throw new Error('Model ID 不能为空');
   if (input.isDefault && !input.isEnabled) throw new Error('默认 API Profile 必须保持启用');
@@ -212,7 +214,7 @@ export async function saveApiProfile(input: SaveApiProfileInput): Promise<Public
   const profile: StoredProfile = {
     id,
     displayName: input.displayName.trim(),
-    provider: input.provider,
+    provider: input.provider.trim(),
     modelId: input.modelId.trim(),
     baseUrl: input.baseUrl.trim(),
     credentialKey: `masterpiece-os/${id}`,

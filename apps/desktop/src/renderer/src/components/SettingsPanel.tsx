@@ -17,7 +17,7 @@ function profileInput(profile?: ApiProfile): SaveApiProfileInput {
   return {
     id: profile?.id,
     displayName: profile?.displayName || '',
-    provider: profile?.provider || 'qwen',
+    provider: profile?.provider || '',
     modelId: profile?.modelId || '',
     baseUrl: profile?.baseUrl || '',
     apiKey: '',
@@ -146,19 +146,24 @@ export function SettingsPanel({ settings, onSaved, onClose }: Props) {
               <button className="button danger" disabled={Boolean(busy)} onClick={() => void removeProfile(profile)}>删除</button>
             </div>
           </article>)}
-        </div> : <div className="empty-profile-list"><strong>尚未配置 API Profile</strong><p>添加一个支持图片输入的 OpenAI-compatible 多模态端点后即可开始分析。</p><button className="button primary" onClick={() => setEditor(profileInput())}>添加第一个配置</button></div>}
+        </div> : <div className="empty-profile-list"><strong>尚未配置 API Profile</strong><p>添加任意厂商提供的 OpenAI-compatible 多模态端点后即可开始分析。</p><button className="button primary" onClick={() => setEditor(profileInput())}>添加第一个配置</button></div>}
 
         {editor && <div className="profile-editor">
           <div className="section-heading compact"><span>+</span><div><h2>{editor.id ? '编辑 API 配置' : '新增 API 配置'}</h2><p>API Key 留空时保留已保存的凭据</p></div></div>
-          <label>配置名称<input value={editor.displayName} placeholder="例如：千问 VL Plus" onChange={(event) => updateProfile('displayName', event.target.value)} /></label>
-          <label>Provider<select value={editor.provider} onChange={(event) => updateProfile('provider', event.target.value as SaveApiProfileInput['provider'])}>
-            <option value="qwen">Qwen</option>
-            <option value="openai-compatible">OpenAI Compatible</option>
-            <option value="custom-openai-compatible">Custom OpenAI Compatible</option>
-          </select></label>
+          <label>配置名称<input value={editor.displayName} placeholder="例如：千问 VL Plus / GPT Vision / 本地模型" onChange={(event) => updateProfile('displayName', event.target.value)} /></label>
+          <label>Provider 标识<input list="provider-suggestions" value={editor.provider} placeholder="自由输入，例如 aliyun-bailian" onChange={(event) => updateProfile('provider', event.target.value)} /><small className="field-help">仅作为配置与运行记录标识，不限制厂商；请求协议需兼容 OpenAI Chat Completions。</small></label>
+          <datalist id="provider-suggestions">
+            <option value="aliyun-bailian" />
+            <option value="openai" />
+            <option value="azure-openai" />
+            <option value="deepseek" />
+            <option value="siliconflow" />
+            <option value="openrouter" />
+            <option value="local-openai-compatible" />
+          </datalist>
           <label>API Key<div className="secret-field"><input type={showKey ? 'text' : 'password'} value={editor.apiKey || ''} placeholder={editor.id ? '留空则保持现有 Key' : '输入 API Key'} onChange={(event) => updateProfile('apiKey', event.target.value)} /><button onClick={() => setShowKey(!showKey)} type="button">{showKey ? '隐藏' : '显示'}</button></div></label>
           <label>Base URL<input value={editor.baseUrl} placeholder="https://…/compatible-mode/v1" onChange={(event) => updateProfile('baseUrl', event.target.value)} /></label>
-          <label>Model ID<input value={editor.modelId} placeholder="qwen3-vl-plus" onChange={(event) => updateProfile('modelId', event.target.value)} /></label>
+          <label>Model ID<input value={editor.modelId} placeholder="输入端点实际支持的多模态 Model ID" onChange={(event) => updateProfile('modelId', event.target.value)} /></label>
           <div className="field-grid">
             <label className="toggle"><input type="checkbox" checked={editor.isEnabled} onChange={(event) => updateProfile('isEnabled', event.target.checked)} /><span>启用此配置</span></label>
             <label className="toggle"><input type="checkbox" checked={editor.isDefault} onChange={(event) => updateProfile('isDefault', event.target.checked)} /><span>设为默认配置</span></label>

@@ -1,4 +1,6 @@
-export type ProviderKind = 'qwen' | 'openai-compatible' | 'custom-openai-compatible';
+// Provider is user-defined metadata. Desktop accepts any OpenAI-compatible
+// multimodal endpoint instead of restricting profiles to a vendor allow-list.
+export type ProviderKind = string;
 export type OutputLanguage = 'zh-CN' | 'en';
 export type AnalysisProfile = 'fusion-enhanced';
 export type ProjectStatus = 'draft' | 'ready' | 'running' | 'completed' | 'failed' | 'cancelled';

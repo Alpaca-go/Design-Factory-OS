@@ -35,7 +35,7 @@ function configurePromptRoot(): void {
 }
 
 function providerLabel(provider: ProviderCredentials['provider']): string {
-  return provider === 'qwen' ? 'qwen' : provider;
+  return provider.trim() || 'openai-compatible';
 }
 
 function combineSignals(first: AbortSignal, second: AbortSignal): AbortSignal {
@@ -48,7 +48,7 @@ function combineSignals(first: AbortSignal, second: AbortSignal): AbortSignal {
 }
 
 function friendlyPipelineError(error: Error, apiKey: string): string {
-  const message = redactSecret(error.message, apiKey);
+  const message = redactSecret(error.message, apiKey).replace(/^Qwen 请求失败：\s*/i, '');
   if (/401|403|API Key|unauthorized|forbidden/i.test(message)) return 'API Key 无效或无权访问当前模型';
   if (/404|model.*not found|does not exist/i.test(message)) return 'Model ID 或 Base URL 不存在';
   if (/image|vision|multimodal/i.test(message) && /support|不支持/i.test(message)) return '当前模型不支持图片输入';

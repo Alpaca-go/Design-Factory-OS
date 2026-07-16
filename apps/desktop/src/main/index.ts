@@ -70,7 +70,11 @@ function registerIpc(): void {
   ipcMain.handle('projects:list', () => projects.list());
   ipcMain.handle('projects:create', (_event, input: CreateProjectInput) => projects.create(input));
   ipcMain.handle('projects:get', (_event, projectId: string) => projects.get(projectId));
-  ipcMain.handle('projects:remove', (_event, projectId: string) => projects.remove(projectId));
+  ipcMain.handle('projects:remove', async (_event, projectId: string) => {
+    const project = await projects.get(projectId);
+    if (project.status === 'running') throw new Error('正在分析的项目不能删除，请先取消分析');
+    await projects.remove(projectId);
+  });
   ipcMain.handle('projects:scan-assets', (_event, projectId: string) => projects.scan(projectId));
   ipcMain.handle('projects:remove-asset', (_event, projectId: string, assetId: string) => projects.removeAsset(projectId, assetId));
   ipcMain.handle('projects:remove-batch', (_event, projectId: string, batchId: string) => projects.removeBatch(projectId, batchId));

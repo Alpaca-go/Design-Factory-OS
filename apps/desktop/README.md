@@ -4,6 +4,8 @@ Electron + React + TypeScript desktop client for the Masterpiece OS v5 analysis 
 
 The analysis flow is intentionally focused: choose or drop a ZIP, image set, PDF, or folder, review and remove imported assets, choose an enabled API Profile, then click Start Analysis. ZIP files are read directly, only supported extracted assets are persisted, and duplicate content is removed by SHA-256. Original Logo assets are always locked and reports are always generated in Simplified Chinese.
 
+`Provider` is a free-form profile identifier rather than a fixed vendor list. Users can label profiles for any vendor or deployment while independently configuring Base URL, Model ID, and API Key. The endpoint must expose an OpenAI-compatible Chat Completions multimodal API.
+
 During a run, Desktop shows indeterminate activity, the current v5 stage, model, asset count, and a wall-clock timer. It never exposes hidden model reasoning or a fabricated percentage.
 
 ## Commands

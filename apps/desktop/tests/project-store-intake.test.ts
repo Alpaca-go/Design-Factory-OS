@@ -109,6 +109,10 @@ test('ZIP intake persists only extracted valid assets, deduplicates by SHA-256, 
     const cleared = await store.removeAsset(project.id, summary.items[0]!.id);
     assert.equal(cleared.totalFiles, 0);
     assert.equal((await store.get(project.id)).status, 'draft');
+
+    await store.remove(project.id);
+    assert.equal(await fs.stat(paths.root).then(() => true).catch(() => false), false);
+    assert.equal((await store.list()).some((item) => item.id === project.id), false);
   } finally {
     await fs.rm(temporary, { recursive: true, force: true });
   }
