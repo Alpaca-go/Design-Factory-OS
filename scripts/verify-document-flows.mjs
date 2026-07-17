@@ -15,6 +15,7 @@ function run(label, executable, args) {
 const coreTests = [
   'tests/v5/brand-dna-pipeline.test.js',
   'tests/v5/brand-dna-response-parser.test.js',
+  'tests/v5/brand-dna-v3-core-quality.test.js',
   'tests/v5/brand-dna-v3-core.test.js'
 ];
 const desktopTests = fs.readdirSync(path.join(root, 'apps/desktop/tests'))
