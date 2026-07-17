@@ -90,7 +90,7 @@ export async function runBrandDnaV3Core(input) {
     await save('01-evidence-map', evidenceMap, { upstreamHash: evidenceExpected.upstreamHash, promptVersion: evidenceExpected.promptVersion, schemaVersion: evidenceExpected.schemaVersion, profile: { ...V3_STAGE_PROFILES['01-evidence-map'], provider: input.provider, modelId: input.modelId }, outputFile: 'evidence-map.json' });
   }
 
-  const decisionExpected = { stageId: '02-brand-creative-decision', documentSetHash: prepared.documentSetHash, upstreamHash: valueHash(evidenceMap), promptVersion: BRAND_CREATIVE_DECISION_PROMPT_VERSION, schemaVersion: 'brand-creative-decision-v3' };
+  const decisionExpected = { stageId: '02-brand-creative-decision', documentSetHash: prepared.documentSetHash, upstreamHash: valueHash(evidenceMap), promptVersion: BRAND_CREATIVE_DECISION_PROMPT_VERSION, schemaVersion: 'brand-dna-decision-schema-v3' };
   let decision = resume('02-brand-creative-decision', decisionExpected, (value) => validateBrandCreativeDecision(value, evidenceMap));
   if (!decision) {
     decision = await model('02-brand-creative-decision', buildBrandCreativeDecisionPrompt({ prepared, evidenceMap, lockedFacts: input.lockedFacts }), (value) => validateBrandCreativeDecision(value, evidenceMap));
@@ -102,7 +102,7 @@ export async function runBrandDnaV3Core(input) {
     const request = buildRestrictedPatchPrompt(decision, qualityGate.issues);
     const patch = await model('decision-patch', request.messages, (value) => validateRestrictedPatch(value, request.paths), 'decision-patch');
     decision = validateBrandCreativeDecision(applyRestrictedPatch(decision, patch), evidenceMap);
-    qualityGate = runCoreQualityGate(decision, evidenceMap);
+    qualityGate = runCoreQualityGate(decision, evidenceMap, { patchUsed: true });
     if (qualityGate.passed) {
       await save('02-brand-creative-decision', decision, { upstreamHash: decisionExpected.upstreamHash, promptVersion: decisionExpected.promptVersion, schemaVersion: decisionExpected.schemaVersion, profile: { ...V3_STAGE_PROFILES['02-brand-creative-decision'], provider: input.provider, modelId: input.modelId }, outputFile: 'brand-creative-decision.json' });
     }

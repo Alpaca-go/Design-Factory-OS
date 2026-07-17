@@ -1,14 +1,26 @@
 import crypto from 'node:crypto';
 
-const TASK_WORDS = /(?:品牌\s*DNA\s*(?:合成|提炼)|核心分析|分析报告|策划案|项目资料|生成|输出|测试)/gi;
+export const ANALYSIS_TASK_TERMS = Object.freeze([
+  '品牌战略升级', '品牌DNA合成', '品牌 DNA 合成', '品牌DNA提炼', '品牌 DNA 提炼',
+  '核心分析', '分析报告', '视觉升级', '策划升级', '生成', '输出', '测试'
+]);
+
+function taskTermsPattern() {
+  return new RegExp(ANALYSIS_TASK_TERMS.map((term) => term.replaceAll(' ', '\\s*')).join('|'), 'gi');
+}
 
 function hash(value) {
   return crypto.createHash('sha256').update(String(value)).digest('hex');
 }
 
 export function cleanProjectName(value, fallback = '品牌项目') {
-  const cleaned = String(value || '').replace(TASK_WORDS, '').replace(/[\s_\-—|]+$/g, '').trim();
+  const cleaned = String(value || '').replace(taskTermsPattern(), '').replace(/[\s_\-—|]+$/g, '').trim();
   return cleaned.length >= 2 ? cleaned : fallback;
+}
+
+export function extractAnalysisTaskName(value) {
+  const matches = String(value || '').match(taskTermsPattern()) || [];
+  return matches.length ? matches.map((item) => item.replace(/\s+/g, ' ').trim()).join(' / ') : null;
 }
 
 function splitText(text, maximum = 4000) {

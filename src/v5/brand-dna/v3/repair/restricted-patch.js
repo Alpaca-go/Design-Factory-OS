@@ -1,4 +1,4 @@
-const ALLOWED_ROOTS = ['/identity/industry', '/identity/businessRole', '/identity/brandPositioning', '/creativeThesis', '/visualMechanisms', '/audiences'];
+const ALLOWED_ROOTS = ['/identity/industry', '/identity/businessRole', '/identity/brandPositioning', '/creativeThesis', '/visualMechanisms', '/audiences', '/genes'];
 
 function decode(segment) { return segment.replaceAll('~1', '/').replaceAll('~0', '~'); }
 
