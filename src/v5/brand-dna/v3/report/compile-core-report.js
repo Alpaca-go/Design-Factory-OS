@@ -1,94 +1,17 @@
+import { buildV3CoreReportViewModel } from './build-core-report-view-model.js';
+
+function escapeCell(value) { return String(value ?? '').replaceAll('|', '\\|').replaceAll('\n', ' '); }
 function list(items, fallback = '暂无') { return items?.length ? items.map((item) => `- ${item}`).join('\n') : `- ${fallback}`; }
+function numbered(items, fallback = '暂无') { return items?.length ? items.map((item, index) => `${index + 1}. ${item}`).join('\n') : fallback; }
+function insightList(items, labels) { return items?.length ? items.map((item) => `- 【${labels[item.status]}】${item.statement}${item.evidenceIds.length ? `（${item.evidenceIds.join('、')}）` : ''}`).join('\n') : '- 暂无'; }
 
-export function compileV3CoreReport({ decision, evidenceMap, prepared, qualityGate, metrics }) {
-  const sources = new Map(prepared.sourceDocuments.map((item) => [item.sourceId, item.originalFileName]));
-  const evidenceRows = evidenceMap.evidence.map((item) => `| ${item.evidenceId} | ${item.category} | ${item.statement.replaceAll('|', '\\|')} | ${sources.get(item.sourceId)} / ${item.sectionPath.join(' / ')} |`).join('\n');
-  const genes = decision.genes.map((gene) => `| ${gene.type} | ${gene.statement.replaceAll('|', '\\|')} | ${gene.confidence} | ${gene.culturalMaturity || '不适用'} | ${gene.differentiationValue} | ${gene.evidenceIds.join('、')} |`).join('\n');
-  return `# ${decision.identity.projectName} Brand DNA 核心分析报告
-
-> 协议：brand-dna-v3-deep-compact · 核心报告：brand-dna-core-report-v3 · 核心质量门：${qualityGate.passed ? '通过' : '需修复'}
-
-## 0. 执行摘要
-
-${decision.oneSentenceDna}
-
-唯一创意命题：**${decision.creativeThesis.statement}**
-
-## 1. 项目识别与事实边界
-
-- 品牌：${decision.identity.brandName}
-- 行业：${decision.identity.industry}
-- 商业角色：${decision.identity.businessRole}
-- 品牌定位：${decision.identity.brandPositioning}
-- 发展阶段：${decision.identity.developmentStage}
-- 置信度：${decision.identity.confidence}
-
-## 2. 核心目标人群
-
-${decision.audiences.map((audience) => `### ${audience.name}（${audience.priority}）\n\n- 需求：${audience.needs.join('；')}\n- 阻力：${audience.barriers.join('；') || '暂无'}\n- 使用场景：${audience.useCases.join('；') || '暂无'}\n- 判断层级：${audience.inferenceLevel}`).join('\n\n')}
-
-## 3. 品牌战略
-
-- 使命：${decision.strategy.mission}
-- 承诺：${decision.strategy.promise}
-- 关系角色：${decision.strategy.relationshipRole}
-- 价值主张：${decision.strategy.valuePropositions.join('；')}
-- 差异化依据：${decision.strategy.differentiators.join('；')}
-
-## 4. 品牌人格与文化
-
-- 人格：${decision.strategy.personality.join('；')}
-- 语气：${decision.strategy.toneOfVoice.join('；')}
-- 情绪结果：${decision.strategy.emotionalOutcomes.join('；')}
-
-## 5. 七类 Brand DNA
-
-| 类型 | 基因 | 置信度 | 文化成熟度 | 差异化价值 | Evidence |
-|---|---|---|---|---|---|
-${genes}
-
-## 6. 一句话 Brand DNA
-
-> ${decision.oneSentenceDna}
-
-## 7. 战略冲突、缺失与风险
-
-### 冲突
-${list(decision.diagnosis.conflicts.map((item) => `[${item.status}] ${item.statement}`))}
-
-### 缺失
-${list(decision.diagnosis.missingInformation)}
-
-### 风险
-${list(decision.diagnosis.risks.map((item) => `[${item.status}] ${item.statement}`))}
-
-## 8. 唯一创意命题
-
-> ${decision.creativeThesis.statement}
-
-${decision.creativeThesis.rationale}
-
-- 专属机制：${decision.creativeThesis.distinctiveMechanism}
-- 覆盖度：能力 ${decision.creativeThesis.coverage.capability}/5；关系 ${decision.creativeThesis.coverage.relationship}/5；情绪 ${decision.creativeThesis.coverage.emotion}/5；文化 ${decision.creativeThesis.coverage.culture}/5；差异化 ${decision.creativeThesis.coverage.differentiation}/5
-
-## 9. 待确认事项
-
-${list(decision.pendingConfirmations)}
-
-## 附录 A：证据索引
-
-| ID | 类别 | 事实 | 来源 |
-|---|---|---|---|
-${evidenceRows}
-
-## 附录 B：原文引用
-
-为避免报告被原材料淹没，主报告不重复大段原文；最短必要引文保存在结构化 Evidence Map 中，可按 Evidence ID 查看。
-
-## 附录 C：运行元数据
-
-- 文档集 Hash：${prepared.documentSetHash}
-- 模型调用：${metrics.filter((item) => item.kind === 'model').length}
-- 核心阶段耗时：${metrics.reduce((sum, item) => sum + item.durationMs, 0)} ms
-`;
+export function compileV3CoreReport(input) {
+  const view = buildV3CoreReportViewModel(input);
+  const labels = view.labels;
+  const geneRows = view.genes.map((gene) => `| ${gene.geneId} | ${view.geneTypeLabels[gene.type]} | ${escapeCell(gene.statement)} | ${labels[gene.confidence]} | ${labels[gene.maturity]} | ${labels[gene.differentiationValue]} | ${gene.evidenceIds.join('、')} |`).join('\n');
+  const riskBlocks = view.risks.map((risk) => `### ${risk.riskId} · ${risk.topic}\n\n- 状态：${labels[risk.status]}\n- 严重度：${labels[risk.severity]}\n- 判断：${risk.statement}\n- 证据：${risk.evidenceIds.join('、') || '待补充'}\n- 建议行动：${risk.recommendedAction || '暂无'}`).join('\n\n');
+  const evidenceRows = view.evidenceIndex.map((item) => `| ${item.evidenceId} | ${item.category} | ${escapeCell(item.statement)} | ${escapeCell(item.sourceFileName)} / ${escapeCell(item.sectionPath.join(' / '))} |`).join('\n');
+  const quoteRows = view.evidenceIndex.map((item) => `| ${item.evidenceId} | ${escapeCell(item.quote)} | ${escapeCell(item.sourceFileName)} |`).join('\n');
+  const qualityText = view.qualityGate.status === 'passed' ? '通过' : view.qualityGate.status === 'passed-with-warnings' ? '通过，但有警告' : '未通过';
+  return `# ${view.title.brandName}\n## ${view.title.reportName}\n\n${view.title.analysisTaskName ? `> 分析任务：${view.title.analysisTaskName}\n\n` : ''}> **分析协议**：${view.protocol.protocolVersion}  \n> **核心报告版本**：${view.protocol.reportVersion}  \n> **分析状态**：${view.protocol.analysisStatus}  \n> **扩展状态**：${view.protocol.extensionStatus}\n\n## 0. 执行摘要\n\n### 最重要的事实\n${list(view.executiveSummary.keyFacts)}\n\n### 核心判断\n${list(view.executiveSummary.keyJudgments)}\n\n### 当前最大矛盾\n- ${view.executiveSummary.coreConflict}\n\n### 一句话 Brand DNA\n> ${view.executiveSummary.oneSentenceDna}\n\n### 唯一创意命题\n> ${view.executiveSummary.creativeThesis}\n\n### 优先待确认\n${numbered(view.executiveSummary.priorityConfirmations)}\n\n## 1. 项目识别与事实边界\n\n- 项目名称：${view.identity.projectName}\n- 品牌名称：${view.identity.brandName}\n- 行业：${view.identity.industry}\n- 商业角色：${view.identity.businessRole}\n- 品牌定位：【${labels[view.identity.brandPositioningStatus]}】${view.identity.brandPositioning}\n- 发展阶段：${view.identity.developmentStage}\n- 综合置信度：${labels[view.identity.confidence]}\n- 证据：${view.identity.evidenceIds.join('、')}\n\n## 2. 核心目标人群\n\n${view.audiences.map((audience) => `### ${audience.audienceId} · ${audience.name}（${labels[audience.priority]}）\n\n#### 需求\n${insightList(audience.needs, labels)}\n\n#### 阻力\n${insightList(audience.barriers, labels)}\n\n#### 使用场景\n${insightList(audience.useCases, labels)}`).join('\n\n')}\n\n## 3. 品牌战略\n\n- 使命：${view.strategy.mission}\n- 承诺：${view.strategy.promise}\n- 关系角色：${view.strategy.relationshipRole}\n- 价值主张：${view.strategy.valuePropositions.join('；')}\n- 差异化依据：${view.strategy.differentiators.join('；')}\n\n## 4. 品牌人格与文化\n\n- 人格：${view.strategy.personality.join('；')}\n- 语气：${view.strategy.toneOfVoice.join('；')}\n- 情绪结果：${view.strategy.emotionalOutcomes.join('；')}\n- 文化成熟度：${labels[view.genes.find((item) => item.type === 'cultural').maturity]}\n\n## 5. 七类 Brand DNA\n\n| ID | 类型 | 基因陈述 | 置信度 | 成熟度 | 差异化价值 | 证据 |\n|---|---|---|---|---|---|---|\n${geneRows}\n\n## 6. 一句话 Brand DNA\n\n> ${view.oneSentenceDna}\n\n## 7. 战略冲突、缺失与风险\n\n${riskBlocks || '暂无已识别风险。'}\n\n## 8. 唯一创意命题\n\n> ${view.creativeThesis.statement}\n\n### 命题依据\n${view.creativeThesis.rationale}\n\n- 关联基因：${view.creativeThesis.geneIds.join('、')}\n- 证据：${view.creativeThesis.evidenceIds.join('、')}\n- 专属推导机制：${view.creativeThesis.distinctiveMechanism}\n\n### 覆盖度\n- 核心能力：${view.creativeThesis.coverage.capability}/5\n- 关系角色：${view.creativeThesis.coverage.relationship}/5\n- 情绪结果：${view.creativeThesis.coverage.emotion}/5\n- 文化内核：${view.creativeThesis.coverage.culture}/5\n- 差异化：${view.creativeThesis.coverage.differentiation}/5\n\n## 9. 品牌专属视觉机制候选\n\n${view.distinctiveMechanisms.map((item) => `### ${item.mechanismId} · ${item.name}\n\n${item.description}\n\n- 关联基因：${item.geneIds.join('、')}\n- 证据：${item.evidenceIds.join('、')}\n- 通用化风险：${labels[item.genericRisk]}`).join('\n\n')}\n\n## 10. 待确认事项\n\n${numbered(view.pendingConfirmations)}\n\n## 附录 A：Evidence Index\n\n| ID | 类别 | 事实 | 来源 |\n|---|---|---|---|\n${evidenceRows}\n\n## 附录 B：原文引用\n\n| Evidence | 最短必要引文 | 原始文件 |\n|---|---|---|\n${quoteRows}\n\n## 附录 C：核心质量闸门\n\n- 状态：${qualityText}\n- 模型 Patch：${view.qualityGate.patchUsed ? '已使用一次受限字段修复' : '未使用'}\n\n### 确定性修复\n${list(view.qualityGate.deterministicFixes.map((item) => `${item.code} · ${item.path} · ${item.action}`))}\n\n### 警告\n${list(view.qualityGate.warnings.map((item) => `${item.code} · ${item.path} · ${item.message}`))}\n\n## 附录 D：运行元数据\n\n- 文档集 Hash：${view.metadata.documentSetHash}\n- 来源文件：${view.metadata.sourceFiles.join('；')}\n- 核心模型调用：${view.metadata.modelCallCount}\n- 输入 Token：${view.metadata.usage.inputTokens || 'Provider 未返回'}\n- 输出 Token：${view.metadata.usage.outputTokens || 'Provider 未返回'}\n- 核心阶段耗时：${view.metadata.coreDurationMs} ms\n- 模型：${view.metadata.models.join('；') || 'Checkpoint / 本地编译'}\n`;
 }
