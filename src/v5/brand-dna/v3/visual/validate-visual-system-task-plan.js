@@ -1,0 +1,29 @@
+import { arrayValue, enumValue, integerValue, objectValue, stringArray, stringValue } from '../../runtime-contracts.js';
+
+function direction(value, path) {
+  const item = objectValue(value, path);
+  return { decision: stringValue(item.decision, `${path}.decision`), rationale: stringValue(item.rationale, `${path}.rationale`), actions: stringArray(item.actions, `${path}.actions`, { min: 1 }) };
+}
+
+export function validateVisualSystemTaskPlan(value, decision) {
+  const plan = objectValue(value?.visualSystemTaskPlan || value, 'visualSystemTaskPlan');
+  const geneIds = new Set(decision.genes.map((gene) => gene.geneId));
+  const checkGenes = (ids, path) => { const result = stringArray(ids, path, { min: 1 }); if (result.some((id) => !geneIds.has(id))) throw new Error(`${path} 包含未知 Gene ID`); return result; };
+  const directions = objectValue(plan.directions, 'visualSystemTaskPlan.directions');
+  const image = objectValue(plan.imageSystem, 'visualSystemTaskPlan.imageSystem');
+  const boundary = objectValue(plan.generationBoundary, 'visualSystemTaskPlan.generationBoundary');
+  const distinctiveAssets = arrayValue(plan.distinctiveAssets, 'visualSystemTaskPlan.distinctiveAssets', { min: 1 }).map((raw, index) => { const path = `visualSystemTaskPlan.distinctiveAssets[${index}]`; const item = objectValue(raw, path); return { assetId: `asset-${index + 1}`, name: stringValue(item.name, `${path}.name`), mechanism: stringValue(item.mechanism, `${path}.mechanism`), geneIds: checkGenes(item.geneIds, `${path}.geneIds`) }; });
+  const taskPlan = arrayValue(plan.taskPlan, 'visualSystemTaskPlan.taskPlan', { min: 2, max: 8 }).map((raw, index) => { const path = `visualSystemTaskPlan.taskPlan[${index}]`; const item = objectValue(raw, path); const previous = stringArray(item.consistencyWithPreviousTasks || [], `${path}.consistencyWithPreviousTasks`, { min: index === 0 ? 0 : 1 }); if (index === 0 && previous.length) throw new Error(`${path}.consistencyWithPreviousTasks 首张任务必须为空`); return { taskId: `task-${index + 1}`, sequence: integerValue(item.sequence, `${path}.sequence`, { min: 1 }), role: enumValue(item.role, ['anchor-image', 'service-scene', 'visual-system', 'detail-craft', 'application-scene', 'packaging', 'poster'], `${path}.role`), titleZh: stringValue(item.titleZh, `${path}.titleZh`), responsibility: stringValue(item.responsibility, `${path}.responsibility`), viewerTakeaway: stringValue(item.viewerTakeaway, `${path}.viewerTakeaway`), geneIds: checkGenes(item.geneIds, `${path}.geneIds`), requiredElements: stringArray(item.requiredElements, `${path}.requiredElements`, { min: 1 }), prohibitedElements: stringArray(item.prohibitedElements, `${path}.prohibitedElements`, { min: 1 }), consistencyWithGlobalSystem: stringArray(item.consistencyWithGlobalSystem, `${path}.consistencyWithGlobalSystem`, { min: 1 }), consistencyWithPreviousTasks: previous, differenceFromOtherTasks: stringArray(item.differenceFromOtherTasks, `${path}.differenceFromOtherTasks`, { min: 1 }), aspectRatio: stringValue(item.aspectRatio, `${path}.aspectRatio`) }; });
+  if (taskPlan[0].role !== 'anchor-image') throw new Error('visualSystemTaskPlan.taskPlan[0].role 必须是 anchor-image');
+  if (new Set(taskPlan.map((item) => item.responsibility)).size !== taskPlan.length) throw new Error('visualSystemTaskPlan.taskPlan 图片职责重复');
+  const lockedAssets = stringArray(boundary.lockedAssets || [], 'visualSystemTaskPlan.generationBoundary.lockedAssets');
+  return {
+    visualPersonality: stringArray(plan.visualPersonality, 'visualSystemTaskPlan.visualPersonality', { min: 1 }),
+    visualKeywords: stringArray(plan.visualKeywords, 'visualSystemTaskPlan.visualKeywords', { min: 1 }),
+    distinctiveAssets,
+    directions: Object.fromEntries(['color', 'typography', 'graphic', 'composition', 'photography', 'illustration', 'material', 'lighting', 'motion'].map((key) => [key, direction(directions[key], `visualSystemTaskPlan.directions.${key}`)])),
+    imageSystem: { systemId: stringValue(image.systemId, 'visualSystemTaskPlan.imageSystem.systemId'), anchorVisual: stringValue(image.anchorVisual, 'visualSystemTaskPlan.imageSystem.anchorVisual'), compositionSystem: stringValue(image.compositionSystem, 'visualSystemTaskPlan.imageSystem.compositionSystem'), colorSystem: stringArray(image.colorSystem, 'visualSystemTaskPlan.imageSystem.colorSystem', { min: 1 }), materialSystem: stringArray(image.materialSystem, 'visualSystemTaskPlan.imageSystem.materialSystem', { min: 1 }), lightingSystem: stringValue(image.lightingSystem, 'visualSystemTaskPlan.imageSystem.lightingSystem'), imageLanguage: stringValue(image.imageLanguage, 'visualSystemTaskPlan.imageSystem.imageLanguage'), consistencyRules: stringArray(image.consistencyRules, 'visualSystemTaskPlan.imageSystem.consistencyRules', { min: 1 }), textPolicy: stringValue(image.textPolicy, 'visualSystemTaskPlan.imageSystem.textPolicy'), logoPolicy: stringValue(image.logoPolicy, 'visualSystemTaskPlan.imageSystem.logoPolicy') },
+    generationBoundary: { lockedFacts: stringArray(boundary.lockedFacts || [], 'visualSystemTaskPlan.generationBoundary.lockedFacts'), lockedAssets, verifiedRequiredElements: stringArray(boundary.verifiedRequiredElements || [], 'visualSystemTaskPlan.generationBoundary.verifiedRequiredElements'), suggestedElements: stringArray(boundary.suggestedElements || [], 'visualSystemTaskPlan.generationBoundary.suggestedElements'), creativeFreedom: stringArray(boundary.creativeFreedom, 'visualSystemTaskPlan.generationBoundary.creativeFreedom', { min: 1 }), prohibitedElements: stringArray(boundary.prohibitedElements, 'visualSystemTaskPlan.generationBoundary.prohibitedElements', { min: 1 }), prohibitedClaims: stringArray(boundary.prohibitedClaims, 'visualSystemTaskPlan.generationBoundary.prohibitedClaims', { min: 1 }), pendingConfirmations: stringArray(boundary.pendingConfirmations || [], 'visualSystemTaskPlan.generationBoundary.pendingConfirmations') },
+    taskPlan
+  };
+}

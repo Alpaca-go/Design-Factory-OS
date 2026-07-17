@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runBrandDnaV3Core } from '../../src/v5/brand-dna/v3/protocol/run-brand-dna-v3.js';
+import { runV3VisualExtension } from '../../src/v5/brand-dna/v3/protocol/run-visual-extension.js';
 import { applyRestrictedPatch, validateRestrictedPatch } from '../../src/v5/brand-dna/v3/repair/restricted-patch.js';
 
 const corpus = {
@@ -27,6 +28,12 @@ function decision() {
   };
 }
 
+function visualPlan() {
+  const direction = { decision: '让被验证的节点形成有呼吸的秩序', rationale: '对应能力、关系与情绪基因', actions: ['限制节点数量并明确验证前后状态'] };
+  const task = (sequence, role, responsibility) => ({ taskId: `local-${sequence}`, sequence, role, titleZh: responsibility, responsibility, viewerTakeaway: '九州美学把复杂链路转化为可感知的安心', geneIds: ['gene-capability', 'gene-relational'], requiredElements: ['被验证的安心轨迹'], prohibitedElements: ['伪造 Logo', '认证标识'], consistencyWithGlobalSystem: ['沿用安心轨迹和克制秩序'], consistencyWithPreviousTasks: sequence === 1 ? [] : ['延续首图的安心轨迹'], differenceFromOtherTasks: [`只负责${responsibility}`], aspectRatio: sequence === 1 ? '3:2' : '4:5' });
+  return { visualPersonality: ['严谨', '温和'], visualKeywords: ['验证', '抵达', '安心轨迹'], distinctiveAssets: [{ assetId: 'a', name: '安心轨迹', mechanism: '节点经验证后才连接成连续秩序', geneIds: ['gene-capability', 'gene-relational'] }], directions: { color: direction, typography: direction, graphic: direction, composition: direction, photography: direction, illustration: direction, material: direction, lighting: direction, motion: direction }, imageSystem: { systemId: 'brand-image-system-v3', anchorVisual: '被逐层验证的节点形成从理性到温度的连续安心轨迹', compositionSystem: '由离散节点向稳定关系递进', colorSystem: ['理性底色与温度确认色'], materialSystem: ['哑光基底', '半透明验证层'], lightingSystem: '柔和定向光标记已验证节点', imageLanguage: '真实触点与抽象轨迹并置', consistencyRules: ['所有图沿用同一安心轨迹', '确认色只用于已验证节点'], textPolicy: '不生成未提供的品牌文字', logoPolicy: '未提供 Logo 时只预留位置，不得设计或仿造' }, generationBoundary: { lockedFacts: ['品牌服务医美产业链伙伴'], lockedAssets: [], verifiedRequiredElements: ['安心轨迹'], suggestedElements: ['可验证节点'], creativeFreedom: ['可设计不代表真实业务设施的抽象关系场景'], prohibitedElements: ['虚构 Logo', '认证标识'], prohibitedClaims: ['行业第一'], pendingConfirmations: ['正式 Logo'] }, taskPlan: [task(1, 'anchor-image', '建立全局视觉锚点'), task(2, 'service-scene', '验证服务关系'), task(3, 'detail-craft', '验证细节质感'), task(4, 'poster', '形成传播记忆')] };
+}
+
 function mockReasoner() {
   const calls = [];
   const contexts = [];
@@ -36,7 +43,9 @@ function mockReasoner() {
     const chunkId = messages[0].content.match(/"chunkId":"([^"]+)"/)?.[1];
     const output = stage === '01-evidence-map'
       ? { evidenceMap: { evidence: [{ evidenceId: 'local', category: 'positioning', statement: '九州美学以合规供应链和透明履约服务医美产业链伙伴', quote: '以合规供应链、透明履约和生态协同建立长期信任', sourceId: 'doc-1', chunkId, sectionPath: ['品牌定位'], confidence: 'high' }], conflicts: [], missingInformation: [{ missingId: 'm', topic: '消费者认知', whyNeeded: '判断 C 端延伸基础' }] } }
-      : { brandCreativeDecision: decision() };
+      : stage === '05-visual-system-task-plan'
+        ? { visualSystemTaskPlan: visualPlan() }
+        : { brandCreativeDecision: decision() };
     return { runId: `run-${calls.length}`, provider: 'mock', model: 'mock-model', text: JSON.stringify(output), finishReason: 'stop', usage: { inputTokens: 100, outputTokens: 50 } };
   };
   return { reasoner, calls, contexts };
@@ -71,4 +80,15 @@ test('restricted patch rejects paths outside validator whitelist', () => {
   assert.throws(() => validateRestrictedPatch({ operations: [{ op: 'replace', path: '/genes/0/statement', value: '伪造事实' }] }, ['/identity/industry']), (error) => error.code === 'PATCH_PATH_NOT_ALLOWED');
   const patch = validateRestrictedPatch({ operations: [{ op: 'replace', path: '/identity/industry', value: '医美供应链服务' }] }, ['/identity/industry']);
   assert.equal(applyRestrictedPatch({ identity: { industry: '错误定位' } }, patch).identity.industry, '医美供应链服务');
+});
+
+test('Sprint 2 produces one compact visual-system task plan without long prompts', async () => {
+  const mock = mockReasoner();
+  const core = await runBrandDnaV3Core({ projectId: 'project-1', corpus, reasoner: mock.reasoner, provider: 'mock', modelId: 'mock-model', enableModelPatch: false });
+  const extended = await runV3VisualExtension({ projectId: 'project-1', reasoner: mock.reasoner, provider: 'mock', modelId: 'mock-model', lockedAssets: [] }, core);
+  assert.equal(mock.calls.length, 3);
+  assert.equal(extended.visualSystemTaskPlan.taskPlan.length, 4);
+  assert.deepEqual(extended.visualSystemTaskPlan.taskPlan[0].consistencyWithPreviousTasks, []);
+  assert.ok(extended.visualSystemTaskPlan.distinctiveAssets.some((item) => /安心轨迹/.test(item.name)));
+  assert.equal('finalPrompt' in extended.visualSystemTaskPlan.taskPlan[0], false);
 });
