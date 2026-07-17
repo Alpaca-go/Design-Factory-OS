@@ -22,6 +22,7 @@ interface StoredSettings {
   defaultProfileId: string | null;
   defaultDataPath: string;
   cacheEnabled: boolean;
+  brandDnaPipelineVersion: 'v2-reliable' | 'v3-deep-compact';
   logLevel: 'error' | 'info' | 'debug';
 }
 
@@ -64,6 +65,7 @@ function defaults(): StoredSettings {
     defaultProfileId: null,
     defaultDataPath: path.join(app.getPath('documents'), 'Masterpiece OS Data'),
     cacheEnabled: true,
+    brandDnaPipelineVersion: 'v2-reliable',
     logLevel: 'info'
   };
 }
@@ -157,6 +159,7 @@ async function publicSettings(settings: StoredSettings): Promise<PublicSettings>
     hasApiKey: Boolean(defaultProfile?.hasApiKey),
     defaultDataPath: settings.defaultDataPath,
     cacheEnabled: settings.cacheEnabled,
+    brandDnaPipelineVersion: settings.brandDnaPipelineVersion,
     logLevel: settings.logLevel,
     connectionStatus: defaultProfile ? profileStatus(defaultProfile) : 'untested'
   };
@@ -190,6 +193,7 @@ export async function saveSettings(input: SaveSettingsInput): Promise<PublicSett
   const settings = await readStored();
   settings.defaultDataPath = path.resolve(input.defaultDataPath);
   settings.cacheEnabled = input.cacheEnabled;
+  settings.brandDnaPipelineVersion = input.brandDnaPipelineVersion;
   settings.logLevel = input.logLevel;
   await writeStored(settings);
   return publicSettings(settings);

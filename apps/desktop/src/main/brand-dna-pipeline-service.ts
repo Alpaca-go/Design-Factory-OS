@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import type { AnalysisProgress, AnalysisResult } from '../shared/types';
+import type { AnalysisProgress, AnalysisResult, PublicSettings } from '../shared/types';
 import { redactSecret } from './analysis-contract';
 import { buildBrandDnaCoreReportFilename, buildBrandDnaReportFilename } from './brand-dna-contract';
 import type { ProjectStore } from './project-store';
@@ -14,9 +14,12 @@ import { createOpenAICompatibleTextReasoner } from '../../../../src/v5/adapters/
 import { runBrandDnaPipeline } from '../../../../src/v5/brand-dna/run-brand-dna-pipeline.js';
 // @ts-ignore JavaScript core module intentionally has no TypeScript declaration file.
 import { BRAND_DNA_PROTOCOL } from '../../../../src/v5/brand-dna/protocol-config.js';
+// @ts-ignore JavaScript core module intentionally has no TypeScript declaration file.
+import { runBrandDnaV3 } from '../../../../src/v5/brand-dna/v3/protocol/run-brand-dna-v3-complete.js';
 
 type ProgressSink = (progress: AnalysisProgress) => void;
 type CredentialsReader = (profileId?: string) => Promise<ProviderCredentials>;
+type SettingsReader = () => Promise<PublicSettings>;
 
 interface ActiveRun {
   controller: AbortController;
@@ -28,6 +31,9 @@ interface CoreDelivery {
   reportMarkdown: string;
   filename: string;
   outputPath: string;
+  brandDnaFile?: string;
+  checkpointFile?: string;
+  pipelineVersion?: string;
 }
 
 function digest(value: unknown): string {
@@ -43,13 +49,13 @@ function renderExtensionStatus(
   stages: Record<string, unknown>,
   failureMessage: string
 ): string {
-  const statusItems: Array<[string, string]> = [
-    ['creative-thesis-decision', '选择唯一创意命题'],
-    ['visual-causal-translation', '将 DNA 基因因果映射为视觉变量并建立统一 Image System'],
-    ['gpt-image-task-compiler', '编译 4～8 个生图任务']
+  const statusItems: Array<[string[], string]> = [
+    [['creative-thesis-decision', '02-brand-creative-decision'], '选择唯一创意命题'],
+    [['visual-causal-translation', '05-visual-system-task-plan'], '将 DNA 基因因果映射为视觉变量并建立统一 Image System'],
+    [['gpt-image-task-compiler', '06-image-prompt-compiler'], '编译 2～8 个生图任务']
   ];
-  const items = statusItems.map(([stage, label]) =>
-    `- ${Object.prototype.hasOwnProperty.call(stages, stage) ? '✓ 已完成' : '○ 待继续'}：${label}`
+  const items = statusItems.map(([stageIds, label]) =>
+    `- ${stageIds.some((stage) => Object.prototype.hasOwnProperty.call(stages, stage)) ? '✓ 已完成' : '○ 待继续'}：${label}`
   );
   return markdown.replace(
     /## 8\. 下一阶段[\s\S]*$/,
@@ -83,7 +89,8 @@ HTTP：${error.details?.httpStatus || '未返回'}
 export function createBrandDnaPipelineService(
   projects: ProjectStore,
   readCredentials: CredentialsReader,
-  emitProgress: ProgressSink
+  emitProgress: ProgressSink,
+  readSettings?: SettingsReader
 ) {
   const active = new Map<string, ActiveRun>();
 
@@ -98,6 +105,7 @@ export function createBrandDnaPipelineService(
     const started = performance.now();
     let currentStage: AnalysisProgress['stage'] = 'preparing-documents';
     let documentCount = project.documents.length;
+    let selectedPipelineVersion: PublicSettings['brandDnaPipelineVersion'] = 'v2-reliable';
     const coreState: { delivery: CoreDelivery | null } = { delivery: null };
     let latestCheckpointStages: Record<string, unknown> = {};
     active.set(projectId, { controller, startedAt });
@@ -196,6 +204,88 @@ export function createBrandDnaPipelineService(
         baseUrl: credentials.baseUrl,
         provider: credentials.provider
       });
+      const pipelineVersion = readSettings
+        ? (await readSettings()).brandDnaPipelineVersion
+        : 'v2-reliable';
+      selectedPipelineVersion = pipelineVersion;
+      if (pipelineVersion === 'v3-deep-compact') {
+        const v3CheckpointPath = path.join(projectPaths.runtime, 'brand-dna-v3-checkpoints.json');
+        let v3Checkpoints: Record<string, any> = {};
+        try { v3Checkpoints = JSON.parse(await fs.readFile(v3CheckpointPath, 'utf8'))?.stages || {}; } catch { /* first v3 run */ }
+        latestCheckpointStages = v3Checkpoints;
+        const execution = await runBrandDnaV3({
+          projectId,
+          corpus,
+          reasoner,
+          provider: credentials.provider,
+          modelId: credentials.model,
+          abortSignal: controller.signal,
+          lockedFacts: project.lockedFacts,
+          lockedAssets: project.logoFiles,
+          checkpoints: v3Checkpoints,
+          onProgress(stageId: string) {
+            const stageMap: Record<string, AnalysisProgress['stage']> = {
+              '00-document-preparation': 'preparing-documents',
+              '01-evidence-map': 'extracting-project-facts',
+              '02-brand-creative-decision': 'building-brand-dna',
+              '03-core-quality-gate': 'validating-output',
+              '04-core-report': 'generating-report',
+              '05-visual-system-task-plan': 'translating-creative-direction',
+              '06-image-prompt-compiler': 'planning-generation-tasks',
+              '07-final-audit': 'validating-output',
+              '07-audit-patch': 'validating-output',
+              '07-final-audit-recheck': 'validating-output',
+              '08-final-report': 'generating-report'
+            };
+            progress(stageMap[stageId] || 'building-brand-dna', `Brand DNA v3：${stageId}`);
+          },
+          async onCheckpoint(stageId: string, value: any) {
+            const persisted = stageId === '00-document-preparation'
+              ? { ...value, output: { ...value.output, chunks: value.output.chunks.map(({ text: _text, ...chunk }: any) => chunk) } }
+              : value;
+            v3Checkpoints[stageId] = persisted;
+            latestCheckpointStages = v3Checkpoints;
+            await writeJsonAtomic(v3CheckpointPath, { version: 'brand-dna-v3-checkpoint-index-1', stages: v3Checkpoints, updatedAt: new Date().toISOString() });
+          },
+          async onCoreComplete(core: any) {
+            const filename = buildBrandDnaCoreReportFilename(core.decision.identity.projectName, credentials.model);
+            const outputPath = path.join(projectPaths.outputs, filename);
+            await writeJsonAtomic(path.join(projectPaths.runtime, 'brand-creative-decision-v3.json'), core.decision);
+            await writeJsonAtomic(path.join(projectPaths.runtime, 'evidence-map-v3.json'), core.evidenceMap);
+            await fs.writeFile(outputPath, core.reportMarkdown, 'utf8');
+            coreState.delivery = {
+              brandDna: {
+                projectName: { status: 'confirmed', value: core.decision.identity.projectName },
+                brandName: { status: 'confirmed', value: core.decision.identity.brandName },
+                category: { status: 'confirmed', value: core.decision.identity.industry }
+              },
+              reportMarkdown: core.reportMarkdown,
+              filename,
+              outputPath,
+              brandDnaFile: 'brand-creative-decision-v3.json',
+              checkpointFile: path.basename(v3CheckpointPath),
+              pipelineVersion: 'v3-deep-compact'
+            };
+          }
+        });
+        const filename = buildBrandDnaReportFilename(execution.decision.identity.projectName, credentials.model);
+        const outputPath = path.join(projectPaths.outputs, filename);
+        await fs.writeFile(outputPath, execution.fullReportMarkdown, 'utf8');
+        await writeJsonAtomic(path.join(projectPaths.runtime, 'brand-dna-v3-result.json'), {
+          decision: execution.decision,
+          visualSystemTaskPlan: execution.visualSystemTaskPlan,
+          compiledImageTasks: execution.compiledImageTasks,
+          finalAudit: execution.finalAudit
+        });
+        if (coreState.delivery && coreState.delivery.outputPath !== outputPath) await fs.rm(coreState.delivery.outputPath, { force: true });
+        const completedAt = new Date().toISOString();
+        const durationMs = Math.round(performance.now() - started);
+        const runtimeReportPath = path.join(projectPaths.runtime, 'run-report.json');
+        await writeJsonAtomic(runtimeReportPath, { version: '5.0', mode: 'brand-dna', pipelineVersion, protocolVersion: 'brand-dna-v3-deep-compact', status: 'completed', desktopProjectId: projectId, provider: credentials.provider, model: credentials.model, startedAt, completedAt, durationMs, modelCallCount: execution.modelCallCount, metrics: execution.metrics, finalAudit: execution.finalAudit, outputFile: filename, checkpointFile: path.basename(v3CheckpointPath) });
+        const updated = await projects.update(projectId, { projectName: execution.decision.identity.projectName, detectedProjectName: execution.decision.identity.projectName, projectNameConfidence: 0.95, brandName: execution.decision.identity.brandName, detectedBrandName: execution.decision.identity.brandName, industry: execution.decision.identity.industry, detectedIndustry: execution.decision.identity.industry, factConfidence: { brandName: 0.95, industry: 0.9 }, status: 'completed', provider: credentials.provider, model: credentials.model, apiProfileId: credentials.profileId, reasoningQualityTier: credentials.qualityTier, lastRunAt: completedAt, lastDurationMs: durationMs, lastReportFilename: filename, lastError: null, assetCount: documentCount, imageCount: 0 });
+        progress('completed', 'Brand DNA v3 深度分析完成');
+        return { project: updated, mode: 'brand-dna', reportFilename: filename, reportPath: outputPath, runtimeReportPath, apiProfileId: credentials.profileId, provider: credentials.provider, model: credentials.model, durationMs, assetCount: documentCount, imageCount: 0, reasoningCacheHit: false, warnings: corpus.warnings || [] };
+      }
       const execution = await runBrandDnaPipeline({
         corpus,
         projectNameHint: project.projectName,
@@ -331,6 +421,7 @@ export function createBrandDnaPipelineService(
           version: '5.0',
           mode: 'brand-dna',
           analysisProfile: 'brand-dna',
+          pipelineVersion: delivery.pipelineVersion || selectedPipelineVersion,
           status: 'completed-core',
           desktopProjectId: projectId,
           apiProfileId: credentials.profileId,
@@ -344,8 +435,8 @@ export function createBrandDnaPipelineService(
           extensionErrorCode: code || 'EXTENSION_FAILED',
           extensionError: message,
           outputFile: delivery.filename,
-          brandDnaFile: 'brand-dna-core.json',
-          checkpointFile: 'brand-dna-checkpoint.json'
+          brandDnaFile: delivery.brandDnaFile || 'brand-dna-core.json',
+          checkpointFile: delivery.checkpointFile || 'brand-dna-checkpoint.json'
         }).catch(() => {});
         const coreProjectName = delivery.brandDna.projectName?.status === 'missing'
           ? project.projectName

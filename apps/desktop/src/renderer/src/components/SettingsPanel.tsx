@@ -37,6 +37,7 @@ export function SettingsPanel({ settings, onSaved, onClose }: Props) {
   const [localForm, setLocalForm] = useState<SaveSettingsInput>({
     defaultDataPath: settings.defaultDataPath,
     cacheEnabled: settings.cacheEnabled,
+    brandDnaPipelineVersion: settings.brandDnaPipelineVersion,
     logLevel: settings.logLevel
   });
   const [editor, setEditor] = useState<SaveApiProfileInput | null>(null);
@@ -189,6 +190,7 @@ export function SettingsPanel({ settings, onSaved, onClose }: Props) {
         <div className="section-heading"><span>02</span><div><h2>本地行为</h2><p>项目数据始终位于仓库之外</p></div></div>
         <label>项目数据目录<input value={localForm.defaultDataPath} onChange={(event) => updateLocal('defaultDataPath', event.target.value)} /></label>
         <label className="toggle"><input type="checkbox" checked={localForm.cacheEnabled} onChange={(event) => updateLocal('cacheEnabled', event.target.checked)} /><span>启用视觉准备与精确结果缓存</span></label>
+        <label>Brand DNA 分析流程<select value={localForm.brandDnaPipelineVersion} onChange={(event) => updateLocal('brandDnaPipelineVersion', event.target.value as SaveSettingsInput['brandDnaPipelineVersion'])}><option value="v2-reliable">v2 稳定版（旧项目默认）</option><option value="v3-deep-compact">v3 深度紧凑版（灰度测试）</option></select><small className="field-help">v3 使用独立 Checkpoint，不会覆盖 v2 中间结果；切回 v2 即可回滚。</small></label>
         <label>日志级别<select value={localForm.logLevel} onChange={(event) => updateLocal('logLevel', event.target.value as SaveSettingsInput['logLevel'])}><option value="error">仅错误</option><option value="info">标准</option><option value="debug">调试</option></select></label>
         <button className="button primary full" disabled={Boolean(busy)} onClick={() => void saveLocal()}>{busy === 'local' ? '保存中…' : '保存本地设置'}</button>
         <div className="security-card"><strong>Windows 安全存储</strong><p>每个 API Key 使用 Electron safeStorage 加密后独立保存，仅在主进程发起请求时短暂解密。删除 Profile 会同步删除对应凭据。</p></div>

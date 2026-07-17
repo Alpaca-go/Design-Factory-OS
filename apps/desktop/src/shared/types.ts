@@ -6,6 +6,7 @@ export type AnalysisMode = 'visual-evolution' | 'brand-dna';
 export type AnalysisProfile = 'fusion-enhanced' | 'brand-dna';
 export type ConnectionCapability = 'vision' | 'text';
 export type ReasoningQualityTier = 'benchmark' | 'qualified' | 'experimental' | 'unsupported';
+export type BrandDnaPipelineVersion = 'v2-reliable' | 'v3-deep-compact';
 export type ProjectStatus =
   | 'draft'
   | 'ready'
@@ -103,6 +104,7 @@ export interface PublicSettings {
   hasApiKey: boolean;
   defaultDataPath: string;
   cacheEnabled: boolean;
+  brandDnaPipelineVersion: BrandDnaPipelineVersion;
   logLevel: 'error' | 'info' | 'debug';
   connectionStatus: 'untested' | 'connected' | 'failed';
 }
@@ -110,6 +112,7 @@ export interface PublicSettings {
 export interface SaveSettingsInput {
   defaultDataPath: string;
   cacheEnabled: boolean;
+  brandDnaPipelineVersion: BrandDnaPipelineVersion;
   logLevel: 'error' | 'info' | 'debug';
 }
 

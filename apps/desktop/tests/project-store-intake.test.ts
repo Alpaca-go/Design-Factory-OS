@@ -38,6 +38,7 @@ test('folder intake creates fixed metadata, imports assets, and detects Logo wit
       hasApiKey: true,
       defaultDataPath: data,
       cacheEnabled: true,
+      brandDnaPipelineVersion: 'v2-reliable',
       logLevel: 'info',
       connectionStatus: 'untested'
     };
@@ -93,6 +94,7 @@ test('ZIP intake persists only extracted valid assets, deduplicates by SHA-256, 
       hasApiKey: true,
       defaultDataPath: data,
       cacheEnabled: true,
+      brandDnaPipelineVersion: 'v2-reliable',
       logLevel: 'info',
       connectionStatus: 'untested'
     };

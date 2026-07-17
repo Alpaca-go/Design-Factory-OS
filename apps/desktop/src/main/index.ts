@@ -37,7 +37,8 @@ const pipeline = createPipelineService(
 const brandDnaPipeline = createBrandDnaPipelineService(
   projects,
   getProviderCredentials,
-  (progress: AnalysisProgress) => mainWindow?.webContents.send('analysis:progress', progress)
+  (progress: AnalysisProgress) => mainWindow?.webContents.send('analysis:progress', progress),
+  getSettings
 );
 
 function createWindow(): void {

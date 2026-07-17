@@ -52,6 +52,7 @@ function settings(dataRoot: string): PublicSettings {
     hasApiKey: true,
     defaultDataPath: dataRoot,
     cacheEnabled: true,
+    brandDnaPipelineVersion: 'v2-reliable',
     logLevel: 'info',
     connectionStatus: 'untested'
   };
