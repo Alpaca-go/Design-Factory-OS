@@ -1,4 +1,4 @@
-export const BRAND_CREATIVE_DECISION_PROMPT_VERSION = 'brand-creative-decision-prompt-v3.2';
+export const BRAND_CREATIVE_DECISION_PROMPT_VERSION = 'brand-creative-decision-prompt-v3.3';
 
 export function buildBrandCreativeDecisionPrompt(context) {
   return [{

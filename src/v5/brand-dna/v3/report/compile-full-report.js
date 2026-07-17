@@ -1,4 +1,5 @@
 export function compileV3FullReport(core, visual, compiledImageTasks, finalAudit) {
+  core = { ...core, reportMarkdown: core.reportMarkdown.replace('> **扩展状态**：视觉系统与生图任务待继续', '> **扩展状态**：视觉系统与生图任务已完成') };
   const planById = new Map(visual.taskPlan.map((item) => [item.taskId, item]));
   const tasks = compiledImageTasks.map((task, index) => {
     const skeleton = planById.get(task.taskId);

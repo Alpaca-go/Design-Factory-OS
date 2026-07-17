@@ -6,6 +6,7 @@ import { compileV3CoreReport } from '../../src/v5/brand-dna/v3/report/compile-co
 import { buildV3CoreReportViewModel } from '../../src/v5/brand-dna/v3/report/build-core-report-view-model.js';
 import { buildBrandCreativeDecisionPrompt } from '../../src/v5/brand-dna/v3/decision/brand-creative-decision-prompt.js';
 import { applyRestrictedPatch, validateRestrictedPatch } from '../../src/v5/brand-dna/v3/repair/restricted-patch.js';
+import { validateEvidenceMap } from '../../src/v5/brand-dna/v3/evidence/validate-evidence-map.js';
 
 const evidenceMap = {
   evidence: [
@@ -110,7 +111,7 @@ test('Core Report v3 compiles only from the validated view model and exposes req
 
 test('V3 core decision prompt explicitly contains the repaired identity, gene, audience, risk and thesis rules', () => {
   const prompt = buildBrandCreativeDecisionPrompt({ prepared: { projectNameCandidates: [], sourceDocuments: [] }, evidenceMap, lockedFacts: [] })[0].content;
-  for (const expected of ['PROMPT_VERSION=brand-creative-decision-prompt-v3.2', 'analysisTaskName', 'Functional Gene', 'Capability Gene', 'maturity=declared', 'primary、secondary、extension', '每条 Risk', 'Creative Thesis']) assert.match(prompt, new RegExp(expected));
+  for (const expected of ['PROMPT_VERSION=brand-creative-decision-prompt-v3.3', 'analysisTaskName', 'Functional Gene', 'Capability Gene', 'maturity=declared', 'primary、secondary、extension', '每条 Risk', 'Creative Thesis']) assert.match(prompt, new RegExp(expected));
 });
 
 test('V3 core repair remains restricted to the exact failing gene field', () => {
@@ -124,4 +125,95 @@ test('V3 core repair remains restricted to the exact failing gene field', () => 
   const repaired = validateBrandCreativeDecision(applyRestrictedPatch(invalid, patch), evidenceMap);
   assert.equal(runCoreQualityGate(repaired, evidenceMap).passed, true);
   assert.throws(() => validateRestrictedPatch({ operations: [{ op: 'replace', path: '/identity/projectName', value: '伪造项目' }] }, [target.path]), (error) => error.code === 'PATCH_PATH_NOT_ALLOWED');
+});
+
+test('Evidence Map maps common provider category aliases and reports truly unknown values', () => {
+  const preparedEvidence = { sourceDocuments: [{ sourceId: 'doc-1' }], chunks: [{ chunkId: 'chunk-1' }] };
+  const base = { statement: '品牌处于独立发展阶段', quote: '独立品牌建立期', sourceId: 'doc-1', chunkId: 'chunk-1', sectionPath: ['发展阶段'], confidence: 'high' };
+  const mapped = validateEvidenceMap({ evidence: [{ ...base, category: 'development_stage' }], conflicts: [], missingInformation: [] }, preparedEvidence);
+  assert.equal(mapped.evidence[0].category, 'business-model');
+  const product = validateEvidenceMap({ evidence: [{ ...base, category: 'product' }], conflicts: [], missingInformation: [] }, preparedEvidence);
+  assert.equal(product.evidence[0].category, 'offering');
+  const longQuote = validateEvidenceMap({ evidence: [{ ...base, category: 'capability', quote: '证'.repeat(140) }], conflicts: [], missingInformation: [] }, preparedEvidence);
+  assert.equal(longQuote.evidence[0].quote.length, 120);
+  assert.equal(longQuote.evidence[0].quoteTruncated, true);
+  const references = validateEvidenceMap({ evidence: [{ ...base, evidenceId: 'evidence-1', category: 'capability' }], conflicts: [{ topic: '口径冲突', evidenceIds: ['evidence-1'], description: '同一事实存在不同口径' }], missingInformation: [] }, preparedEvidence);
+  assert.deepEqual(references.conflicts[0].evidenceIds, ['evidence-0001']);
+  assert.throws(() => validateEvidenceMap({ evidence: [{ ...base, category: 'unbounded-new-category' }], conflicts: [], missingInformation: [] }, preparedEvidence), (error) => error.code === 'EVIDENCE_CATEGORY_UNKNOWN' && error.received === 'unbounded-new-category');
+});
+
+test('Decision normalizer collapses duplicate Gene types without inventing a missing canonical Gene', () => {
+  const raw = rawDecision();
+  raw.genes.push({ ...raw.genes[1], statement: '仅描述 ERP 数字系统的次级能力', evidenceIds: ['evidence-0001'] });
+  raw.genes.push({ type: 'service', statement: '非标准服务基因', evidenceIds: ['evidence-0001'], confidence: 'medium', maturity: 'not-applicable', differentiationValue: 'medium' });
+  const decision = validateBrandCreativeDecision(raw, evidenceMap);
+  assert.equal(decision.genes.length, 7);
+  assert.equal(decision.genes.filter((item) => item.type === 'capability').length, 1);
+  assert.deepEqual(decision.genes.find((item) => item.type === 'capability').evidenceIds.sort(), ['evidence-0001', 'evidence-0002']);
+  assert.ok(decision.normalization.deterministicFixes.some((item) => item.code === 'GENE_DUPLICATE_TYPE_COLLAPSED'));
+  assert.ok(decision.normalization.warnings.some((item) => item.code === 'GENE_NON_STANDARD_TYPE_REMOVED'));
+});
+
+test('Audience insights without evidence are retained as missing instead of aborting the decision', () => {
+  const raw = rawDecision();
+  raw.audiences[1].barriers = [{ status: 'reasonable-inference', statement: '渠道协作边界尚不清晰', evidenceIds: [] }];
+  const decision = validateBrandCreativeDecision(raw, evidenceMap);
+  assert.equal(decision.audiences[1].barriers[0].status, 'missing');
+  assert.equal(decision.audiences[1].barriers[0].statement, '渠道协作边界尚不清晰');
+  assert.ok(decision.normalization.warnings.some((item) => item.code === 'AUDIENCE_INSIGHT_WITHOUT_EVIDENCE_DOWNGRADED'));
+});
+
+test('Noun-style audience needs are deterministically framed as customer results', () => {
+  const raw = rawDecision();
+  raw.audiences[0].needs[0].statement = '稳定、合规、透明的供应与运营保障';
+  const decision = validateBrandCreativeDecision(raw, evidenceMap);
+  assert.equal(decision.audiences[0].needs[0].statement, '获得稳定、合规、透明的供应与运营保障');
+  assert.ok(decision.normalization.deterministicFixes.some((item) => item.code === 'AUDIENCE_NEED_RESULT_FRAMED'));
+});
+
+test('Decision patch must cover every failing path', () => {
+  assert.throws(
+    () => validateRestrictedPatch({ operations: [{ op: 'replace', path: '/audiences/0/needs/0/statement', value: '获得稳定供应' }] }, ['/audiences/0/needs/0/statement', '/creativeThesis/coverage']),
+    (error) => error.code === 'PATCH_PATHS_INCOMPLETE'
+  );
+});
+
+test('Creative thesis coverage is derived from linked genes and evidence instead of provider self-scoring', () => {
+  const raw = rawDecision();
+  raw.creativeThesis.coverage = { capability: 1, relationship: 1, emotion: 1, culture: 0, differentiation: 1 };
+  raw.creativeThesis.geneIds = ['G02', 'G03', 'G04'];
+  const decision = validateBrandCreativeDecision(raw, evidenceMap);
+  assert.deepEqual(decision.creativeThesis.coverage, { capability: 4, relationship: 4, emotion: 4, culture: 0, differentiation: 4 });
+  assert.ok(decision.normalization.deterministicFixes.some((item) => item.code === 'THESIS_COVERAGE_RECALCULATED'));
+  assert.equal(runCoreQualityGate(decision, evidenceMap).passed, true);
+});
+
+test('Functional customer results recognize common business outcome wording', () => {
+  const raw = rawDecision();
+  raw.genes[0].statement = '为医美机构提供降本增效的运营结果';
+  const decision = validateBrandCreativeDecision(raw, evidenceMap);
+  assert.equal(runCoreQualityGate(decision, evidenceMap).issues.some((item) => item.code === 'GENE_FUNCTIONAL_IS_CAPABILITY'), false);
+});
+
+test('Risk status and severity aliases are normalized without weakening strict unknown-value validation', () => {
+  const raw = rawDecision();
+  raw.diagnosis.risks[0].status = 'conflict';
+  raw.diagnosis.risks[0].severity = 'high';
+  const decision = validateBrandCreativeDecision(raw, evidenceMap);
+  assert.equal(decision.diagnosis.risks[0].status, 'conflicting');
+  assert.equal(decision.diagnosis.risks[0].severity, 'major');
+  assert.ok(decision.normalization.deterministicFixes.some((item) => item.code === 'RISK_ENUM_NORMALIZED'));
+  raw.diagnosis.risks[0].severity = 'catastrophic';
+  assert.throws(() => validateBrandCreativeDecision(raw, evidenceMap), /severity 必须是 critical\|major\|minor/);
+});
+
+test('Risk evidence aliases are canonicalized and nonexistent references become missing', () => {
+  const raw = rawDecision();
+  raw.diagnosis.risks[0].evidenceIds = ['evidence-1'];
+  raw.diagnosis.risks[1].evidenceIds = ['evidence-999'];
+  const decision = validateBrandCreativeDecision(raw, evidenceMap);
+  assert.deepEqual(decision.diagnosis.risks[0].evidenceIds, ['evidence-0001']);
+  assert.equal(decision.diagnosis.risks[1].status, 'missing');
+  assert.deepEqual(decision.diagnosis.risks[1].evidenceIds, []);
+  assert.ok(decision.normalization.warnings.some((item) => item.code === 'RISK_UNKNOWN_EVIDENCE_REMOVED'));
 });

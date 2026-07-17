@@ -5,6 +5,7 @@ import { runV3VisualExtension } from '../../src/v5/brand-dna/v3/protocol/run-vis
 import { runBrandDnaV3 } from '../../src/v5/brand-dna/v3/protocol/run-brand-dna-v3-complete.js';
 import { applyRestrictedPatch, validateRestrictedPatch } from '../../src/v5/brand-dna/v3/repair/restricted-patch.js';
 import { applyAuditPatch, buildAuditPatchRequest, validateAuditPatch } from '../../src/v5/brand-dna/v3/audit/audit-patch.js';
+import { validateFinalAudit } from '../../src/v5/brand-dna/v3/audit/validate-final-audit.js';
 
 const corpus = {
   documents: [{
@@ -117,6 +118,8 @@ test('Sprint 3 completes prompts, independent audit and local full report in fiv
   assert.equal(result.finalAudit.status, 'pass');
   assert.match(result.fullReportMarkdown, /创意转译与生图执行扩展/);
   assert.match(result.fullReportMarkdown, /执行附录：每张图片 Prompt/);
+  assert.match(result.fullReportMarkdown, /视觉系统与生图任务已完成/);
+  assert.doesNotMatch(result.fullReportMarkdown, /视觉系统与生图任务待继续/);
   assert.ok(saved['08-final-report'].checkpoint.outputHash);
 });
 
@@ -148,4 +151,38 @@ test('audit patch refuses wholesale object replacement and identity changes', ()
   assert.throws(() => validateAuditPatch({ operations: [{ op: 'replace', path: '/visualSystemTaskPlan', value: {} }] }, ['/visualSystemTaskPlan']), (error) => error.code === 'PATCH_PATH_NOT_ALLOWED');
   const patch = validateAuditPatch({ operations: [{ op: 'replace', path: '/compiledImageTasks/1/atmosphere', value: 'distinct' }] }, ['/compiledImageTasks/1/atmosphere']);
   assert.equal(applyAuditPatch(payload, patch).compiledImageTasks[1].atmosphere, 'distinct');
+});
+
+test('audit patch prompt excludes issues that have no safe repair path', () => {
+  const payload = { decision: decision(), visualSystemTaskPlan: visualPlan(), compiledImageTasks: compiledTasks() };
+  const request = buildAuditPatchRequest(payload, { issues: [
+    { path: '/decision/genes/2/statement', reason: '误判基因', allowedRepairPaths: ['/decision/genes/2/statement'] },
+    { path: '/compiledImageTasks/1/finalPrompt', reason: '移除无证据文字', allowedRepairPaths: ['/compiledImageTasks/1/finalPrompt'] }
+  ] });
+  assert.deepEqual(request.allowedPaths, ['/compiledImageTasks/1/finalPrompt']);
+  assert.doesNotMatch(request.messages[0].content, /误判基因/);
+  assert.match(request.messages[0].content, /移除无证据文字/);
+});
+
+test('audit patch cannot remove prohibitions or pending confirmations', () => {
+  const payload = { decision: decision(), visualSystemTaskPlan: visualPlan(), compiledImageTasks: compiledTasks() };
+  assert.throws(() => applyAuditPatch(payload, { operations: [{ op: 'replace', path: '/visualSystemTaskPlan/generationBoundary/prohibitedClaims', value: [] }] }), (error) => error.code === 'AUDIT_PATCH_WEAKENS_BOUNDARY');
+  const added = applyAuditPatch(payload, { operations: [{ op: 'replace', path: '/visualSystemTaskPlan/generationBoundary/prohibitedClaims', value: [...payload.visualSystemTaskPlan.generationBoundary.prohibitedClaims, '未验证时效数据'] }] });
+  assert.ok(added.visualSystemTaskPlan.generationBoundary.prohibitedClaims.includes('未验证时效数据'));
+});
+
+test('final audit normalizes optional dimension formats without weakening issue status', () => {
+  const audit = validateFinalAudit({ finalAudit: { status: 'pass', score: 92, dimensions: { identity_accuracy: 1, evidenceBoundary: '0.8' }, issues: [] } });
+  assert.equal(audit.dimensions.identityAccuracy, 100);
+  assert.equal(audit.dimensions.evidenceBoundary, 80);
+  assert.equal(audit.dimensions.strategicDepth, 92);
+});
+
+test('final audit canonicalizes provider display paths to the unified audit object', () => {
+  const audit = validateFinalAudit({ finalAudit: { status: 'needs-patch', score: 80, dimensions: {}, issues: [
+    { severity: 'major', path: '/Compiled Prompts/1/finalPrompt', reason: '文字边界', allowedRepairPaths: ['/Compiled Prompts/1/finalPrompt'] },
+    { severity: 'minor', path: '/generationBoundary/prohibitedClaims', reason: '补充禁止项', allowedRepairPaths: ['/generationBoundary/prohibitedClaims'] }
+  ] } });
+  assert.equal(audit.issues[0].path, '/compiledImageTasks/1/finalPrompt');
+  assert.equal(audit.issues[1].path, '/visualSystemTaskPlan/generationBoundary/prohibitedClaims');
 });
