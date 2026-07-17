@@ -72,7 +72,14 @@ export function createOpenAICompatibleTextReasoner(options = {}) {
   return async function reason(messages, context = {}) {
     let response;
     try {
-      const requestBody = { model, messages, max_tokens: maxTokens, stream: false };
+      const requestBody = {
+        model,
+        messages,
+        max_tokens: Number.isInteger(context.maxOutputTokens) && context.maxOutputTokens > 0
+          ? Math.min(context.maxOutputTokens, maxTokens)
+          : maxTokens,
+        stream: false
+      };
       if (supportsThinkingControls && typeof context.enableThinking === 'boolean') {
         requestBody.enable_thinking = context.enableThinking;
         if (context.enableThinking && Number.isInteger(context.thinkingBudget) && context.thinkingBudget > 0) {
@@ -134,6 +141,13 @@ export function createOpenAICompatibleTextReasoner(options = {}) {
       model: String(body.model || model),
       text,
       finishReason,
+      usage: body.usage ? Object.freeze({
+        inputTokens: body.usage.prompt_tokens ?? body.usage.input_tokens ?? null,
+        outputTokens: body.usage.completion_tokens ?? body.usage.output_tokens ?? null,
+        reasoningTokens: body.usage.completion_tokens_details?.reasoning_tokens ?? body.usage.reasoning_tokens ?? null,
+        cachedInputTokens: body.usage.prompt_tokens_details?.cached_tokens ?? body.usage.cached_input_tokens ?? null,
+        totalTokens: body.usage.total_tokens ?? null
+      }) : null,
       completedAt: new Date().toISOString()
     });
   };
