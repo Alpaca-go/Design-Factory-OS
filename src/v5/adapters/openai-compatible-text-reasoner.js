@@ -47,7 +47,13 @@ export function createOpenAICompatibleTextReasoner(options = {}) {
     const signal = timeoutSignal && context.signal ? AbortSignal.any([context.signal, timeoutSignal]) : timeoutSignal || context.signal;
     let response;
     try {
-      const body = { model, messages, max_tokens: context.maxOutputTokens || 16384, stream: false };
+      const normalizedMessages = messages.some((message) => message.role === 'user')
+        ? messages
+        : [
+            { role: 'system', content: '严格遵循用户消息中的协议、字段约束与 JSON 输出要求。' },
+            { role: 'user', content: messages.map((message) => message.content).join('\n\n') }
+          ];
+      const body = { model, messages: normalizedMessages, max_tokens: context.maxOutputTokens || 16384, stream: false };
       if (supportsThinking && typeof context.enableThinking === 'boolean') {
         body.enable_thinking = context.enableThinking;
         if (context.enableThinking && context.thinkingBudget) body.thinking_budget = context.thinkingBudget;

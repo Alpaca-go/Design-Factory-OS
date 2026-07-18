@@ -185,7 +185,27 @@ function registerIpc(): void {
   });
 }
 
-app.whenReady().then(() => {
+function commandLineValue(name: string): string | undefined {
+  const prefix = `--${name}=`;
+  return process.argv.find((argument) => argument.startsWith(prefix))?.slice(prefix.length);
+}
+
+app.whenReady().then(async () => {
+  const smokeRunId = commandLineValue('visual-translation-smoke-run');
+  const smokeStatusPath = commandLineValue('visual-translation-smoke-status');
+  if (smokeRunId && smokeStatusPath) {
+    const statusPath = path.resolve(smokeStatusPath);
+    try {
+      await fs.writeFile(statusPath, `${JSON.stringify({ status: 'running', runId: smokeRunId, startedAt: new Date().toISOString() }, null, 2)}\n`, 'utf8');
+      const result = await visualTranslation.resume(smokeRunId);
+      await fs.writeFile(statusPath, `${JSON.stringify({ status: 'passed', run: result.run, reportPath: await visualTranslation.reportPath(smokeRunId) }, null, 2)}\n`, 'utf8');
+      app.exit(0);
+    } catch (error) {
+      await fs.writeFile(statusPath, `${JSON.stringify({ status: 'failed', runId: smokeRunId, error: { name: (error as Error).name, message: (error as Error).message } }, null, 2)}\n`, 'utf8').catch(() => {});
+      app.exit(1);
+    }
+    return;
+  }
   registerIpc();
   createWindow();
   app.on('activate', () => {

@@ -126,6 +126,26 @@ test('valid Sprint 1 checkpoints resume without another model call', async () =>
   assert.ok(result.metrics.some((item) => item.stageId === '04-three-creative-directions' && item.resumed));
 });
 
+test('evidence schema failure gets one bounded model repair retry', async () => {
+  let evidenceAttempts = 0;
+  const reasoner = async (messages) => {
+    const content = messages.map((message) => message.content).join('\n');
+    const stage = content.match(/PROTOCOL_STAGE=([^\n]+)/)?.[1];
+    const chunkId = content.match(/"chunkId":"([^"]+)"/)?.[1];
+    if (stage === '01-visual-evidence') {
+      evidenceAttempts += 1;
+      const output = evidenceOutput(chunkId);
+      if (evidenceAttempts === 1) output.visualEvidenceMap.evidence[0].shortestQuote = '不存在于原文的改写';
+      return { provider: 'mock', model: 'mock', text: JSON.stringify(output) };
+    }
+    return { provider: 'mock', model: 'mock', text: JSON.stringify(stage === '02-visual-signal-opportunity' ? signalOpportunityOutput() : directionsOutput()) };
+  };
+  const result = await runVisualTranslationV1({ projectId: 'retry-project', corpus, reasoner, provider: 'mock', modelId: 'mock' });
+  assert.equal(evidenceAttempts, 2);
+  assert.equal(result.modelCallCount, 4);
+  assert.ok(result.metrics.some((metric) => metric.kind === 'model-retry' && metric.stageId === '01-visual-evidence'));
+});
+
 test('direction validator rejects three cosmetic variants', () => {
   const evidenceMap = { evidence: Array.from({ length: 8 }, (_, index) => ({ evidenceId: `VE00${index + 1}` })) };
   const signalMap = { signals: Array.from({ length: 7 }, (_, index) => ({ signalId: `VS0${index + 1}` })) };
@@ -160,6 +180,7 @@ test('text reasoner sends text-only messages and applies stage thinking controls
   assert.equal(requests[0].thinking_budget, 2048);
   assert.equal(requests[0].max_tokens, 6000);
   assert.ok(requests[0].messages.every((message) => typeof message.content === 'string'));
+  assert.ok(requests[0].messages.some((message) => message.role === 'user'));
   assert.equal(result.usage.inputTokens, 10);
 });
 

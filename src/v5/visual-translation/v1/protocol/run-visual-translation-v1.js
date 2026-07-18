@@ -55,16 +55,29 @@ export async function runVisualTranslationV1(input) {
   };
   const model = async (stageId, messages, validator) => {
     assertRuntime(); input.onProgress?.(stageId); const profile = STAGE_PROFILES[stageId]; const started = Date.now();
-    let response;
-    try {
-      response = await input.reasoner(messages, { signal: input.abortSignal, enableThinking: profile.thinking, thinkingBudget: profile.thinkingBudget, maxOutputTokens: profile.maxOutputTokens, requestTimeoutMs: profile.requestTimeoutMs });
-      const output = validator(parseStructuredResponse(response.text));
-      metrics.push({ stageId, kind: 'model', durationMs: Date.now() - started, resumed: false, usage: response.usage || null, modelId: response.model || input.modelId, provider: response.provider || input.provider, finishReason: response.finishReason || null, thinkingEnabled: profile.thinking });
-      return output;
-    } catch (error) {
-      if (error.code === 'OUTPUT_TRUNCATED' || error.name === 'AbortError') throw error;
-      throw Object.assign(new Error(`${stageId}：${error.message}`), { code: error.code || 'FAILED_SCHEMA', stageId, cause: error });
+    let requestMessages = messages;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      let response;
+      try {
+        response = await input.reasoner(requestMessages, { signal: input.abortSignal, enableThinking: profile.thinking, thinkingBudget: profile.thinkingBudget, maxOutputTokens: profile.maxOutputTokens, requestTimeoutMs: profile.requestTimeoutMs });
+        const output = validator(parseStructuredResponse(response.text));
+        metrics.push({ stageId, kind: 'model', attempt, durationMs: Date.now() - started, resumed: false, usage: response.usage || null, modelId: response.model || input.modelId, provider: response.provider || input.provider, finishReason: response.finishReason || null, thinkingEnabled: profile.thinking });
+        return output;
+      } catch (error) {
+        if (error.code === 'OUTPUT_TRUNCATED' || error.name === 'AbortError') throw error;
+        if (attempt < 2 && response?.text && (error.code === 'FAILED_SCHEMA' || error instanceof SyntaxError)) {
+          metrics.push({ stageId, kind: 'model-retry', attempt, durationMs: Date.now() - started, resumed: false, usage: response.usage || null, modelId: response.model || input.modelId, provider: response.provider || input.provider, validationError: error.message });
+          requestMessages = [
+            ...messages,
+            { role: 'assistant', content: response.text },
+            { role: 'user', content: `上一次 JSON 未通过协议校验：${error.message}\n请修正后重新输出完整 JSON，不要解释。所有 shortestQuote 必须从对应 Chunk 的 text 中逐字复制连续子串。` }
+          ];
+          continue;
+        }
+        throw Object.assign(new Error(`${stageId}：${error.message}`), { code: error.code || 'FAILED_SCHEMA', stageId, cause: error });
+      }
     }
+    throw new Error(`${stageId}：模型修复重试未产生有效输出`);
   };
 
   const prepared = await local('00-document-preparation', () => prepareDocumentSet(input));
@@ -111,5 +124,5 @@ export async function runVisualTranslationV1(input) {
   if (composition.visualRatio < 0.65) throw Object.assign(new Error(`视觉方向报告内容占比不足：${(composition.visualRatio * 100).toFixed(1)}%`), { code: 'REPORT_VISUAL_RATIO_LOW', composition });
   await save('10-local-report-compiler', reportMarkdown, { upstreamHash: valueHash({ directions, recommendation }), promptVersion: VISUAL_TRANSLATION_V1.directionsReportVersion, schemaVersion: VISUAL_TRANSLATION_V1.directionsReportVersion, outputFile: 'visual-directions-report-v1.md' });
   await input.onDirectionsComplete?.({ ...partial, reportMarkdown, composition });
-  return Object.freeze({ ...partial, reportMarkdown, composition, modelCallCount: metrics.filter((item) => item.kind === 'model').length, status: 'completed-directions' });
+  return Object.freeze({ ...partial, reportMarkdown, composition, modelCallCount: metrics.filter((item) => item.kind === 'model' || item.kind === 'model-retry').length, status: 'completed-directions' });
 }
