@@ -7,7 +7,42 @@ export const VISUAL_EVIDENCE_TYPES = Object.freeze([
 ]);
 export const CLAIM_STATUSES = Object.freeze(['confirmed', 'reasonable-inference', 'suggested', 'missing', 'conflicting']);
 
-function normalizeQuote(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+function normalizeQuote(value) { return String(value || '').normalize('NFKC').replace(/\s+/g, ' ').trim(); }
+
+function canonicalCharacters(value, includeOffsets = false) {
+  const text = String(value || '');
+  const characters = [];
+  const offsets = [];
+  for (let start = 0; start < text.length;) {
+    const original = String.fromCodePoint(text.codePointAt(start));
+    const end = start + original.length;
+    for (const normalized of original.normalize('NFKC').toLocaleLowerCase('zh-CN')) {
+      if (!/[\p{L}\p{N}]/u.test(normalized)) continue;
+      characters.push(normalized);
+      if (includeOffsets) offsets.push({ start, end });
+    }
+    start = end;
+  }
+  return { value: characters.join(''), offsets };
+}
+
+export function resolveGroundedQuote(quote, chunkText) {
+  const requested = normalizeQuote(quote);
+  const chunk = String(chunkText || '');
+  if (chunk.includes(requested)) return requested;
+  const canonicalQuote = canonicalCharacters(requested).value;
+  const canonicalChunk = canonicalCharacters(chunk, true);
+  if (!canonicalQuote) return null;
+  const start = canonicalChunk.value.indexOf(canonicalQuote);
+  if (start < 0) return null;
+  const first = canonicalChunk.offsets[start];
+  const last = canonicalChunk.offsets[start + canonicalQuote.length - 1];
+  if (!first || !last) return null;
+  let end = last.end;
+  const trailing = chunk.slice(end).match(/^[）】》」』”’\)\]\}]/u)?.[0];
+  if (trailing && requested.normalize('NFKC').includes(trailing.normalize('NFKC'))) end += trailing.length;
+  return chunk.slice(first.start, end).trim();
+}
 
 export function validateVisualEvidenceMap(value, prepared) {
   const root = objectValue(value?.visualEvidenceMap || value, 'visualEvidenceMap');
@@ -20,8 +55,9 @@ export function validateVisualEvidenceMap(value, prepared) {
     const chunkId = stringValue(item.chunkId, `${path}.chunkId`);
     const chunk = chunks.get(chunkId);
     if (!sourceIds.has(sourceId) || !chunk || chunk.sourceId !== sourceId) throw Object.assign(new Error(`${path} 引用了未知或不匹配的来源`), { code: 'FAILED_SCHEMA', path });
-    const shortestQuote = stringValue(item.shortestQuote, `${path}.shortestQuote`, { maxLength: 120 });
-    if (!normalizeQuote(chunk.text).includes(normalizeQuote(shortestQuote))) throw Object.assign(new Error(`${path}.shortestQuote 不存在于引用 Chunk`), { code: 'FAILED_SCHEMA', path: `${path}.shortestQuote` });
+    const requestedQuote = stringValue(item.shortestQuote, `${path}.shortestQuote`, { maxLength: 120 });
+    const shortestQuote = resolveGroundedQuote(requestedQuote, chunk.text);
+    if (!shortestQuote) throw Object.assign(new Error(`${path}.shortestQuote 不存在于引用 Chunk；请从原文逐字复制，不能改写`), { code: 'FAILED_SCHEMA', path: `${path}.shortestQuote` });
     return {
       evidenceId: item.evidenceId ? stringValue(item.evidenceId, `${path}.evidenceId`) : `VE${String(index + 1).padStart(3, '0')}`,
       sourceId,

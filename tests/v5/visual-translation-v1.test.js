@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { runVisualTranslationV1 } from '../../src/v5/visual-translation/v1/index.js';
 import { validateVisualCreativeDirections } from '../../src/v5/visual-translation/v1/schemas/visual-creative-directions-v1.js';
+import { resolveGroundedQuote } from '../../src/v5/visual-translation/v1/schemas/visual-evidence-map-v1.js';
 import { parseStructuredResponse } from '../../src/v5/shared/analysis/response-parser.js';
 import { createOpenAICompatibleTextReasoner } from '../../src/v5/adapters/openai-compatible-text-reasoner.js';
 
@@ -135,6 +136,13 @@ test('direction validator rejects three cosmetic variants', () => {
 
 test('structured response parser accepts fenced JSON with a trailing comma', () => {
   assert.deepEqual(parseStructuredResponse('```json\n{"ok":true,}\n```'), { ok: true });
+});
+
+test('evidence quote grounding recovers DOCX punctuation and spacing but rejects paraphrases', () => {
+  const chunk = '九州美学\n品牌定位提案（1.1）：以透明履约建立长期信任。';
+  assert.equal(resolveGroundedQuote('“九州美学 品牌定位提案(1.1)”', chunk), '九州美学\n品牌定位提案（1.1）');
+  assert.equal(resolveGroundedQuote('透明履约', chunk), '透明履约');
+  assert.equal(resolveGroundedQuote('通过透明交付建立信赖', chunk), null);
 });
 
 test('text reasoner sends text-only messages and applies stage thinking controls', async () => {

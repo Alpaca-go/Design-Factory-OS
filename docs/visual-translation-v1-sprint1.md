@@ -31,7 +31,7 @@ Anchor Direction System、图片任务、Prompt Compiler 和 Visual Consistency 
 
 - Protocol：`visual-translation-v1`
 - Checkpoint：`visual-translation-v1-checkpoint-1`
-- Evidence Prompt：`visual-evidence-prompt-v1.0`
+- Evidence Prompt：`visual-evidence-prompt-v1.1`
 - Signal + Opportunity Prompt：`visual-signal-opportunity-prompt-v1.0`
 - Directions Prompt：`visual-directions-prompt-v1.0`
 - Directions Report：`visual-directions-report-v1`
