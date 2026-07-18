@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { runVisualTranslationV1 } from '../../src/v5/visual-translation/v1/index.js';
 import { validateVisualCreativeDirections } from '../../src/v5/visual-translation/v1/schemas/visual-creative-directions-v1.js';
-import { resolveGroundedQuote } from '../../src/v5/visual-translation/v1/schemas/visual-evidence-map-v1.js';
+import { groundEvidenceQuote, resolveGroundedQuote } from '../../src/v5/visual-translation/v1/schemas/visual-evidence-map-v1.js';
 import { parseStructuredResponse } from '../../src/v5/shared/analysis/response-parser.js';
 import { createOpenAICompatibleTextReasoner } from '../../src/v5/adapters/openai-compatible-text-reasoner.js';
 
@@ -135,7 +135,7 @@ test('evidence schema failure gets one bounded model repair retry', async () => 
     if (stage === '01-visual-evidence') {
       evidenceAttempts += 1;
       const output = evidenceOutput(chunkId);
-      if (evidenceAttempts === 1) output.visualEvidenceMap.evidence[0].shortestQuote = '不存在于原文的改写';
+      if (evidenceAttempts === 1) output.visualEvidenceMap.evidence[0].type = 'unsupported-type';
       return { provider: 'mock', model: 'mock', text: JSON.stringify(output) };
     }
     return { provider: 'mock', model: 'mock', text: JSON.stringify(stage === '02-visual-signal-opportunity' ? signalOpportunityOutput() : directionsOutput()) };
@@ -163,6 +163,25 @@ test('evidence quote grounding recovers DOCX punctuation and spacing but rejects
   assert.equal(resolveGroundedQuote('“九州美学 品牌定位提案(1.1)”', chunk), '九州美学\n品牌定位提案（1.1）');
   assert.equal(resolveGroundedQuote('透明履约', chunk), '透明履约');
   assert.equal(resolveGroundedQuote('通过透明交付建立信赖', chunk), null);
+});
+
+test('evidence quote grounding deterministically replaces a paraphrase with an exact source sentence', () => {
+  const prepared = {
+    sourceDocuments: [{ sourceId: 'doc-1' }, { sourceId: 'doc-2' }],
+    chunks: [
+      { sourceId: 'doc-1', chunkId: 'chunk-1', text: '市场正在增长，但品牌表达尚未统一。' },
+      { sourceId: 'doc-2', chunkId: 'chunk-2', text: '医研同源，草本温润。以现代东方美学建立专业信任。' }
+    ]
+  };
+  const grounded = groundEvidenceQuote({
+    requestedQuote: '通过医研与东方草本建立值得信赖的品牌形象',
+    statement: '品牌以医研、草本和现代东方美学建立专业信任',
+    sourceId: 'doc-1',
+    chunkId: 'chunk-1'
+  }, prepared);
+  assert.equal(grounded.sourceId, 'doc-2');
+  assert.equal(grounded.chunkId, 'chunk-2');
+  assert.ok(prepared.chunks[1].text.includes(grounded.shortestQuote));
 });
 
 test('text reasoner sends text-only messages and applies stage thinking controls', async () => {

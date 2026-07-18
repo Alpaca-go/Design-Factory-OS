@@ -60,6 +60,15 @@ export async function runVisualTranslationV1(input) {
       let response;
       try {
         response = await input.reasoner(requestMessages, { signal: input.abortSignal, enableThinking: profile.thinking, thinkingBudget: profile.thinkingBudget, maxOutputTokens: profile.maxOutputTokens, requestTimeoutMs: profile.requestTimeoutMs });
+        await input.onModelResponse?.(stageId, {
+          attempt,
+          receivedAt: new Date().toISOString(),
+          provider: response.provider || input.provider,
+          modelId: response.model || input.modelId,
+          finishReason: response.finishReason || null,
+          usage: response.usage || null,
+          text: response.text
+        });
         const output = validator(parseStructuredResponse(response.text));
         metrics.push({ stageId, kind: 'model', attempt, durationMs: Date.now() - started, resumed: false, usage: response.usage || null, modelId: response.model || input.modelId, provider: response.provider || input.provider, finishReason: response.finishReason || null, thinkingEnabled: profile.thinking });
         return output;
@@ -82,7 +91,7 @@ export async function runVisualTranslationV1(input) {
 
   const prepared = await local('00-document-preparation', () => prepareDocumentSet(input));
   outputs['00-document-preparation'] = prepared;
-  await save('00-document-preparation', prepared, { upstreamHash: prepared.documentSetHash, promptVersion: 'document-preparation-v1.0', schemaVersion: 'prepared-document-set-v1', outputFile: 'prepared-document-set-v3.json' });
+  await save('00-document-preparation', prepared, { upstreamHash: prepared.documentSetHash, promptVersion: 'document-preparation-v1.1', schemaVersion: 'prepared-document-set-v1', outputFile: 'prepared-document-set-v3.json' });
 
   const evidenceExpected = { stageId: '01-visual-evidence', documentSetHash: prepared.documentSetHash, upstreamHash: prepared.documentSetHash, promptVersion: VISUAL_EVIDENCE_PROMPT_VERSION, schemaVersion: 'visual-evidence-map-v1' };
   let evidenceMap = resume('01-visual-evidence', evidenceExpected, (value) => validateVisualEvidenceMap(value, prepared));

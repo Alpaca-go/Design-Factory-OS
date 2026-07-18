@@ -15,6 +15,7 @@ test('Visual Translation Desktop service persists documents, checkpoints, report
     pipelineCalls += 1;
     input.onProgress('00-document-preparation');
     input.onProgress('01-visual-evidence');
+    await input.onModelResponse('01-visual-evidence', { attempt: 1, text: '{"visualEvidenceMap":{}}' });
     const resumed = Boolean(input.checkpoints['01-visual-evidence']);
     if (!resumed) {
       await input.onCheckpoint('01-visual-evidence', {
@@ -51,6 +52,8 @@ test('Visual Translation Desktop service persists documents, checkpoints, report
     assert.match(await fs.readFile(await service.reportPath(first.run.id), 'utf8'), /三个视觉方向/);
     assert.equal((await service.listRuns()).length, 1);
     assert.ok(progress.includes('01-visual-evidence'));
+    const rawResponse = path.join(await service.runRoot(first.run.id), 'runtime', 'model-responses', '01-visual-evidence-attempt-01.json');
+    assert.match(await fs.readFile(rawResponse, 'utf8'), /visualEvidenceMap/);
 
     const resumed = await service.resume(first.run.id);
     assert.equal(resumed.run.modelCallCount, 0);

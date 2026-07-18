@@ -11,7 +11,7 @@ import type {
   VisualTranslationRunRecord,
   VisualTranslationStage
 } from '../shared/types';
-import { buildVisualStrategyCorpus, parseStrategyDocument } from './document-processing';
+import { buildVisualStrategyCorpus, parseStrategyDocument } from './document-processing.ts';
 import type { ProviderCredentials } from './settings-store';
 
 // Bundled from the repository core. Desktop owns persistence and user interaction only.
@@ -190,6 +190,10 @@ export function createVisualTranslationService(
             model: credentials.model
           };
           emitProgress(progress);
+        },
+        async onModelResponse(stageId: VisualTranslationStage, payload: { attempt: number; text: string }) {
+          const filename = `${stageId}-attempt-${String(payload.attempt).padStart(2, '0')}.json`;
+          await writeJson(path.join(root, 'runtime', 'model-responses', filename), payload);
         },
         async onCheckpoint(stageId: VisualTranslationStage, payload: { checkpoint: { outputFile: string }; output: unknown }) {
           await saveRun({ ...running, currentStage: stageId });

@@ -3,9 +3,9 @@ import crypto from 'node:crypto';
 const ROLE_RULES = Object.freeze([
   ['visual-guideline', /VI|视觉(?:规范|指南|系统)|brand\s*guideline|visual\s*guideline/i],
   ['creative-brief', /creative\s*brief|创意简报|创意任务书/i],
+  ['market-research', /市场(?:研究|调研)|竞品|market\s*research|competitor/i],
   ['brand-strategy', /品牌(?:策略|战略|定位|策划)|brand\s*(?:strategy|positioning)/i],
   ['product-information', /产品(?:资料|说明|手册)|product\s*(?:brief|information)/i],
-  ['market-research', /市场(?:研究|调研)|竞品|market\s*research|competitor/i],
   ['reference', /参考|案例|reference|inspiration/i]
 ]);
 
@@ -13,22 +13,31 @@ function hash(value) {
   return crypto.createHash('sha256').update(String(value)).digest('hex');
 }
 
-function splitText(text, maximum = 4000) {
-  const paragraphs = String(text || '').split(/\n{2,}/).map((item) => item.trim()).filter(Boolean);
-  const chunks = [];
-  let current = '';
-  for (const paragraph of paragraphs) {
-    if (current && current.length + paragraph.length + 2 > maximum) {
-      chunks.push(current);
-      current = '';
-    }
-    if (paragraph.length <= maximum) current += `${current ? '\n\n' : ''}${paragraph}`;
-    else {
-      if (current) { chunks.push(current); current = ''; }
-      for (let offset = 0; offset < paragraph.length; offset += maximum) chunks.push(paragraph.slice(offset, offset + maximum));
-    }
+function naturalBoundary(text, start, maximum) {
+  const limit = Math.min(text.length, start + maximum);
+  if (limit >= text.length) return text.length;
+  const minimum = start + Math.floor(maximum * 0.55);
+  const window = text.slice(minimum, limit);
+  const patterns = [/\n{2,}/gu, /\n/gu, /[。！？!?；;]/gu, /[，,、]/gu, /\s/gu];
+  for (const pattern of patterns) {
+    let boundary = -1;
+    for (const match of window.matchAll(pattern)) boundary = minimum + match.index + match[0].length;
+    if (boundary > start) return boundary;
   }
-  if (current) chunks.push(current);
+  return limit;
+}
+
+export function splitTextAtNaturalBoundaries(text, maximum = 4000) {
+  const value = String(text || '').trim();
+  const chunks = [];
+  let start = 0;
+  while (start < value.length) {
+    const end = naturalBoundary(value, start, maximum);
+    const chunk = value.slice(start, end).trim();
+    if (chunk) chunks.push(chunk);
+    start = end;
+    while (start < value.length && /\s/u.test(value[start])) start += 1;
+  }
   return chunks;
 }
 
@@ -59,7 +68,7 @@ export function prepareDocumentSet(input) {
     });
     const sections = document.sections?.length ? document.sections : [{ content: document.rawText }];
     sections.forEach((section, sectionIndex) => {
-      splitText(section.content).forEach((text, partIndex) => {
+      splitTextAtNaturalBoundaries(section.content).forEach((text, partIndex) => {
         const contentHash = hash(text.replace(/\s+/g, ' ').trim());
         if (seenChunkHashes.has(contentHash)) return;
         seenChunkHashes.add(contentHash);
