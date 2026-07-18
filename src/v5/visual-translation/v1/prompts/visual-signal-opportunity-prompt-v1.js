@@ -1,0 +1,5 @@
+export const VISUAL_SIGNAL_OPPORTUNITY_PROMPT_VERSION = 'visual-signal-opportunity-prompt-v1.0';
+
+export function buildVisualSignalOpportunityPrompt(evidenceMap) {
+  return [{ role: 'system', content: `PROTOCOL_STAGE=02-visual-signal-opportunity\nPROMPT_VERSION=${VISUAL_SIGNAL_OPPORTUNITY_PROMPT_VERSION}\n将 Visual Evidence 压缩成五类视觉策略信号，并识别可视化事实、视觉隐喻、审美张力和行业模板风险。不得复制全部原文，不得生成最终视觉方向。每类信号 1–3 条，总数 7–12 条。行业套路必须说明何时有因果依据可以使用、何时只是无意义装饰。只返回 JSON。\n\nVisual Evidence：${JSON.stringify(evidenceMap)}\n\n输出：{"visualStrategySignalMap":{"signals":[{"type":"capability|relationship|emotion|culture|aesthetic-tension","statement":"string","evidenceIds":["VE001"],"importance":"primary|secondary|supporting","visualPotential":"high|medium|low"}]},"visualOpportunityMap":{"visualizableFacts":[Opportunity],"metaphors":[Opportunity],"aestheticTensions":[Opportunity],"categoryCliches":[{"pattern":"string","risk":"string","allowedWhen":"string","prohibitedWhen":"string"}]}}\nOpportunity={"statement":"string","rationale":"string","evidenceIds":["VE001"],"brandability":"high|medium|low"}` }];
+}

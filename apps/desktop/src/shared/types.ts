@@ -191,6 +191,46 @@ export interface ConnectionTestResult {
   elapsedMs: number;
 }
 
+export interface DocumentSection {
+  heading?: string;
+  level?: number;
+  content: string;
+  page?: number;
+}
+
+export interface DocumentTable {
+  rows: string[][];
+  markdown: string;
+}
+
+export interface NormalizedDocument {
+  id: string;
+  filename: string;
+  mimeType: string;
+  sourceType: 'pdf' | 'docx' | 'markdown' | 'text';
+  title?: string;
+  rawText: string;
+  sections: DocumentSection[];
+  tables: DocumentTable[];
+  pageCount?: number;
+  characterCount: number;
+  parseWarnings: string[];
+  documentRole?: 'brand-strategy' | 'creative-brief' | 'visual-guideline' | 'product-information' | 'market-research' | 'reference' | 'unknown';
+}
+
+export interface VisualStrategyCorpus {
+  documents: NormalizedDocument[];
+  sourceIndex: Array<{
+    documentId: string;
+    filename: string;
+    section: string;
+    page?: number;
+    characterCount: number;
+  }>;
+  mergedText: string;
+  warnings: string[];
+}
+
 export interface DesktopApi {
   settings: {
     get(): Promise<PublicSettings>;

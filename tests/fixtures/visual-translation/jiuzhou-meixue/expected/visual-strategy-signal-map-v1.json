@@ -1,0 +1,75 @@
+{
+  "signals": [
+    {
+      "signalId": "VS01",
+      "type": "capability",
+      "statement": "以可验证的供应链节点表达稳定交付",
+      "evidenceIds": [
+        "VE003"
+      ],
+      "importance": "primary",
+      "visualPotential": "high"
+    },
+    {
+      "signalId": "VS02",
+      "type": "capability",
+      "statement": "将透明履约转化为清晰状态变化",
+      "evidenceIds": [
+        "VE003"
+      ],
+      "importance": "secondary",
+      "visualPotential": "high"
+    },
+    {
+      "signalId": "VS03",
+      "type": "relationship",
+      "statement": "生态伙伴以互相支撑的结构出现",
+      "evidenceIds": [
+        "VE004"
+      ],
+      "importance": "primary",
+      "visualPotential": "high"
+    },
+    {
+      "signalId": "VS04",
+      "type": "emotion",
+      "statement": "从复杂链路中获得安心与从容",
+      "evidenceIds": [
+        "VE005"
+      ],
+      "importance": "primary",
+      "visualPotential": "high"
+    },
+    {
+      "signalId": "VS05",
+      "type": "culture",
+      "statement": "长期主义表现为克制、稳定和责任感",
+      "evidenceIds": [
+        "VE005"
+      ],
+      "importance": "secondary",
+      "visualPotential": "medium"
+    },
+    {
+      "signalId": "VS06",
+      "type": "aesthetic-tension",
+      "statement": "严谨秩序与人文温度并置",
+      "evidenceIds": [
+        "VE006"
+      ],
+      "importance": "primary",
+      "visualPotential": "high"
+    },
+    {
+      "signalId": "VS07",
+      "type": "aesthetic-tension",
+      "statement": "产业基础设施与轻盈品牌感并置",
+      "evidenceIds": [
+        "VE002",
+        "VE006"
+      ],
+      "importance": "secondary",
+      "visualPotential": "high"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+export const VISUAL_DIRECTIONS_PROMPT_VERSION = 'visual-directions-prompt-v1.0';
+
+export function buildVisualDirectionsPrompt(context) {
+  return [{ role: 'system', content: `PROTOCOL_STAGE=04-three-creative-directions\nPROMPT_VERSION=${VISUAL_DIRECTIONS_PROMPT_VERSION}\n生成恰好 3 个明显不同的视觉方向。不得是同一方向的浅色、深色、科技版；任意两方向至少在核心隐喻、图形、色彩、材质、光线、构图、主体政策中的 3 个维度显著不同。方向必须引用真实 Signal ID 和 Evidence ID。评分只用于横向比较，不代表绝对质量。不得生成 Anchor System 或图片 Prompt。只返回 JSON。\n\nEvidence：${JSON.stringify(context.evidenceMap)}\nSignals：${JSON.stringify(context.signalMap)}\nOpportunities：${JSON.stringify(context.opportunityMap)}\n\n输出：{"visualCreativeDirections":{"directions":[{"name":"string","oneSentenceConcept":"string","strategicSignals":["VS01"],"evidenceIds":["VE001"],"coreMetaphor":"string","distinctiveMechanism":"string","graphicLanguage":["string"],"colorLogic":"string","materialLanguage":["string"],"lightingLanguage":"string","compositionLanguage":"string","subjectPolicy":{"people":"string","products":"string","environment":"string"},"suitableApplications":["string"],"brandFit":0,"inspirationValue":0,"distinctiveness":0,"categoryClicheRisk":"low|medium|high","risks":["string"]}]}}` }];
+}
