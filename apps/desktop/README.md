@@ -21,6 +21,14 @@ npm run desktop:package
 
 The default Windows artifact is a no-install Portable EXE written to `apps/desktop/release/`. Double-click it to run the current build without changing the installed applications on the machine.
 
+## Visual Translation V1 document workspace
+
+The Desktop home screen now includes **Visual Translation V1** as a separate document-analysis workspace. It accepts PDF, DOCX, Markdown, and TXT strategy documents, then runs the three model stages defined by the V1 protocol. Direction recommendation and Markdown report compilation remain local.
+
+Each run is persisted under `<default data path>/visual-translation-v1/<run id>/` with copied inputs, normalized corpus, stage checkpoints, structured outputs, runtime metrics, and the final directions report. Failed or cancelled runs can be continued from checkpoints whose document, upstream, prompt, schema, and output hashes still match.
+
+The generated three-direction report is a decision aid. Desktop displays the local ranking but does not make the final human direction selection.
+
 A runnable unpacked development build can also be created with:
 
 ```powershell

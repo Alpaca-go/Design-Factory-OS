@@ -69,3 +69,15 @@ npm run verify:document-flows
 - Sprint 1 提供核心程序入口和 Desktop 文档解析能力；Desktop 的产品入口与交互路由应在人工评估三方向报告后接入。
 - 扫描型 PDF 仍需 OCR 或视觉输入能力。
 - 尚未运行真实 Provider A/B，因此不声明真实 Token、延迟、成本或一次通过率。
+
+## Desktop 测试入口
+
+Sprint 1 后续已补充独立的 Desktop“视觉转译 V1”工作台。入口与现有 v5 图像分析隔离，支持：
+
+- PDF、DOCX、Markdown、TXT 多文档选择与解析预览；
+- 使用现有 API Profile 执行三次 OpenAI-compatible 文本模型调用；
+- 六阶段进度、主动取消、失败记录与 Checkpoint Resume；
+- 三方向报告查看、复制、Markdown 导出和输出文件夹定位；
+- 本地保存输入副本、语料、Checkpoint、结构化输出、运行指标与最终报告。
+
+运行开发客户端：`npm run desktop:dev`。生成 Portable EXE：`npm run desktop:package`。

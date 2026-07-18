@@ -6,7 +6,9 @@ import type {
   AnalysisProgress,
   CreateProjectInput,
   SaveApiProfileInput,
-  SaveSettingsInput
+  SaveSettingsInput,
+  StartVisualTranslationInput,
+  VisualTranslationProgress
 } from '../shared/types';
 import { createProjectStore } from './project-store';
 import {
@@ -20,6 +22,7 @@ import {
   testApiProfile
 } from './settings-store';
 import { createPipelineService } from './pipeline-service';
+import { createVisualTranslationService } from './visual-translation-service';
 import { assertInside, sanitizeFilenamePart } from './analysis-contract';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -31,6 +34,11 @@ const pipeline = createPipelineService(
   getProviderCredentials,
   getSettings,
   (progress: AnalysisProgress) => mainWindow?.webContents.send('analysis:progress', progress)
+);
+const visualTranslation = createVisualTranslationService(
+  getProviderCredentials,
+  getSettings,
+  (progress: VisualTranslationProgress) => mainWindow?.webContents.send('visual-translation:progress', progress)
 );
 
 function createWindow(): void {
@@ -143,6 +151,36 @@ function registerIpc(): void {
   ipcMain.handle('report:open-folder', async (_event, projectId: string) => {
     const paths = await projects.paths(projectId);
     const result = await shell.openPath(paths.outputs);
+    if (result) throw new Error(result);
+  });
+
+  ipcMain.handle('visual-translation:choose-documents', async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: '策略文档', extensions: ['pdf', 'docx', 'md', 'markdown', 'txt'] }]
+    });
+    return result.canceled ? [] : result.filePaths;
+  });
+  ipcMain.handle('visual-translation:inspect-documents', (_event, paths: string[]) => visualTranslation.inspectDocuments(paths));
+  ipcMain.handle('visual-translation:list-runs', () => visualTranslation.listRuns());
+  ipcMain.handle('visual-translation:get-run', (_event, runId: string) => visualTranslation.getRun(runId));
+  ipcMain.handle('visual-translation:start', (_event, input: StartVisualTranslationInput) => visualTranslation.start(input));
+  ipcMain.handle('visual-translation:resume', (_event, runId: string, apiProfileId?: string) => visualTranslation.resume(runId, apiProfileId));
+  ipcMain.handle('visual-translation:cancel', (_event, runId: string) => visualTranslation.cancel(runId));
+  ipcMain.handle('visual-translation:read-report', async (_event, runId: string) => fs.readFile(await visualTranslation.reportPath(runId), 'utf8'));
+  ipcMain.handle('visual-translation:export-report', async (_event, runId: string) => {
+    const source = await visualTranslation.reportPath(runId);
+    const result = await dialog.showSaveDialog(mainWindow!, {
+      defaultPath: path.basename(source),
+      filters: [{ name: 'Markdown', extensions: ['md'] }]
+    });
+    if (result.canceled || !result.filePath) return null;
+    await fs.copyFile(source, result.filePath);
+    return result.filePath;
+  });
+  ipcMain.handle('visual-translation:open-folder', async (_event, runId: string) => {
+    const root = await visualTranslation.runRoot(runId);
+    const result = await shell.openPath(path.join(root, 'outputs'));
     if (result) throw new Error(result);
   });
 }

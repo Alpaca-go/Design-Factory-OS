@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { AnalysisProgress, DesktopApi } from '../shared/types';
+import type { AnalysisProgress, DesktopApi, VisualTranslationProgress } from '../shared/types';
 
 const api: DesktopApi = {
   settings: {
@@ -38,6 +38,23 @@ const api: DesktopApi = {
     rename: (projectId, filename) => ipcRenderer.invoke('report:rename', projectId, filename),
     export: (projectId) => ipcRenderer.invoke('report:export', projectId),
     openFolder: (projectId) => ipcRenderer.invoke('report:open-folder', projectId)
+  },
+  visualTranslation: {
+    chooseDocuments: () => ipcRenderer.invoke('visual-translation:choose-documents'),
+    inspectDocuments: (paths) => ipcRenderer.invoke('visual-translation:inspect-documents', paths),
+    listRuns: () => ipcRenderer.invoke('visual-translation:list-runs'),
+    getRun: (runId) => ipcRenderer.invoke('visual-translation:get-run', runId),
+    start: (input) => ipcRenderer.invoke('visual-translation:start', input),
+    resume: (runId, apiProfileId) => ipcRenderer.invoke('visual-translation:resume', runId, apiProfileId),
+    cancel: (runId) => ipcRenderer.invoke('visual-translation:cancel', runId),
+    readReport: (runId) => ipcRenderer.invoke('visual-translation:read-report', runId),
+    exportReport: (runId) => ipcRenderer.invoke('visual-translation:export-report', runId),
+    openFolder: (runId) => ipcRenderer.invoke('visual-translation:open-folder', runId),
+    onProgress(callback) {
+      const listener = (_event: Electron.IpcRendererEvent, progress: VisualTranslationProgress) => callback(progress);
+      ipcRenderer.on('visual-translation:progress', listener);
+      return () => ipcRenderer.removeListener('visual-translation:progress', listener);
+    }
   },
   files: {
     getPathForFile: (file) => webUtils.getPathForFile(file)

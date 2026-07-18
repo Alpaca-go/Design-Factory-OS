@@ -4,9 +4,10 @@ import { AnalysisView } from './components/AnalysisView';
 import { ProjectWizard } from './components/ProjectWizard';
 import { ReportView } from './components/ReportView';
 import { SettingsPanel } from './components/SettingsPanel';
+import { VisualTranslationWorkspace } from './components/VisualTranslationWorkspace';
 import { cleanError, formatBytes, formatDuration } from './utils';
 
-type Screen = 'home' | 'settings' | 'create' | 'project' | 'analysis' | 'report';
+type Screen = 'home' | 'settings' | 'create' | 'project' | 'analysis' | 'report' | 'visual-translation';
 
 function StatusBadge({ status }: { status: ProjectRecord['status'] }) {
   const labels: Record<ProjectRecord['status'], string> = { draft: '待导入', ready: '可分析', running: '分析中', completed: '已完成', failed: '失败', cancelled: '已取消' };
@@ -183,6 +184,7 @@ export function App() {
   if (loading) return <div className="splash"><div className="brand-mark">M</div><p>正在启动 Masterpiece OS…</p></div>;
   if (!settings) return <div className="splash"><div className="brand-mark">!</div><p>{error || '客户端初始化失败，请重新启动。'}</p></div>;
 
+  if (screen === 'visual-translation') return <VisualTranslationWorkspace settings={settings} onBack={() => setScreen('home')} onOpenSettings={() => setScreen('settings')} />;
   if (screen === 'settings') return <SettingsPanel settings={settings} onSaved={saveSettings} onClose={() => setScreen('home')} />;
   if (screen === 'create') return <ProjectWizard settings={settings} onCancel={() => setScreen('home')} onStart={(project, profileId) => {
     setSelected(project);
@@ -227,8 +229,8 @@ export function App() {
     || settings.profiles.find((profile) => profile.isEnabled);
   const hasUsableProfile = enabledProfiles.some((profile) => profile.hasApiKey && profile.baseUrl && profile.modelId);
   return <div className="app-shell">
-    <aside className="sidebar"><div className="logo-lockup"><div className="brand-mark">M</div><div><strong>Masterpiece OS</strong><small>Desktop / v5</small></div></div><nav><button className="active">项目</button><button onClick={() => setScreen('settings')}>设置</button></nav><div className="sidebar-footer"><span className={`status-dot ${settings.connectionStatus}`} /><div><small>默认模型</small><strong>{defaultProfile?.modelId || '未配置'}</strong></div></div></aside>
-    <main className="home-main"><header className="home-header"><div><p className="eyebrow">CREATIVE DIRECTOR PREPARATION SYSTEM</p><h1>让视觉判断<br />成为可执行的系统。</h1></div><div className="header-actions"><button className="button ghost" onClick={() => setScreen('settings')}>API 设置</button><button className="button primary large" onClick={() => setScreen('create')}>新建视觉分析 <span>↗</span></button></div></header>
+    <aside className="sidebar"><div className="logo-lockup"><div className="brand-mark">M</div><div><strong>Masterpiece OS</strong><small>Desktop / v5</small></div></div><nav><button className="active">项目</button><button onClick={() => setScreen('visual-translation')}>视觉转译 V1</button><button onClick={() => setScreen('settings')}>设置</button></nav><div className="sidebar-footer"><span className={`status-dot ${settings.connectionStatus}`} /><div><small>默认模型</small><strong>{defaultProfile?.modelId || '未配置'}</strong></div></div></aside>
+    <main className="home-main"><header className="home-header"><div><p className="eyebrow">CREATIVE DIRECTOR PREPARATION SYSTEM</p><h1>让视觉判断<br />成为可执行的系统。</h1></div><div className="header-actions"><button className="button secondary" onClick={() => setScreen('visual-translation')}>文档视觉转译 V1</button><button className="button ghost" onClick={() => setScreen('settings')}>API 设置</button><button className="button primary large" onClick={() => setScreen('create')}>新建视觉分析 <span>↗</span></button></div></header>
       {!hasUsableProfile && <div className="setup-banner"><div><strong>完成首次 API 配置</strong><p>请添加并启用一个包含 API Key、Base URL 与 Model ID 的 Profile。</p></div><button className="button secondary" onClick={() => setScreen('settings')}>前往设置</button></div>}
       {error && <div className="notice error">{error}</div>}
       <section className="recent-section"><div className="section-title"><div><span>RECENT PROJECTS</span><h2>最近项目</h2></div><small>{projects.length} 个本地项目</small></div>

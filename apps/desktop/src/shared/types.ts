@@ -231,6 +231,69 @@ export interface VisualStrategyCorpus {
   warnings: string[];
 }
 
+export type VisualTranslationStage =
+  | '00-document-preparation'
+  | '01-visual-evidence'
+  | '02-visual-signal-opportunity'
+  | '04-three-creative-directions'
+  | '05-direction-recommendation'
+  | '10-local-report-compiler';
+
+export type VisualTranslationRunStatus = 'running' | 'completed' | 'failed' | 'cancelled';
+
+export interface VisualTranslationDocumentSummary {
+  path: string;
+  filename: string;
+  sourceType: NormalizedDocument['sourceType'];
+  title?: string;
+  characterCount: number;
+  pageCount?: number;
+  warnings: string[];
+}
+
+export interface VisualTranslationProgress {
+  runId: string;
+  projectName: string;
+  stage: VisualTranslationStage;
+  message: string;
+  startedAt: string;
+  elapsedMs: number;
+  model: string;
+}
+
+export interface VisualTranslationRunRecord {
+  id: string;
+  analysisRunId: string;
+  projectName: string;
+  status: VisualTranslationRunStatus;
+  apiProfileId: string;
+  provider: string;
+  model: string;
+  documentCount: number;
+  documentNames: string[];
+  createdAt: string;
+  startedAt: string;
+  completedAt?: string;
+  durationMs?: number;
+  currentStage?: VisualTranslationStage;
+  lastError?: string | null;
+  reportFilename?: string | null;
+  modelCallCount?: number;
+  resumedStageCount?: number;
+  visualRatio?: number;
+}
+
+export interface StartVisualTranslationInput {
+  projectName: string;
+  documentPaths: string[];
+  apiProfileId: string;
+}
+
+export interface VisualTranslationResult {
+  run: VisualTranslationRunRecord;
+  reportMarkdown: string;
+}
+
 export interface DesktopApi {
   settings: {
     get(): Promise<PublicSettings>;
@@ -264,6 +327,19 @@ export interface DesktopApi {
     rename(projectId: string, filename: string): Promise<ProjectRecord>;
     export(projectId: string): Promise<string | null>;
     openFolder(projectId: string): Promise<void>;
+  };
+  visualTranslation: {
+    chooseDocuments(): Promise<string[]>;
+    inspectDocuments(paths: string[]): Promise<VisualTranslationDocumentSummary[]>;
+    listRuns(): Promise<VisualTranslationRunRecord[]>;
+    getRun(runId: string): Promise<VisualTranslationRunRecord>;
+    start(input: StartVisualTranslationInput): Promise<VisualTranslationResult>;
+    resume(runId: string, apiProfileId?: string): Promise<VisualTranslationResult>;
+    cancel(runId: string): Promise<boolean>;
+    readReport(runId: string): Promise<string>;
+    exportReport(runId: string): Promise<string | null>;
+    openFolder(runId: string): Promise<void>;
+    onProgress(callback: (progress: VisualTranslationProgress) => void): () => void;
   };
   files: {
     getPathForFile(file: File): string;
