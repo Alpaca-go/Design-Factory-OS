@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://masterpiece-os.local/schemas/human-review-import.schema.json",
+  "title": "Human Review Import Row V1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["project_id", "run_id", "module", "anti_pattern_id", "system_detected", "human_judgement", "notes", "reviewed_at", "reviewer_type"],
+  "properties": {
+    "project_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "module": { "type": "string", "minLength": 1 },
+    "anti_pattern_id": { "type": "string", "pattern": "^AP-[A-Z]+-[0-9]{3}$" },
+    "system_detected": { "type": "boolean" },
+    "human_judgement": { "enum": ["true_positive", "false_positive", "false_negative", "uncertain"] },
+    "notes": { "type": "string" },
+    "reviewed_at": { "type": "string", "format": "date-time" },
+    "reviewer_type": { "enum": ["human", "qa", "domain_expert", "fixture"] }
+  }
+}

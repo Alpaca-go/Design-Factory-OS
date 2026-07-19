@@ -1,0 +1,231 @@
+{
+  "cases": [
+    {
+      "name": "跨项目污染",
+      "ruleId": "AP-BRAND-002",
+      "module": "visual_direction",
+      "metadata": { "currentProjectId": "project-a" },
+      "output": { "assets": [{ "id": "foreign-logo", "project_id": "project-b" }] },
+      "expectedStatus": "reject"
+    },
+    {
+      "name": "修改 Locked Assets",
+      "ruleId": "AP-BRAND-003",
+      "module": "anchor_direction",
+      "metadata": { "lockedAssets": ["logo"] },
+      "output": { "asset_changes": [{ "asset": "logo", "before": "logo-v1.svg", "after": "logo-redrawn.svg" }] },
+      "expectedStatus": "reject"
+    },
+    {
+      "name": "虚构认证",
+      "ruleId": "AP-BRAND-004",
+      "module": "anchor_direction",
+      "output": { "claims": [{ "kind": "certification", "statement": "已获得国际医疗认证", "evidence_ids": [] }] },
+      "expectedStatus": "reject"
+    },
+    {
+      "name": "评分与结论冲突",
+      "ruleId": "AP-REP-003",
+      "module": "report",
+      "output": {
+        "scores": [{ "id": "d1", "score": 0 }, { "id": "d2", "score": 0 }],
+        "recommendation": { "direction_id": "d1", "status": "selected" }
+      },
+      "expectedStatus": "reject"
+    },
+    {
+      "name": "擅自修改盒型",
+      "ruleId": "AP-PKG-001",
+      "module": "packaging",
+      "output": { "packaging_changes": [{ "kind": "structure", "target": "box_shape", "before": "drawer", "after": "flip_top", "authorized": false }] },
+      "expectedStatus": "reject"
+    },
+    {
+      "name": "为渲染效果修改版式",
+      "ruleId": "AP-PKG-002",
+      "module": "packaging",
+      "output": { "packaging_changes": [{ "kind": "layout", "target": "front_panel", "before": "locked-grid-a", "after": "centered-render-grid", "authorized": false }] },
+      "expectedStatus": "reject"
+    },
+    {
+      "name": "伪差异方向",
+      "ruleId": "AP-DIR-001",
+      "module": "visual_direction",
+      "output": {
+        "directions": [
+          { "id": "d1", "visual_fingerprint": { "silhouette": "orb", "composition": "central", "graphic_mechanism": "glow", "material_family": "glass", "emotional_role": "future" } },
+          { "id": "d2", "visual_fingerprint": { "silhouette": "orb", "composition": "central", "graphic_mechanism": "glow", "material_family": "glass", "emotional_role": "future" } },
+          { "id": "d3", "visual_fingerprint": { "silhouette": "orb", "composition": "central", "graphic_mechanism": "glow", "material_family": "glass", "emotional_role": "future" } }
+        ]
+      },
+      "expectedStatus": "repair"
+    },
+    {
+      "name": "推荐完全依赖分数",
+      "ruleId": "AP-DIR-003",
+      "module": "visual_direction",
+      "output": { "recommendation": { "selection_method": "highest_score", "strategic_factors": {} } },
+      "expectedStatus": "repair"
+    },
+    {
+      "name": "B2B B2C 错位",
+      "ruleId": "AP-DIR-005",
+      "module": "visual_direction",
+      "metadata": {
+        "semanticFindings": {
+          "AP-DIR-005": {
+            "evidence": ["品牌事实为 B2B 供应链平台，方向主体却是消费护肤人物大片"],
+            "location": { "path": "/directions/0/subject_policy" },
+            "confidence": 0.96
+          }
+        }
+      },
+      "output": { "directions": [{ "id": "d1", "subject_policy": "consumer-beauty-editorial" }] },
+      "expectedStatus": "repair"
+    },
+    {
+      "name": "口号型 Anchor",
+      "ruleId": "AP-ANC-001",
+      "module": "anchor_direction",
+      "output": { "anchor": "连接未来", "anchor_type": "slogan" },
+      "expectedStatus": "repair"
+    },
+    {
+      "name": "多 Anchor 竞争",
+      "ruleId": "AP-ANC-003",
+      "module": "anchor_direction",
+      "output": { "anchors": [{ "id": "a1", "role": "primary" }, { "id": "a2", "role": "primary" }, { "id": "a3", "role": "primary" }] },
+      "expectedStatus": "repair"
+    },
+    {
+      "name": "Logo Color DNA",
+      "ruleId": "AP-DNA-001",
+      "module": "visual_dna",
+      "output": { "dna_units": [{ "category": "logo", "value": "main-logo" }, { "category": "color", "value": "brand-blue" }] },
+      "expectedStatus": "repair"
+    },
+    {
+      "name": "形容词语法",
+      "ruleId": "AP-GRA-001",
+      "module": "visual_grammar",
+      "output": { "grammar_rules": [{ "kind": "adjective", "value": "克制" }, { "kind": "adjective", "value": "精致" }] },
+      "expectedStatus": "repair"
+    },
+    {
+      "name": "语言污染",
+      "ruleId": "AP-REP-004",
+      "module": "report",
+      "metadata": {
+        "semanticFindings": {
+          "AP-REP-004": {
+            "evidence": ["中文报告在连续段落中大量混入无必要英文表达，已影响阅读"],
+            "location": { "path": "/sections/2" },
+            "confidence": 0.92
+          }
+        }
+      },
+      "output": { "sections": ["报告内容"] },
+      "expectedStatus": "repair"
+    },
+    {
+      "name": "risk linkage failure",
+      "ruleId": "AP-REP-006",
+      "module": "report",
+      "output": {
+        "comparison": [{
+          "directionId": "D01",
+          "confidence_adjusted_score": 82,
+          "template_risk_level": "medium",
+          "risk_breakdown": { "template_risk_penalty": 0, "audience_risk_penalty": 0, "evidence_risk_penalty": 0, "asset_risk_penalty": 0, "anti_pattern_penalty": 0, "risk_penalty_total": 0, "penalty_reasons": [] },
+          "risk_penalty": 0,
+          "final_score": 82,
+          "penalty_reasons": []
+        }]
+      },
+      "expectedStatus": "repair"
+    },
+    {
+      "name": "weak evidence recommendation without warning",
+      "ruleId": "AP-DIR-006",
+      "module": "visual_direction",
+      "output": {
+        "directions": [{ "id": "D03", "reason_basis": "inference", "evidence_confidence": 0.65 }],
+        "recommendation": { "direction_id": "D03", "weak_evidence_warning": false }
+      },
+      "expectedStatus": "repair"
+    },
+    {
+      "name": "mechanical difference matrix",
+      "ruleId": "AP-DIR-007",
+      "module": "visual_direction",
+      "output": {
+        "difference_matrix": {
+          "evaluation_method": "string_comparison",
+          "pairs": [
+            { "direction_pair": "D01/D02", "total_score": 9, "dimensions": [] },
+            { "direction_pair": "D01/D03", "total_score": 9, "dimensions": [] },
+            { "direction_pair": "D02/D03", "total_score": 9, "dimensions": [] }
+          ]
+        }
+      },
+      "expectedStatus": "repair"
+    },
+    {
+      "name": "unauthorized parent brand asset",
+      "ruleId": "AP-ASSET-001",
+      "module": "visual_direction",
+      "output": { "suggested_assets": [{ "assetId": "SA101", "name": "集团 Logo", "assetType": "parent_brand_logo", "status": "existing", "providedInSource": false, "authorizedForGeneration": false, "executable": true }] },
+      "expectedStatus": "repair"
+    },
+    {
+      "name": "unapproved logo generation",
+      "ruleId": "AP-ASSET-002",
+      "expectedRuleIds": ["AP-ASSET-002", "AP-GEN-005"],
+      "module": "visual_direction",
+      "output": { "suggested_assets": [{ "assetId": "SA102", "name": "品牌 Logo", "assetType": "brand_logo", "status": "proposed", "execution_scope": "current_direction", "executable": true }] },
+      "expectedStatus": "repair"
+    },
+    {
+      "name": "people policy mapping conflict",
+      "ruleId": "AP-AUD-001",
+      "module": "visual_direction",
+      "output": { "directions": [{ "id": "D03", "subject_policy": { "people": "生态参与者作为辅助关系角色", "peopleRole": "consumer_auxiliary" } }] },
+      "expectedStatus": "repair"
+    },
+    {
+      "name": "difference matrix full score bias",
+      "ruleId": "AP-DIR-008",
+      "module": "visual_direction",
+      "output": {
+        "difference_matrix": {
+          "evaluation_method": "semantic_assessment",
+          "pairs": [{
+            "direction_pair": "D01/D03",
+            "shared_visual_traits": [],
+            "dimensions": [
+              { "name": "core_metaphor", "score": 2, "reason": "different metaphor" },
+              { "name": "graphic_mechanism", "score": 2, "reason": "different mechanism" },
+              { "name": "composition_logic", "score": 2, "reason": "different composition" },
+              { "name": "material_family", "score": 2, "reason": "different material" },
+              { "name": "emotional_role", "score": 2, "reason": "different emotion" },
+              { "name": "spatial_behavior", "score": 2, "reason": "different space" }
+            ],
+            "total_score": 12,
+            "full_difference_review_required": true,
+            "review_result": null
+          }]
+        }
+      },
+      "expectedStatus": "repair"
+    },
+    {
+      "name": "Suggested Assets loss of control",
+      "ruleId": "AP-GEN-005",
+      "module": "visual_direction",
+      "output": {
+        "suggested_assets": [{ "assetId": "SA500", "name": "untracked asset", "executable": true }]
+      },
+      "expectedStatus": "repair"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "run": {
+    "id": "9cb78377-0f3c-43f4-b6f8-540b50726c6f",
+    "analysisRunId": "b6f7df14-a873-4f74-9031-43f384eff97e",
+    "projectName": "01-九州美学",
+    "status": "completed",
+    "apiProfileId": "profile-397281cc-653f-4822-ae4e-601ca7f8a63b",
+    "provider": "qwen",
+    "model": "qwen3.6-plus",
+    "documentCount": 1,
+    "documentNames": [
+      "01-九州美学品牌定位提案-1.1(1).docx"
+    ],
+    "createdAt": "2026-07-19T15:18:23.809Z",
+    "startedAt": "2026-07-19T15:34:53.875Z",
+    "lastError": null,
+    "reportFilename": "01-九州美学-visual-directions-report-v1.md",
+    "completedAt": "2026-07-19T15:44:21.446Z",
+    "durationMs": 567570,
+    "currentStage": "10-local-report-compiler",
+    "modelCallCount": 5,
+    "resumedStageCount": 0,
+    "visualRatio": 0.8990594395423253
+  },
+  "reportPath": "C:\\Users\\Administrator\\Documents\\Masterpiece OS Data\\visual-translation-v1\\9cb78377-0f3c-43f4-b6f8-540b50726c6f\\outputs\\01-九州美学-visual-directions-report-v1.md"
+}

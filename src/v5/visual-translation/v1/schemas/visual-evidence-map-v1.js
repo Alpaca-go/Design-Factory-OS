@@ -1,4 +1,6 @@
 import { arrayValue, enumValue, objectValue, stringArray, stringValue } from '../../../shared/analysis/runtime-contracts.js';
+import { validateAudienceBoundary } from './audience-boundary-v1.js';
+import { containsChinese, detectReportLanguage } from './report-language-v1.js';
 
 export const VISUAL_EVIDENCE_TYPES = Object.freeze([
   'identity', 'business-context', 'audience', 'brand-positioning', 'brand-promise',
@@ -6,6 +8,21 @@ export const VISUAL_EVIDENCE_TYPES = Object.freeze([
   'visual-asset', 'application', 'constraint', 'prohibited', 'uncertainty'
 ]);
 export const CLAIM_STATUSES = Object.freeze(['confirmed', 'reasonable-inference', 'suggested', 'missing', 'conflicting']);
+export const SUGGESTED_ASSET_STATUSES = Object.freeze(['existing', 'derived', 'proposed', 'restricted']);
+export const SUGGESTED_ASSET_EXECUTION_SCOPES = Object.freeze([
+  'current_direction', 'future_identity_design', 'future_asset_collection', 'restricted'
+]);
+export const SUGGESTED_ASSET_TYPES = Object.freeze([
+  'generic', 'certification_badge', 'qualification_certificate', 'official_seal',
+  'scannable_qr', 'real_serial_number', 'patent_mark', 'medical_approval_mark',
+  'logo_combination_spec', 'brand_logo', 'parent_brand_logo', 'parent_child_logo_lockup',
+  'parent_brand_color', 'parent_brand_graphic', 'parent_brand_vi_spec'
+]);
+const DEFAULT_RESTRICTED_ASSET_TYPES = new Set(SUGGESTED_ASSET_TYPES.filter((type) => type !== 'generic'));
+const PARENT_BRAND_ASSET_TYPES = new Set([
+  'parent_brand_logo', 'parent_child_logo_lockup', 'parent_brand_color',
+  'parent_brand_graphic', 'parent_brand_vi_spec'
+]);
 
 function normalizeQuote(value) { return String(value || '').normalize('NFKC').replace(/\s+/g, ' ').trim(); }
 
@@ -156,12 +173,89 @@ export function validateVisualEvidenceMap(value, prepared) {
     const item = objectValue(raw, `${path}[${index}]`);
     return { statement: stringValue(item.statement, `${path}[${index}].statement`), evidenceIds: validateRefs(item.evidenceIds, `${path}[${index}].evidenceIds`) };
   });
+  const suggestedAssets = arrayValue(root.suggestedAssets || [], 'visualEvidenceMap.suggestedAssets').map((raw, index) => {
+    const path = `visualEvidenceMap.suggestedAssets[${index}]`;
+    const item = objectValue(raw, path);
+    const assetType = enumValue(item.assetType, SUGGESTED_ASSET_TYPES, `${path}.assetType`);
+    const assetName = stringValue(item.name, `${path}.name`, { maxLength: 180 });
+    const evidenceRefs = validateRefs(item.evidenceIds || [], `${path}.evidenceIds`);
+    const authorizationEvidenceIds = validateRefs(item.authorizationEvidenceIds || [], `${path}.authorizationEvidenceIds`);
+    const providedInSource = item.providedInSource === true;
+    const authorizedForGeneration = item.authorizedForGeneration === true;
+    const explicitlyAuthorized = providedInSource && authorizedForGeneration && authorizationEvidenceIds.length > 0
+      && authorizationEvidenceIds.every((id) => evidence.find((candidate) => candidate.evidenceId === id)?.type === 'visual-asset');
+    const requestedStatus = enumValue(item.status, SUGGESTED_ASSET_STATUSES, `${path}.status`);
+    const requestedScope = item.execution_scope === undefined
+      ? null
+      : enumValue(item.execution_scope, SUGGESTED_ASSET_EXECUTION_SCOPES, `${path}.execution_scope`);
+    const isParentAsset = PARENT_BRAND_ASSET_TYPES.has(assetType)
+      || /(?:母品牌|集团).*(?:logo|标志|标准色|专用图形|vi|组合)/iu.test(assetName);
+    const isUnapprovedLogo = assetType === 'brand_logo' && !isParentAsset && !explicitlyAuthorized;
+    const isUnauthorizedParentAsset = isParentAsset && !explicitlyAuthorized;
+    const mustRestrict = (DEFAULT_RESTRICTED_ASSET_TYPES.has(assetType) && assetType !== 'brand_logo' && !explicitlyAuthorized)
+      || isUnauthorizedParentAsset;
+    const status = mustRestrict ? 'restricted' : (isUnapprovedLogo ? 'proposed' : requestedStatus);
+    const execution_scope = status === 'restricted'
+      ? 'restricted'
+      : isUnapprovedLogo
+        ? 'future_identity_design'
+        : requestedScope || (status === 'proposed' ? 'future_asset_collection' : 'current_direction');
+    const executable = (status === 'existing' || status === 'derived') && execution_scope === 'current_direction';
+    const requires_human_approval = execution_scope !== 'current_direction' || item.requires_human_approval === true;
+    const restriction_reason = status === 'restricted'
+      ? (isUnauthorizedParentAsset ? 'missing_parent_brand_vi_or_authorization' : String(item.restriction_reason || 'missing_visual_asset_authorization'))
+      : null;
+    return {
+      assetId: item.assetId ? stringValue(item.assetId, `${path}.assetId`) : `SA${String(index + 1).padStart(3, '0')}`,
+      name: assetName,
+      assetType,
+      status,
+      evidenceIds: evidenceRefs,
+      providedInSource,
+      authorizedForGeneration,
+      authorizationEvidenceIds,
+      reason: stringValue(item.reason, `${path}.reason`, { maxLength: 300 }),
+      execution_scope,
+      requires_human_approval,
+      restriction_reason,
+      executable
+    };
+  });
+  if (new Set(suggestedAssets.map((item) => item.assetId)).size !== suggestedAssets.length) throw Object.assign(new Error('visualEvidenceMap.suggestedAssets contains duplicate asset IDs'), { code: 'FAILED_SCHEMA', path: 'visualEvidenceMap.suggestedAssets' });
+  const reportLanguage = detectReportLanguage(prepared);
+  const audienceBoundary = validateAudienceBoundary(root.audienceBoundary, evidence);
+  const conflicts = simpleItems(root.conflicts, 'visualEvidenceMap.conflicts');
+  const missingInformation = simpleItems(root.missingInformation, 'visualEvidenceMap.missingInformation');
+  if (reportLanguage === 'zh-CN') {
+    const narrativeFields = [
+      ...evidence.flatMap((item, index) => [
+        [`visualEvidenceMap.evidence[${index}].statement`, item.statement],
+        [`visualEvidenceMap.evidence[${index}].visualImpact`, item.visualImpact]
+      ]),
+      ...audienceBoundary.primaryAudience.map((item, index) => [`visualEvidenceMap.audienceBoundary.primaryAudience[${index}].label`, item.label]),
+      ...audienceBoundary.excludedAudience.flatMap((item, index) => [
+        [`visualEvidenceMap.audienceBoundary.excludedAudience[${index}].label`, item.label],
+        [`visualEvidenceMap.audienceBoundary.excludedAudience[${index}].reason`, item.reason]
+      ]),
+      ...suggestedAssets.flatMap((item, index) => [
+        [`visualEvidenceMap.suggestedAssets[${index}].name`, item.name],
+        [`visualEvidenceMap.suggestedAssets[${index}].reason`, item.reason]
+      ]),
+      ...conflicts.map((item, index) => [`visualEvidenceMap.conflicts[${index}].statement`, item.statement]),
+      ...missingInformation.map((item, index) => [`visualEvidenceMap.missingInformation[${index}].statement`, item.statement])
+    ];
+    const invalid = narrativeFields.find(([, text]) => !containsChinese(text));
+    if (invalid) throw Object.assign(new Error(`${invalid[0]} must use Chinese narrative text`), { code: 'REPORT_LANGUAGE_POLLUTION', path: invalid[0] });
+  }
   return Object.freeze({
     identity,
     evidence,
-    conflicts: simpleItems(root.conflicts, 'visualEvidenceMap.conflicts'),
-    missingInformation: simpleItems(root.missingInformation, 'visualEvidenceMap.missingInformation'),
+    reportLanguage,
+    audienceBoundary,
+    conflicts,
+    missingInformation,
     lockedAssets: stringArray(root.lockedAssets || [], 'visualEvidenceMap.lockedAssets'),
-    suggestedAssets: stringArray(root.suggestedAssets || [], 'visualEvidenceMap.suggestedAssets')
+    suggestedAssets,
+    executableSuggestedAssets: suggestedAssets.filter((item) => item.executable)
   });
 }

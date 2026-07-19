@@ -1,4 +1,6 @@
 import { arrayValue, enumValue, objectValue, stringArray, stringValue } from '../../../shared/analysis/runtime-contracts.js';
+import { assertAudienceBoundaryMatches } from './audience-boundary-v1.js';
+import { validateEvidenceConfidence } from './evidence-confidence-v1.js';
 
 export function validateVisualOpportunityMap(value, evidenceMap) {
   const root = objectValue(value?.visualOpportunityMap || value, 'visualOpportunityMap');
@@ -12,6 +14,8 @@ export function validateVisualOpportunityMap(value, evidenceMap) {
       statement: stringValue(item.statement, `${path}[${index}].statement`, { maxLength: 180 }),
       rationale: stringValue(item.rationale, `${path}[${index}].rationale`, { maxLength: 260 }),
       evidenceIds: refs,
+      evidence_ids: refs,
+      ...validateEvidenceConfidence(item, `${path}[${index}]`),
       brandability: enumValue(item.brandability, ['high', 'medium', 'low'], `${path}[${index}].brandability`)
     };
   });
@@ -27,6 +31,7 @@ export function validateVisualOpportunityMap(value, evidenceMap) {
     };
   });
   return Object.freeze({
+    audienceBoundary: assertAudienceBoundaryMatches(root.audienceBoundary, evidenceMap.audienceBoundary, 'visualOpportunityMap.audienceBoundary'),
     visualizableFacts: opportunities(root.visualizableFacts, 'visualOpportunityMap.visualizableFacts', 'VF'),
     metaphors: opportunities(root.metaphors, 'visualOpportunityMap.metaphors', 'VM'),
     aestheticTensions: opportunities(root.aestheticTensions, 'visualOpportunityMap.aestheticTensions', 'VT'),

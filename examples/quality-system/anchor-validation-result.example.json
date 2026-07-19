@@ -1,0 +1,69 @@
+{
+  "module": "anchor_direction",
+  "status": "repair",
+  "schema_validation": {
+    "valid": true,
+    "errors": []
+  },
+  "hard_fails": [],
+  "anti_patterns": [
+    {
+      "anti_pattern_id": "AP-ANC-004",
+      "detected": true,
+      "severity": "S2",
+      "rule_type": "deterministic",
+      "evaluated": true,
+      "evaluation_mode": "deterministic",
+      "confidence": 0.94,
+      "location": {
+        "module": "anchor_direction",
+        "section": "exclusion_boundary"
+      },
+      "evidence": [
+        "输出只定义了 Anchor 是什么，没有定义不属于该 Anchor 的画面"
+      ],
+      "exception_applied": false,
+      "occurrence_count": 1,
+      "penalty": 6,
+      "repair": [
+        "补充可观察、可验证的排除边界"
+      ]
+    }
+  ],
+  "penalty_summary": {
+    "total": 6,
+    "uncapped_total": 6,
+    "cap": 40,
+    "cap_applied": false
+  },
+  "mqs_score": {
+    "module": "anchor_direction",
+    "score": 76,
+    "level": "L3",
+    "status": "repair",
+    "minimum_level_met": true,
+    "core_dimensions_met": true,
+    "dimension_scores": {
+      "concept_clarity": 13,
+      "visual_constraint_power": 20,
+      "direction_continuity": 12,
+      "cross_media_scalability": 12,
+      "model_robustness": 11,
+      "exclusion_boundary": 8
+    },
+    "hard_fails": [],
+    "violations": [
+      "AP-ANC-004"
+    ],
+    "repair_actions": [
+      "补充可观察、可验证的排除边界"
+    ]
+  },
+  "stage_results": [
+    { "stage": "schema_validation", "status": "completed" },
+    { "stage": "hard_fail_detection", "status": "completed" },
+    { "stage": "anti_pattern_detection", "status": "completed" },
+    { "stage": "mqs_scoring", "status": "completed" },
+    { "stage": "status_resolution", "status": "completed" }
+  ]
+}

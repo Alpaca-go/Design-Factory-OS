@@ -1,7 +1,7 @@
 export const VISUAL_TRANSLATION_V1 = Object.freeze({
   protocolVersion: 'visual-translation-v1',
-  checkpointVersion: 'visual-translation-v1-checkpoint-1',
-  directionsReportVersion: 'visual-directions-report-v1',
+  checkpointVersion: 'visual-translation-v1-checkpoint-1.3',
+  directionsReportVersion: 'visual-directions-report-v1.2',
   pipelineBudgetMs: 18 * 60 * 1000
 });
 

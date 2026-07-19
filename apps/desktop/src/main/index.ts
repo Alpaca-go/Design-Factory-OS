@@ -192,16 +192,24 @@ function commandLineValue(name: string): string | undefined {
 
 app.whenReady().then(async () => {
   const smokeRunId = commandLineValue('visual-translation-smoke-run');
+  const smokeDocumentPath = commandLineValue('visual-translation-smoke-document');
+  const smokeProfileId = commandLineValue('visual-translation-smoke-profile');
   const smokeStatusPath = commandLineValue('visual-translation-smoke-status');
-  if (smokeRunId && smokeStatusPath) {
+  if ((smokeRunId || smokeDocumentPath) && smokeStatusPath) {
     const statusPath = path.resolve(smokeStatusPath);
     try {
-      await fs.writeFile(statusPath, `${JSON.stringify({ status: 'running', runId: smokeRunId, startedAt: new Date().toISOString() }, null, 2)}\n`, 'utf8');
-      const result = await visualTranslation.resume(smokeRunId);
-      await fs.writeFile(statusPath, `${JSON.stringify({ status: 'passed', run: result.run, reportPath: await visualTranslation.reportPath(smokeRunId) }, null, 2)}\n`, 'utf8');
+      await fs.writeFile(statusPath, `${JSON.stringify({ status: 'running', runId: smokeRunId || null, startedAt: new Date().toISOString() }, null, 2)}\n`, 'utf8');
+      let result;
+      if (smokeDocumentPath) {
+        if (!smokeProfileId) throw new Error('Fresh Visual Translation smoke test requires --visual-translation-smoke-profile');
+        result = await visualTranslation.start({ documentPaths: [path.resolve(smokeDocumentPath)], apiProfileId: smokeProfileId });
+      } else {
+        result = await visualTranslation.resume(smokeRunId!, smokeProfileId);
+      }
+      await fs.writeFile(statusPath, `${JSON.stringify({ status: 'passed', run: result.run, reportPath: await visualTranslation.reportPath(result.run.id) }, null, 2)}\n`, 'utf8');
       app.exit(0);
     } catch (error) {
-      await fs.writeFile(statusPath, `${JSON.stringify({ status: 'failed', runId: smokeRunId, error: { name: (error as Error).name, message: (error as Error).message } }, null, 2)}\n`, 'utf8').catch(() => {});
+      await fs.writeFile(statusPath, `${JSON.stringify({ status: 'failed', runId: smokeRunId || null, error: { name: (error as Error).name, message: (error as Error).message } }, null, 2)}\n`, 'utf8').catch(() => {});
       app.exit(1);
     }
     return;

@@ -12,15 +12,19 @@ export function buildVisualDirectionsViewModel(result) {
       status: 'completed-directions'
     },
     identity: result.evidenceMap.identity,
+    reportLanguage: result.evidenceMap.reportLanguage,
+    audienceBoundary: result.evidenceMap.audienceBoundary,
     boundaries: {
       lockedAssets: result.evidenceMap.lockedAssets,
       suggestedAssets: result.evidenceMap.suggestedAssets,
+      executableSuggestedAssets: result.evidenceMap.executableSuggestedAssets,
       conflicts: result.evidenceMap.conflicts,
       missingInformation: result.evidenceMap.missingInformation
     },
     signals: result.signalMap.signals,
     opportunities: result.opportunityMap,
     directions: result.directions.directions,
+    differenceMatrix: result.directions.differenceMatrix,
     recommendation,
     recommended,
     evidenceIndex: result.evidenceMap.evidence.map((item) => ({

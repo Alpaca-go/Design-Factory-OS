@@ -1,0 +1,8 @@
+{
+  "status": "failed",
+  "runId": null,
+  "error": {
+    "name": "Error",
+    "message": "不支持的文档格式：Masterpiece"
+  }
+}

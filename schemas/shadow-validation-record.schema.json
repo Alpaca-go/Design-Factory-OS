@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://masterpiece-os.local/schemas/shadow-validation-record.schema.json",
+  "title": "Persisted Shadow Validation Record V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["record_version", "locator", "provenance", "validation_result", "human_reviews", "saved_at", "updated_at"],
+  "properties": {
+    "record_version": { "const": "shadow-validation-record-v1" },
+    "locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_id", "run_id", "module"],
+      "properties": {
+        "project_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "module": { "type": "string", "minLength": 1 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quality_system_version", "rule_set_version", "adapter_version", "evaluator_version", "source_hash", "generated_at", "source_context"],
+      "properties": {
+        "quality_system_version": { "type": "string", "minLength": 1 },
+        "rule_set_version": { "type": "string", "minLength": 1 },
+        "adapter_version": { "type": "string", "minLength": 1 },
+        "evaluator_version": { "type": "string", "minLength": 1 },
+        "orchestrator_version": { "type": "string", "minLength": 1 },
+        "source_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "started_at": { "type": "string", "format": "date-time" },
+        "completed_at": { "type": "string", "format": "date-time" },
+        "command_mode": { "enum": ["default", "force", "dry_run"] },
+        "batch_id": { "type": "string", "minLength": 1 },
+        "source_path": { "type": "string", "minLength": 1 },
+        "source_context": { "type": "object" }
+      }
+    },
+    "validation_result": { "$ref": "./validation-result.schema.json" },
+    "human_reviews": {
+      "type": "array",
+      "items": { "$ref": "./human-review.schema.json" }
+    },
+    "saved_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}

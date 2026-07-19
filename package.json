@@ -13,6 +13,8 @@
     "test": "node --test",
     "test:regression": "node ./tests/regression-runner.js",
     "verify:document-flows": "node ./scripts/verify-document-flows.mjs",
+    "quality:shadow": "node ./scripts/quality-shadow.mjs",
+    "quality:sprint2": "node ./scripts/sprint-2-quality.mjs",
     "desktop:dev": "npm --prefix apps/desktop run dev",
     "desktop:build": "npm --prefix apps/desktop run build",
     "desktop:test": "npm --prefix apps/desktop test",

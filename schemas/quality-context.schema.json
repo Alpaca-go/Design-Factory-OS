@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://masterpiece-os.local/schemas/quality-context.schema.json",
+  "title": "Quality Context V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["module", "output", "metadata", "brand_context", "source_context"],
+  "properties": {
+    "module": { "enum": ["visual_direction", "report", "anchor_direction", "visual_dna", "visual_grammar", "packaging"] },
+    "output": { "type": "object" },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quality_system_version",
+        "rule_set_version",
+        "adapter_version",
+        "evaluator_version",
+        "project_id",
+        "run_id",
+        "source_hash",
+        "generated_at"
+      ],
+      "properties": {
+        "quality_system_version": { "type": "string", "minLength": 1 },
+        "rule_set_version": { "type": "string", "minLength": 1 },
+        "adapter_version": { "type": "string", "minLength": 1 },
+        "evaluator_version": { "type": "string", "minLength": 1 },
+        "project_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "source_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "currentProjectId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "brand_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapter_version", "brand_name", "project_name", "industry", "business_model", "locked_assets", "allowed_project_ids"],
+      "properties": {
+        "adapter_version": { "type": "string", "minLength": 1 },
+        "brand_name": { "$ref": "#/$defs/availability" },
+        "project_name": { "$ref": "#/$defs/availability" },
+        "industry": { "$ref": "#/$defs/availability" },
+        "business_model": { "$ref": "#/$defs/availability" },
+        "locked_assets": { "$ref": "#/$defs/availability" },
+        "allowed_project_ids": { "$ref": "#/$defs/availability" }
+      }
+    },
+    "source_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_type", "source_stage", "checkpoint_version", "protocol_version", "fixture_id"],
+      "properties": {
+        "source_type": { "enum": ["visual_translation_result", "visual_translation_checkpoint", "report", "unknown"] },
+        "source_stage": { "$ref": "#/$defs/availability" },
+        "checkpoint_version": { "$ref": "#/$defs/availability" },
+        "protocol_version": { "$ref": "#/$defs/availability" },
+        "fixture_id": { "$ref": "#/$defs/availability" }
+      }
+    }
+  },
+  "$defs": {
+    "availability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["available", "unknown", "unavailable"] },
+        "value": {}
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "available" } }, "required": ["status"] },
+          "then": { "required": ["value"] },
+          "else": { "not": { "required": ["value"] } }
+        }
+      ]
+    }
+  }
+}
