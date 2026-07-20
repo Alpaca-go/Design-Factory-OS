@@ -9,7 +9,8 @@ import type {
   VisualTranslationProgress,
   VisualTranslationResult,
   VisualTranslationRunRecord,
-  VisualTranslationStage
+  VisualTranslationStage,
+  VisualTranslationUserError
 } from '../shared/types';
 import { buildVisualStrategyCorpus, parseStrategyDocument } from './document-processing.ts';
 import { assertInside } from './analysis-contract.ts';
@@ -20,6 +21,10 @@ import type { ProviderCredentials } from './settings-store';
 import { createOpenAICompatibleTextReasoner } from '../../../../src/v5/adapters/openai-compatible-text-reasoner.js';
 // @ts-ignore JavaScript core module intentionally has no TypeScript declaration file.
 import { runVisualTranslationV1 } from '../../../../src/v5/visual-translation/v1/index.js';
+// @ts-ignore JavaScript core module intentionally has no TypeScript declaration file.
+import { runVisualTranslationV2 } from '../../../../src/v5/visual-translation/v2/runtime/run-visual-translation-v2.js';
+// @ts-ignore JavaScript core module intentionally has no TypeScript declaration file.
+import { EXPERIMENT_MODE, PRODUCTION_BASELINE_MODE, normalizeDirectionGenerationMode, isExecutionMode } from '../../../../src/v5/visual-translation/v2/config/direction-generation-mode.js';
 
 type CredentialsReader = (profileId?: string) => Promise<ProviderCredentials>;
 type SettingsReader = () => Promise<PublicSettings>;
@@ -38,10 +43,64 @@ const STAGE_MESSAGES: Record<VisualTranslationStage, string> = {
   '02-visual-signal-opportunity': '正在生成视觉信号与机会地图',
   '04-three-creative-directions': '正在构建三个显著不同的创意方向',
   '05-direction-recommendation': '正在执行本地方向排序',
+  '04b-compile-execution-directions': '正在编译执行向方向与回归守卫',
   '10-local-report-compiler': '正在编译视觉方向报告'
 };
 
 const SUPPORTED_EXTENSIONS = new Set(['.pdf', '.docx', '.md', '.markdown', '.txt']);
+
+// Map a thrown Visual Translation error into a user-facing explanation
+// (doc: v2 Stage 04 输出截断修复, §5). The UI must show actionable detail rather
+// than a bare red box when the structured output is truncated by the model.
+function mapVisualTranslationUserError(error: unknown): VisualTranslationUserError {
+  const code = (error as { code?: string })?.code;
+  const details = (error as { details?: Record<string, unknown> })?.details || {};
+  if (code === 'OUTPUT_TRUNCATED' || code === 'OUTPUT_TRUNCATED_AFTER_RETRY') {
+    const stageId = (error as { stageId?: string })?.stageId || (details.stageId as string) || null;
+    const modelId = (error as { modelId?: string })?.modelId || (details.modelId as string) || null;
+    const requested = (error as { requestedMaxOutputTokens?: number })?.requestedMaxOutputTokens ?? (details.requestedMaxOutputTokens as number) ?? null;
+    const escalated = (error as { escalatedMaxOutputTokens?: number })?.escalatedMaxOutputTokens ?? (details.escalatedMaxOutputTokens as number) ?? null;
+    const providerMax = (error as { providerMaxOutputTokens?: number })?.providerMaxOutputTokens ?? (details.providerMaxOutputTokens as number) ?? null;
+    return {
+      code: code || 'OUTPUT_TRUNCATED',
+      title: '视觉方向输出被截断',
+      message: '当前模型输出达到长度上限，未能生成完整结构化结果。',
+      recoverable: true,
+      stageId,
+      modelId,
+      requestedMaxOutputTokens: escalated || requested,
+      providerMaxOutputTokens: providerMax,
+      retried: code === 'OUTPUT_TRUNCATED_AFTER_RETRY',
+      suggestedAction: '提高该阶段输出预算，或切换到支持更大输出长度的模型后重试。'
+    };
+  }
+  if (code === 'MODEL_OUTPUT_LIMIT_EXCEEDED') {
+    return {
+      code: code || 'MODEL_OUTPUT_LIMIT_EXCEEDED',
+      title: '输出预算超过模型上限',
+      message: `请求的输出长度超过模型支持的最大值（请求 ${details.requestedMaxOutputTokens ?? '?'} / 上限 ${details.providerMaxOutputTokens ?? '?'}）。`,
+      recoverable: false,
+      stageId: (details.stageId as string) || null,
+      modelId: (details.modelId as string) || null,
+      requestedMaxOutputTokens: (details.requestedMaxOutputTokens as number) ?? null,
+      providerMaxOutputTokens: (details.providerMaxOutputTokens as number) ?? null,
+      retried: false,
+      suggestedAction: '降低该阶段输出预算，或确认 Provider 的真实输出上限配置后重试。'
+    };
+  }
+  return {
+    code: code || 'UNKNOWN',
+    title: '视觉转译失败',
+    message: (error as Error)?.message || '未知错误',
+    recoverable: false,
+    stageId: (error as { stageId?: string })?.stageId ?? null,
+    modelId: null,
+    requestedMaxOutputTokens: null,
+    providerMaxOutputTokens: null,
+    retried: false,
+    suggestedAction: '请查看运行日志或重试。'
+  };
+}
 
 function safeRunId(runId: string): string {
   if (!/^[a-f0-9-]{36}$/i.test(runId)) throw new Error('Visual Translation Run ID 无效');
@@ -109,7 +168,8 @@ export function createVisualTranslationService(
   readSettings: SettingsReader,
   emitProgress: ProgressSink,
   reasonerFactory: TextReasonerFactory = createOpenAICompatibleTextReasoner,
-  pipelineRunner: VisualTranslationRunner = runVisualTranslationV1
+  pipelineRunner: VisualTranslationRunner = runVisualTranslationV1,
+  v2Runner: VisualTranslationRunner = runVisualTranslationV2
 ) {
   const active = new Map<string, ActiveRun>();
 
@@ -196,7 +256,9 @@ export function createVisualTranslationService(
       const root = await runRoot(record.id);
       const checkpoints = await loadCheckpoints(record.id);
       const reasoner = reasonerFactory({ apiKey: credentials.apiKey, model: credentials.model, provider: credentials.provider, baseUrl: credentials.baseUrl });
-      const execution = await pipelineRunner({
+      const mode = normalizeDirectionGenerationMode((await readSettings()).directionGenerationMode || PRODUCTION_BASELINE_MODE);
+      const runner = isExecutionMode(mode) ? v2Runner : pipelineRunner;
+      const execution = await runner({
         projectId: record.id,
         analysisRunId: record.analysisRunId,
         corpus,
@@ -233,7 +295,8 @@ export function createVisualTranslationService(
         }
       });
       const completedAt = new Date().toISOString();
-      const reportFilename = `${safeProjectName(record.projectName)}-visual-directions-report-v1.md`;
+      const reportBasename = execution.reportBasename || 'visual-directions-report-v1.md';
+      const reportFilename = `${safeProjectName(record.projectName)}-${reportBasename}`;
       await fs.writeFile(path.join(root, 'outputs', reportFilename), execution.reportMarkdown, 'utf8');
       const completed: VisualTranslationRunRecord = {
         ...running,
@@ -248,7 +311,7 @@ export function createVisualTranslationService(
       };
       await saveRun(completed);
       await writeJson(path.join(root, 'runtime', 'run-report.json'), {
-        protocolVersion: 'visual-translation-v1',
+        protocolVersion: execution.protocolVersion || 'visual-translation-v1',
         run: completed,
         metrics: execution.metrics,
         composition: execution.composition
@@ -256,14 +319,17 @@ export function createVisualTranslationService(
       return { run: completed, reportMarkdown: execution.reportMarkdown };
     } catch (error) {
       const cancelled = controller.signal.aborted || (error as Error).name === 'AbortError';
+      const userError = cancelled ? null : mapVisualTranslationUserError(error);
       const failed: VisualTranslationRunRecord = {
         ...running,
         status: cancelled ? 'cancelled' : 'failed',
         completedAt: new Date().toISOString(),
         durationMs: Math.round(performance.now() - started),
-        lastError: cancelled ? '用户已取消分析' : (error as Error).message
+        lastError: cancelled ? '用户已取消分析' : (error as Error).message,
+        userError
       };
       await saveRun(failed);
+      if (userError) (error as { userError?: VisualTranslationUserError }).userError = userError;
       throw error;
     } finally {
       active.delete(record.id);

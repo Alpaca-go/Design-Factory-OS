@@ -2,11 +2,13 @@ import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { useEffect, useMemo, useState } from 'react';
 import type {
+  DirectionGenerationMode,
   PublicSettings,
   VisualTranslationDocumentSummary,
   VisualTranslationProgress,
   VisualTranslationRunRecord,
-  VisualTranslationStage
+  VisualTranslationStage,
+  VisualTranslationUserError
 } from '../../../shared/types';
 import { cleanError, formatDurationHuman } from '../utils';
 
@@ -35,6 +37,24 @@ const STATUS_LABELS: Record<VisualTranslationRunRecord['status'], string> = {
   cancelled: '已取消'
 };
 
+function TruncationErrorNotice({ userError, fallback }: { userError: VisualTranslationUserError | null; fallback: string }) {
+  if (!userError) return <div className="notice error">{fallback}</div>;
+  return (
+    <div className="notice error truncation-error">
+      <strong>{userError.title}</strong>
+      <p>{userError.message}</p>
+      <ul>
+        {userError.stageId && <li>失败阶段：{userError.stageId}</li>}
+        {userError.modelId && <li>当前模型：{userError.modelId}</li>}
+        {userError.requestedMaxOutputTokens != null && <li>请求输出预算：{userError.requestedMaxOutputTokens} tokens</li>}
+        {userError.providerMaxOutputTokens != null && <li>Provider 最大输出：{userError.providerMaxOutputTokens} tokens</li>}
+        {userError.retried != null && <li>是否已重试：{userError.retried ? '是（升级预算后仍截断）' : '否'}</li>}
+      </ul>
+      {userError.suggestedAction && <p className="suggested">建议：{userError.suggestedAction}</p>}
+    </div>
+  );
+}
+
 export function VisualTranslationWorkspace({ settings, selectedApiProfileId, initialRunId, onApiProfileChange, onBack, onOpenSettings }: Props) {
   const profiles = settings.profiles.filter((profile) => profile.isEnabled);
   const initialProfile = profiles.find((profile) => profile.isDefault) || profiles[0];
@@ -48,7 +68,23 @@ export function VisualTranslationWorkspace({ settings, selectedApiProfileId, ini
   const [reportHtml, setReportHtml] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [userError, setUserError] = useState<VisualTranslationUserError | null>(null);
   const [notice, setNotice] = useState('');
+  const [mode, setMode] = useState<DirectionGenerationMode>(settings.directionGenerationMode || 'conceptual_v1');
+
+  async function changeMode(next: DirectionGenerationMode) {
+    setMode(next);
+    try {
+      await window.masterpiece.settings.save({
+        defaultDataPath: settings.defaultDataPath,
+        cacheEnabled: settings.cacheEnabled,
+        logLevel: settings.logLevel,
+        directionGenerationMode: next
+      });
+    } catch (reason) {
+      setError(cleanError(reason));
+    }
+  }
 
   const activeStageIndex = STAGES.findIndex(([stage]) => stage === progress?.stage);
   const totalCharacters = useMemo(() => documents.reduce((sum, document) => sum + document.characterCount, 0), [documents]);
@@ -105,6 +141,7 @@ export function VisualTranslationWorkspace({ settings, selectedApiProfileId, ini
     if (!documents.length || !profileId) return;
     setBusy(true);
     setError('');
+    setUserError(null);
     setNotice('');
     setProgress(null);
     setSelectedRun(null);
@@ -116,6 +153,7 @@ export function VisualTranslationWorkspace({ settings, selectedApiProfileId, ini
       setNotice('分析完成。三个方向仍需人工确认，客户端不会自动替你做最终选择。');
     } catch (reason) {
       setError(cleanError(reason));
+      setUserError((reason as { userError?: VisualTranslationUserError })?.userError || null);
     } finally {
       setBusy(false);
       await refreshRuns().catch(() => {});
@@ -162,7 +200,7 @@ export function VisualTranslationWorkspace({ settings, selectedApiProfileId, ini
 
   if (selectedRun && reportMarkdown) return <div className="page report-page visual-translation-report">
     <header className="page-header">
-      <div><p className="eyebrow">VISUAL TRANSLATION V1 / DIRECTIONS COMPLETE</p><h1>{selectedRun.projectName}</h1><p>{selectedRun.reportFilename}</p></div>
+      <div><p className="eyebrow">VISUAL TRANSLATION {selectedRun.reportFilename?.includes('v2-experimental') ? 'V2 (EXPERIMENT)' : 'V1'} / DIRECTIONS COMPLETE</p><h1>{selectedRun.projectName}</h1><p>{selectedRun.reportFilename}</p></div>
       <button className="button ghost" onClick={() => { setSelectedRun(null); setReportMarkdown(''); }}>返回工作台</button>
     </header>
     <div className="result-summary">
@@ -177,23 +215,30 @@ export function VisualTranslationWorkspace({ settings, selectedApiProfileId, ini
       <button className="button secondary" onClick={() => void window.masterpiece.visualTranslation.openFolder(selectedRun.id)}>打开输出文件夹</button>
     </div>
     {notice && <div className="notice ok">{notice}</div>}
-    {error && <div className="notice error">{error}</div>}
+    {error && <TruncationErrorNotice userError={userError} fallback={error} />}
     <article className="markdown-preview" dangerouslySetInnerHTML={{ __html: reportHtml }} />
   </div>;
 
   return <div className="page visual-translation-page">
     <header className="page-header">
-      <div><p className="eyebrow">DOCUMENT → VISUAL DIRECTIONS</p><h1>视觉转译 V1</h1><p>上传策略文档，通过三次模型调用生成三个可比较的创意方向。</p></div>
+      <div><p className="eyebrow">DOCUMENT → VISUAL DIRECTIONS</p><h1>视觉转译 {mode === 'execution_oriented_v2' ? 'V2（实验）' : 'V1'}</h1><p>上传策略文档，通过三次模型调用生成三个可比较的创意方向。</p></div>
       <div className="button-row"><button className="button ghost" onClick={onOpenSettings}>API 设置</button><button className="button ghost" onClick={onBack}>返回首页</button></div>
     </header>
 
-    {error && <div className="notice error">{error}</div>}
+    {error && <TruncationErrorNotice userError={userError} fallback={error} />}
     {notice && <div className="notice ok">{notice}</div>}
 
     <div className="visual-translation-grid">
       <section className="panel visual-translation-form">
         <div className="section-heading"><span>01</span><div><h2>准备分析任务</h2><p>支持 PDF、DOCX、Markdown 和 TXT</p></div></div>
         <label>分析模型<select value={profileId} onChange={(event) => onApiProfileChange(event.target.value)}><option value="">请选择 API Profile</option>{profiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.displayName} / {profile.modelId}</option>)}</select></label>
+        <label>方向生成模式
+          <div className="mode-toggle">
+            <button type="button" className={mode === 'conceptual_v1' ? 'active' : ''} onClick={() => void changeMode('conceptual_v1')}>概念方向 V1（生产）</button>
+            <button type="button" className={mode === 'execution_oriented_v2' ? 'active' : ''} onClick={() => void changeMode('execution_oriented_v2')}>执行向 V2（实验）</button>
+          </div>
+        </label>
+        <p className="mode-hint">{mode === 'execution_oriented_v2' ? '实验分支：生成可直接落地的执行向视觉方向，与 V1 生产基线并存。' : '生产基线：生成三个可比较的概念创意方向。'}</p>
         <div className="document-toolbar"><div><strong>策略文档</strong><small>{documents.length} 份 · {totalCharacters.toLocaleString('zh-CN')} 字符</small></div></div>
         <div className={`drop-zone translation-drop-zone ${busy ? 'busy' : ''}`} onDragOver={(event) => event.preventDefault()} onDrop={(event) => {
           event.preventDefault();
@@ -206,7 +251,7 @@ export function VisualTranslationWorkspace({ settings, selectedApiProfileId, ini
         </div>
         {documents.length ? <div className="visual-document-list translation-selected-documents">{documents.map((document) => <div key={document.path}><span className="document-kind">{document.sourceType.toUpperCase()}</span><div><strong>{document.filename}</strong><small>{document.title || '未识别标题'} · {document.characterCount.toLocaleString('zh-CN')} 字符{document.pageCount ? ` · ${document.pageCount} 页` : ''}</small>{document.warnings.map((warning) => <em key={warning}>{warning}</em>)}</div><button aria-label={`移除 ${document.filename}`} onClick={() => setDocuments((current) => current.filter((item) => item.path !== document.path))}>×</button></div>)}</div> : <div className="auto-project-name-note">上传后将从文档标题和正文自动识别项目名称，无需手动填写。</div>}
         {!profiles.some((profile) => profile.hasApiKey) && <div className="notice error">尚未配置可用的 API Profile，请先前往 API 设置。</div>}
-        <button className="button primary full" disabled={busy || !documents.length || !profiles.find((profile) => profile.id === profileId)?.hasApiKey} onClick={() => void start()}>{busy ? '分析运行中…' : '开始 Visual Translation V1'}</button>
+        <button className="button primary full" disabled={busy || !documents.length || !profiles.find((profile) => profile.id === profileId)?.hasApiKey} onClick={() => void start()}>{busy ? '分析运行中…' : (mode === 'execution_oriented_v2' ? '开始 Visual Translation V2（实验）' : '开始 Visual Translation V1')}</button>
       </section>
 
       <aside className="panel visual-translation-history">

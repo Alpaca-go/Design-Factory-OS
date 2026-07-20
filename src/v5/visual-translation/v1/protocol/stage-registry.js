@@ -19,5 +19,22 @@ export const STAGE_SEQUENCE = Object.freeze(Object.fromEntries(STAGES));
 export const STAGE_PROFILES = Object.freeze({
   '01-visual-evidence': { thinking: false, thinkingBudget: null, maxOutputTokens: 6000, requestTimeoutMs: 180000 },
   '02-visual-signal-opportunity': { thinking: true, thinkingBudget: 3500, maxOutputTokens: 6000, requestTimeoutMs: 240000 },
-  '04-three-creative-directions': { thinking: true, thinkingBudget: 5000, maxOutputTokens: 8000, requestTimeoutMs: 300000 }
+  '04-three-creative-directions': { thinking: true, thinkingBudget: 5000, maxOutputTokens: 8000, requestTimeoutMs: 300000 },
+  // v2 execution-oriented direction generation (doc: v2 Stage 04 输出截断修复).
+  // Deliberately distinct from the v1 04 profile: the v2 direction schema is
+  // ~2-3x larger, so it needs a 20k output budget and a smaller thinking budget.
+  // v1.3.4 frozen behaviour is preserved by keeping the entry above unchanged.
+  '04-execution-oriented-directions-v2': {
+    thinking: true,
+    thinkingBudget: 2500,
+    maxOutputTokens: 20000,
+    requestTimeoutMs: 420000,
+    truncationRetry: { enabled: true, maxAttempts: 1, multiplier: 1.5 }
+  }
 });
+
+export function getStageProfile(stageId) {
+  const profile = STAGE_PROFILES[stageId];
+  if (!profile) throw new Error(`Unknown visual translation stage profile: ${stageId}`);
+  return profile;
+}

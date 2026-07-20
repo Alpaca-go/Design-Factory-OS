@@ -72,6 +72,29 @@ export const ANTI_CONCEPT_ART_CONSTRAINTS = Object.freeze([
 
 const ANTI_CONCEPT_ART_CONSTRAINT_IDS = ANTI_CONCEPT_ART_CONSTRAINTS.map((item) => item.constraint_id);
 
+// Direction families (doc section 6). Optional: the model may declare which
+// family each direction belongs to; the family-difference gate also derives it.
+export const DIRECTION_FAMILIES = Object.freeze(['A', 'B', 'C']);
+
+// Asset authorization control modes (doc section 9).
+export const ASSET_AUTHORIZATION_MODES = Object.freeze([
+  'abstracted',
+  'redacted',
+  'structure_only',
+  'real_data_required',
+  'prohibited'
+]);
+
+function optionalString(value, fallback) {
+  return value === undefined || value === null ? fallback : String(value);
+}
+
+function optionalNumber(value, fallback) {
+  if (value === undefined || value === null) return fallback;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export function validateReusableAsset(value, path) {
   const item = objectValue(value, path);
   const assetType = enumValue(item.asset_type, REUSABLE_ASSET_TYPES, `${path}.asset_type`);
@@ -79,11 +102,11 @@ export function validateReusableAsset(value, path) {
     asset_id: stringValue(item.asset_id, `${path}.asset_id`),
     asset_name: stringValue(item.asset_name, `${path}.asset_name`),
     asset_type: assetType,
-    visual_description: stringValue(item.visual_description, `${path}.visual_description`, { maxLength: 400 }),
-    business_evidence: stringValue(item.business_evidence, `${path}.business_evidence`, { maxLength: 400 }),
-    execution_role: stringValue(item.execution_role, `${path}.execution_role`, { maxLength: 300 }),
+    visual_description: stringValue(item.visual_description, `${path}.visual_description`, { maxLength: 240 }),
+    business_evidence: stringValue(item.business_evidence, `${path}.business_evidence`, { maxLength: 240 }),
+    execution_role: stringValue(item.execution_role, `${path}.execution_role`, { maxLength: 160 }),
     reusable_touchpoints: stringArray(item.reusable_touchpoints, `${path}.reusable_touchpoints`, { min: 1 }),
-    prohibited_use: stringValue(item.prohibited_use, `${path}.prohibited_use`, { maxLength: 300 })
+    prohibited_use: stringValue(item.prohibited_use, `${path}.prohibited_use`, { maxLength: 200 })
   };
 }
 
@@ -104,11 +127,11 @@ function validateIndustryRecognitionLayer(value, path) {
 function validateGraphicSystem(value, path) {
   const item = objectValue(value, path);
   return {
-    how_graphics_form: stringValue(item.how_graphics_form, `${path}.how_graphics_form`, { maxLength: 400 }),
-    brand_fact_mapping: stringValue(item.brand_fact_mapping, `${path}.brand_fact_mapping`, { maxLength: 400 }),
-    scale_crop_repeat: stringValue(item.scale_crop_repeat, `${path}.scale_crop_repeat`, { maxLength: 400 }),
-    enter_touchpoints: stringValue(item.enter_touchpoints, `${path}.enter_touchpoints`, { maxLength: 400 }),
-    must_not_become: stringValue(item.must_not_become, `${path}.must_not_become`, { maxLength: 400 })
+    how_graphics_form: stringValue(item.how_graphics_form, `${path}.how_graphics_form`, { maxLength: 300 }),
+    brand_fact_mapping: stringValue(item.brand_fact_mapping, `${path}.brand_fact_mapping`, { maxLength: 300 }),
+    scale_crop_repeat: stringValue(item.scale_crop_repeat, `${path}.scale_crop_repeat`, { maxLength: 300 }),
+    enter_touchpoints: stringValue(item.enter_touchpoints, `${path}.enter_touchpoints`, { maxLength: 300 }),
+    must_not_become: stringValue(item.must_not_become, `${path}.must_not_become`, { maxLength: 300 })
   };
 }
 
@@ -122,9 +145,9 @@ function validatePhotographyObjectSystem(value, path) {
   return {
     needs_photography: enumValue(item.needs_photography, ['required', 'optional', 'none'], `${path}.needs_photography`),
     real_industry_objects: stringArray(item.real_industry_objects, `${path}.real_industry_objects`, { min: 1 }),
-    subject_and_background: stringValue(item.subject_and_background, `${path}.subject_and_background`, { maxLength: 400 }),
-    people_product_packaging: stringValue(item.people_product_packaging, `${path}.people_product_packaging`, { maxLength: 400 }),
-    graphic_overlay: stringValue(item.graphic_overlay, `${path}.graphic_overlay`, { maxLength: 400 }),
+    subject_and_background: stringValue(item.subject_and_background, `${path}.subject_and_background`, { maxLength: 300 }),
+    people_product_packaging: stringValue(item.people_product_packaging, `${path}.people_product_packaging`, { maxLength: 300 }),
+    graphic_overlay: stringValue(item.graphic_overlay, `${path}.graphic_overlay`, { maxLength: 300 }),
     real_content_ratio: { real_industry_content_ratio: realIndustry, branded_graphic_ratio: branded, information_layout_ratio: info }
   };
 }
@@ -132,10 +155,10 @@ function validatePhotographyObjectSystem(value, path) {
 function validateInformationSystem(value, path) {
   const item = objectValue(value, path);
   return {
-    core_brand_info: stringValue(item.core_brand_info, `${path}.core_brand_info`, { maxLength: 400 }),
-    capability_product_info: stringValue(item.capability_product_info, `${path}.capability_product_info`, { maxLength: 400 }),
-    data_qualification_info: stringValue(item.data_qualification_info, `${path}.data_qualification_info`, { maxLength: 400 }),
-    cta_info: stringValue(item.cta_info, `${path}.cta_info`, { maxLength: 400 }),
+    core_brand_info: stringValue(item.core_brand_info, `${path}.core_brand_info`, { maxLength: 300 }),
+    capability_product_info: stringValue(item.capability_product_info, `${path}.capability_product_info`, { maxLength: 300 }),
+    data_qualification_info: stringValue(item.data_qualification_info, `${path}.data_qualification_info`, { maxLength: 300 }),
+    cta_info: stringValue(item.cta_info, `${path}.cta_info`, { maxLength: 300 }),
     information_hierarchy: stringArray(item.information_hierarchy, `${path}.information_hierarchy`, { min: 3 }),
     fabricated_info_prohibited: stringArray(item.fabricated_info_prohibited, `${path}.fabricated_info_prohibited`, { min: 1 })
   };
@@ -149,7 +172,7 @@ function validateLayoutBehavior(value, path) {
     brand_area: stringValue(item.brand_area, `${path}.brand_area`, { maxLength: 300 }),
     whitespace_area: stringValue(item.whitespace_area, `${path}.whitespace_area`, { maxLength: 300 }),
     data_note_area: stringValue(item.data_note_area, `${path}.data_note_area`, { maxLength: 300 }),
-    multi_size_adaptation: stringValue(item.multi_size_adaptation, `${path}.multi_size_adaptation`, { maxLength: 400 })
+    multi_size_adaptation: stringValue(item.multi_size_adaptation, `${path}.multi_size_adaptation`, { maxLength: 300 })
   };
 }
 
@@ -180,11 +203,20 @@ function validateExecutionExample(value, path, assetIds) {
     example_id: stringValue(item.example_id, `${path}.example_id`),
     touchpoint_category: enumValue(item.touchpoint_category, EXECUTION_EXAMPLE_CATEGORIES, `${path}.touchpoint_category`),
     subject: stringValue(item.subject, `${path}.subject`, { maxLength: 300 }),
-    visual_structure: stringValue(item.visual_structure, `${path}.visual_structure`, { maxLength: 400 }),
+    visual_structure: stringValue(item.visual_structure, `${path}.visual_structure`, { maxLength: 300 }),
     information_position: stringValue(item.information_position, `${path}.information_position`, { maxLength: 300 }),
     reused_assets: reusedAssets,
     industry_recognition_source: stringValue(item.industry_recognition_source, `${path}.industry_recognition_source`, { maxLength: 300 }),
-    anti_concept_art_note: stringValue(item.anti_concept_art_note, `${path}.anti_concept_art_note`, { maxLength: 300 })
+    anti_concept_art_note: stringValue(item.anti_concept_art_note, `${path}.anti_concept_art_note`, { maxLength: 300 }),
+    // doc section 10 — optional strengthened execution-example fields.
+    touchpoint: optionalString(item.touchpoint),
+    audience: optionalString(item.audience),
+    communication_goal: optionalString(item.communication_goal),
+    hero_subject: optionalString(item.hero_subject),
+    industry_content: optionalString(item.industry_content),
+    layout_structure: optionalString(item.layout_structure),
+    brand_specific_detail: optionalString(item.brand_specific_detail),
+    anti_concept_art_rule: optionalString(item.anti_concept_art_rule)
   };
 }
 
@@ -204,6 +236,42 @@ function validateAntiConceptArtConstraints(value, path) {
   const missing = ANTI_CONCEPT_ART_CONSTRAINT_IDS.filter((id) => !seen.has(id));
   if (missing.length) fail(`${path} is missing required anti-concept-art constraints: ${missing.join(', ')}`, path);
   return result;
+}
+
+const COMPLIANCE_WEIGHT_KEYS = ['compliance_weight', 'supply_chain_weight', 'product_material_weight', 'ecosystem_weight', 'brand_aesthetic_weight', 'consumer_value_weight'];
+const INDUSTRY_CLASSIFICATION_KEYS = ['regulatory_objects', 'supply_chain_objects', 'product_material_objects', 'institution_service_objects', 'consumer_value_objects', 'aesthetic_culture_objects'];
+const ASSET_AUTHORIZATION_KEYS = ['data_authorization_level', 'document_visualization_mode', 'credential_usage_mode', 'generated_data_policy'];
+
+function validateOptionalComplianceWeights(value, path) {
+  if (value === undefined || value === null) return undefined;
+  const obj = objectValue(value, path);
+  const out = {};
+  for (const key of COMPLIANCE_WEIGHT_KEYS) {
+    out[key] = optionalNumber(obj[key], undefined);
+    if (out[key] !== undefined && (out[key] < 0 || out[key] > 1)) fail(`${path}.${key} must be between 0 and 1`, `${path}.${key}`);
+  }
+  return out;
+}
+
+function validateOptionalIndustryClassification(value, path) {
+  if (value === undefined || value === null) return undefined;
+  const obj = objectValue(value, path);
+  const out = {};
+  for (const key of INDUSTRY_CLASSIFICATION_KEYS) {
+    out[key] = obj[key] === undefined ? undefined : stringArray(obj[key], `${path}.${key}`, { min: 0 });
+  }
+  return out;
+}
+
+function validateOptionalAssetAuthorization(value, path) {
+  if (value === undefined || value === null) return undefined;
+  const obj = objectValue(value, path);
+  return {
+    data_authorization_level: obj.data_authorization_level === undefined ? undefined : enumValue(obj.data_authorization_level, ASSET_AUTHORIZATION_MODES, `${path}.data_authorization_level`),
+    document_visualization_mode: obj.document_visualization_mode === undefined ? undefined : enumValue(obj.document_visualization_mode, ASSET_AUTHORIZATION_MODES, `${path}.document_visualization_mode`),
+    credential_usage_mode: obj.credential_usage_mode === undefined ? undefined : enumValue(obj.credential_usage_mode, ASSET_AUTHORIZATION_MODES, `${path}.credential_usage_mode`),
+    generated_data_policy: obj.generated_data_policy === undefined ? undefined : enumValue(obj.generated_data_policy, ASSET_AUTHORIZATION_MODES, `${path}.generated_data_policy`)
+  };
 }
 
 export function validateExecutionDirectionV2(value, context = {}) {
@@ -237,7 +305,13 @@ export function validateExecutionDirectionV2(value, context = {}) {
     execution_constraints: stringArray(root.execution_constraints, 'visualDirectionV2.execution_constraints', { min: 1 }),
     anti_concept_art_constraints: validateAntiConceptArtConstraints(root.anti_concept_art_constraints, 'visualDirectionV2.anti_concept_art_constraints'),
     template_risks: stringArray(root.template_risks, 'visualDirectionV2.template_risks', { min: 1 }),
-    readiness_score: root.readiness_score === undefined ? null : numberValue(root.readiness_score, 'visualDirectionV2.readiness_score', { min: 0, max: 100 })
+    readiness_score: root.readiness_score === undefined ? null : numberValue(root.readiness_score, 'visualDirectionV2.readiness_score', { min: 0, max: 100 }),
+    // doc sections 6/7/8/9 — optional structured fields the specialized-fix gates
+    // consume. When absent, the evaluators derive the same signals from free text.
+    direction_family: root.direction_family === undefined ? undefined : enumValue(root.direction_family, DIRECTION_FAMILIES, 'visualDirectionV2.direction_family'),
+    compliance_weights: validateOptionalComplianceWeights(root.compliance_weights, 'visualDirectionV2.compliance_weights'),
+    industry_recognition_classification: validateOptionalIndustryClassification(root.industry_recognition_classification, 'visualDirectionV2.industry_recognition_classification'),
+    asset_authorization: validateOptionalAssetAuthorization(root.asset_authorization, 'visualDirectionV2.asset_authorization')
   };
 
   const assetIds = new Set(direction.core_reusable_assets.map((asset) => asset.asset_id));

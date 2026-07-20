@@ -6,6 +6,7 @@ import sharp from 'sharp';
 import type {
   ApiProfile,
   ConnectionTestResult,
+  DirectionGenerationMode,
   ProviderKind,
   PublicSettings,
   SaveApiProfileInput,
@@ -21,7 +22,10 @@ interface StoredSettings {
   defaultDataPath: string;
   cacheEnabled: boolean;
   logLevel: 'error' | 'info' | 'debug';
+  directionGenerationMode: DirectionGenerationMode;
 }
+
+const DIRECTION_GENERATION_MODES = Object.freeze(['conceptual_v1', 'execution_oriented_v2']);
 
 interface LegacySettings {
   provider?: ProviderKind;
@@ -61,7 +65,8 @@ function defaults(): StoredSettings {
     defaultProfileId: null,
     defaultDataPath: path.join(app.getPath('documents'), 'Masterpiece OS Data'),
     cacheEnabled: true,
-    logLevel: 'info'
+    logLevel: 'info',
+    directionGenerationMode: 'conceptual_v1'
   };
 }
 
@@ -153,6 +158,7 @@ async function publicSettings(settings: StoredSettings): Promise<PublicSettings>
     defaultDataPath: settings.defaultDataPath,
     cacheEnabled: settings.cacheEnabled,
     logLevel: settings.logLevel,
+    directionGenerationMode: settings.directionGenerationMode,
     connectionStatus: defaultProfile ? profileStatus(defaultProfile) : 'untested'
   };
 }
@@ -186,6 +192,9 @@ export async function saveSettings(input: SaveSettingsInput): Promise<PublicSett
   settings.defaultDataPath = path.resolve(input.defaultDataPath);
   settings.cacheEnabled = input.cacheEnabled;
   settings.logLevel = input.logLevel;
+  if (input.directionGenerationMode && DIRECTION_GENERATION_MODES.includes(input.directionGenerationMode)) {
+    settings.directionGenerationMode = input.directionGenerationMode;
+  }
   await writeStored(settings);
   return publicSettings(settings);
 }

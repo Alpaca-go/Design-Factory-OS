@@ -117,7 +117,7 @@ function scoreAbstractDependency(direction, industryScore) {
   return score;
 }
 
-export function evaluateExecutionReadiness(direction) {
+export function evaluateExecutionReadiness(direction, { blockingFailure = false } = {}) {
   const { violations } = checkAntiConceptArtConstraints(direction);
   const industry = scoreIndustryRecognition(direction);
   const metrics = {
@@ -153,12 +153,20 @@ export function evaluateExecutionReadiness(direction) {
 
   const execution_status = failed.length === 0 ? 'ready' : 'rewrite_required';
 
+  // §11 fix: a direction that fails any blocking gate (hard pass criterion) must
+  // never display a high/perfect readiness score. Cap at 59 so we can no longer
+  // produce `100/100 + rewrite_required`. `blockingFailure` lets the compile
+  // step force the cap when a set-level gate (brand identity, etc.) fails too.
+  const scoreCapped = failed.length > 0 || blockingFailure === true;
+  const cappedScore = scoreCapped ? Math.min(readiness_score, 59) : readiness_score;
+
   return {
     evaluator_version: EXECUTION_READINESS_EVALUATOR_VERSION,
     direction_id: direction.direction_id,
     direction_name: direction.direction_name,
     metrics,
-    readiness_score,
+    readiness_score: cappedScore,
+    score_capped: scoreCapped,
     execution_status,
     failed_criteria: failed,
     concept_art_violations: violations,

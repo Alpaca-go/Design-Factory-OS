@@ -74,6 +74,7 @@ export interface PublicSettings {
   defaultDataPath: string;
   cacheEnabled: boolean;
   logLevel: 'error' | 'info' | 'debug';
+  directionGenerationMode?: DirectionGenerationMode;
   connectionStatus: 'untested' | 'connected' | 'failed';
 }
 
@@ -81,6 +82,7 @@ export interface SaveSettingsInput {
   defaultDataPath: string;
   cacheEnabled: boolean;
   logLevel: 'error' | 'info' | 'debug';
+  directionGenerationMode?: DirectionGenerationMode;
 }
 
 export interface ProjectAsset {
@@ -231,11 +233,14 @@ export interface VisualStrategyCorpus {
   warnings: string[];
 }
 
+export type DirectionGenerationMode = 'conceptual_v1' | 'execution_oriented_v2';
+
 export type VisualTranslationStage =
   | '00-document-preparation'
   | '01-visual-evidence'
   | '02-visual-signal-opportunity'
   | '04-three-creative-directions'
+  | '04b-compile-execution-directions'
   | '05-direction-recommendation'
   | '10-local-report-compiler';
 
@@ -277,6 +282,7 @@ export interface VisualTranslationRunRecord {
   durationMs?: number;
   currentStage?: VisualTranslationStage;
   lastError?: string | null;
+  userError?: VisualTranslationUserError | null;
   reportFilename?: string | null;
   modelCallCount?: number;
   resumedStageCount?: number;
@@ -286,6 +292,22 @@ export interface VisualTranslationRunRecord {
 export interface StartVisualTranslationInput {
   documentPaths: string[];
   apiProfileId: string;
+}
+
+// Structured, user-facing explanation of a Visual Translation failure
+// (doc: v2 Stage 04 输出截断修复, §5). Falls back to a generic message when
+// the error is not a known Visual Translation error.
+export interface VisualTranslationUserError {
+  code: string;
+  title: string;
+  message: string;
+  recoverable: boolean;
+  stageId?: string | null;
+  modelId?: string | null;
+  requestedMaxOutputTokens?: number | null;
+  providerMaxOutputTokens?: number | null;
+  retried?: boolean;
+  suggestedAction?: string;
 }
 
 export interface VisualTranslationResult {

@@ -72,6 +72,80 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
     }
     lines.push('');
     lines.push(`**回归守卫：** 资产权限 ${item.assetAuthorization.ok ? 'OK' : 'FAIL'} ｜ 证据保护 ${item.evidencePreservation.ok ? 'OK' : 'FAIL'} ｜ 受众边界 ${item.audienceBoundaryGuard.ok ? 'OK' : 'FAIL'}`);
+    const fam = d.direction_family ? ` ｜ 方向家族 ${d.direction_family}` : '';
+    lines.push(`**品牌身份：** ${compiled.gates.brand_identity_preservation.brand_identity_preserved ? '保留 ✅' : '污染 ❌'}${fam}`);
+    if (item.readiness.score_capped) lines.push(`**就绪分已封顶：** 59（存在未通过 Gate 或硬指标）`);
+    lines.push('');
+  }
+
+  // ── 专项修复 Gate 总览（doc section 13 评估顺序）──
+  const gates = compiled.gates || {};
+  lines.push('---');
+  lines.push('## 专项修复 Gate 总览');
+  lines.push('');
+  lines.push(`> 整体状态：**${compiled.overall_status}**`);
+  if (compiled.blocking_reasons?.length) {
+    lines.push(`> 阻断原因：${compiled.blocking_reasons.join('、')}`);
+  }
+  lines.push('');
+
+  const bip = gates.brand_identity_preservation;
+  if (bip) {
+    lines.push(`### 1. 品牌身份保护 ${bip.brand_identity_preserved ? '✅' : '❌'}`);
+    lines.push(`- 品牌名保留：${bip.brand_name_preserved ? '是' : '否'} ｜ 角色保留：${bip.brand_role_preserved ? '是' : '否'} ｜ 核心命题保留：${bip.strategic_thesis_preserved ? '是' : '否'} ｜ 行业身份未被简化：${bip.industry_identity_preserved ? '是' : '否'}`);
+    if (bip.contamination_detected) lines.push(`- ⚠️ 检测到非项目品牌：${bip.contamination_sources.map((s) => `${s.direction_id}:${s.unexpected_brand_names?.join('/') || s.reason}`).join('、')}`);
+    lines.push('');
+  }
+
+  const bmc = gates.business_model_coverage;
+  if (bmc) {
+    lines.push(`### 2. 业务模型覆盖 ${bmc.business_model_undercoverage ? '❌ 需重写' : '✅'}`);
+    for (const item of bmc.per_direction) {
+      lines.push(`- ${item.direction_id}：已覆盖 ${item.covered_dimension_count}/4 维（上游${item.b2b_coverage ? '✓' : '✗'} 平台${item.platform_role_coverage ? '✓' : '✗'} 机构${item.industry_ecosystem_coverage ? '✓' : '✗'} 消费者${item.consumer_value_coverage ? '✓' : '✗'}）`);
+    }
+    lines.push(`- 三方向整体是否覆盖全部 4 维：${bmc.all_four_dimensions_covered ? '是' : '否'}`);
+    lines.push('');
+  }
+
+  const dfd = gates.direction_family_difference;
+  if (dfd) {
+    lines.push(`### 3. 方向家族差异 ${dfd.rewrite_required ? '❌ 需重写' : '✅'}`);
+    const pairs = dfd.pairwise_similarity || {};
+    for (const [pair, sim] of Object.entries(pairs)) {
+      lines.push(`- ${pair} 相似度：${sim}${sim > 0.72 ? ' ⚠️ 超阈值' : ''}`);
+    }
+    if (dfd.declared_families_distinct === false) lines.push(`- ⚠️ 声明的 direction_family 未区分（需 A/B/C 不同）`);
+    lines.push('');
+  }
+
+  const cwc = gates.compliance_weight_control;
+  if (cwc) {
+    lines.push(`### 4. 合规权重控制 ${cwc.rewrite_required ? '❌ 需重写' : '✅'}`);
+    lines.push(`- 合规为 Primary 的方向数：${cwc.primary_compliance_direction_count}（上限 1）｜ 合规过重：${cwc.compliance_overweight ? '是' : '否'}`);
+    for (const item of cwc.per_direction) {
+      lines.push(`- ${item.direction_id}：合规 ${item.compliance_weight} 供应链 ${item.supply_chain_weight} 产品材料 ${item.product_material_weight} 生态 ${item.ecosystem_weight} 品牌美学 ${item.brand_aesthetic_weight} 消费者 ${item.consumer_value_weight}`);
+    }
+    lines.push('');
+  }
+
+  const irc = gates.industry_recognition_coverage;
+  if (irc) {
+    lines.push(`### 5. 行业识别分类 ${irc.rewrite_required ? '❌ 需重写' : '✅'}`);
+    const sc = irc.set_coverage || {};
+    lines.push(`- 整体是否覆盖前 5 类：${irc.all_required_categories_covered ? '是' : '否'}（regulatory${sc.regulatory_objects ? '✓' : '✗'} supply${sc.supply_chain_objects ? '✓' : '✗'} product${sc.product_material_objects ? '✓' : '✗'} institution${sc.institution_service_objects ? '✓' : '✗'} consumer${sc.consumer_value_objects ? '✓' : '✗'}）`);
+    lines.push('');
+  }
+
+  const aa = gates.asset_authorization;
+  if (aa) {
+    lines.push(`### 6. 资产权限与伪造风险 ${aa.forgery_detected ? '❌ 阻断' : '✅'}`);
+    if (aa.forgery_detected) {
+      for (const item of aa.per_direction) {
+        if (!item.ok) lines.push(`- ${item.direction_id} 检测到伪造：${item.forgery_violations.join('、')}`);
+      }
+    } else {
+      lines.push('- 未检测到伪造资质/注册证/数据/责任人。');
+    }
     lines.push('');
   }
 
