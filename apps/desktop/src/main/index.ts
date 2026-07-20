@@ -167,6 +167,11 @@ function registerIpc(): void {
   ipcMain.handle('visual-translation:start', (_event, input: StartVisualTranslationInput) => visualTranslation.start(input));
   ipcMain.handle('visual-translation:resume', (_event, runId: string, apiProfileId?: string) => visualTranslation.resume(runId, apiProfileId));
   ipcMain.handle('visual-translation:cancel', (_event, runId: string) => visualTranslation.cancel(runId));
+  ipcMain.handle('visual-translation:remove', async (_event, runId: string) => {
+    const record = await visualTranslation.getRun(runId).catch(() => null);
+    if (record?.status === 'running') throw new Error('正在分析的任务不能删除，请先取消分析');
+    await visualTranslation.remove(runId);
+  });
   ipcMain.handle('visual-translation:read-report', async (_event, runId: string) => fs.readFile(await visualTranslation.reportPath(runId), 'utf8'));
   ipcMain.handle('visual-translation:export-report', async (_event, runId: string) => {
     const source = await visualTranslation.reportPath(runId);

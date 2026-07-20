@@ -12,6 +12,7 @@ import type {
   VisualTranslationStage
 } from '../shared/types';
 import { buildVisualStrategyCorpus, parseStrategyDocument } from './document-processing.ts';
+import { assertInside } from './analysis-contract.ts';
 import type { ProviderCredentials } from './settings-store';
 
 // Bundled from the repository core. Desktop owns persistence and user interaction only.
@@ -314,7 +315,19 @@ export function createVisualTranslationService(
     return path.join(await runRoot(runId), 'outputs', path.basename(record.reportFilename));
   }
 
-  return { inspectDocuments, listRuns, getRun, start, resume, cancel, reportPath, runRoot };
+  async function remove(runId: string): Promise<void> {
+    const activeRun = active.get(runId);
+    if (activeRun) {
+      activeRun.controller.abort();
+      active.delete(runId);
+    }
+    const root = await runRoot(runId);
+    const data = await dataRoot();
+    assertInside(data, root);
+    await fs.rm(root, { recursive: true, force: true });
+  }
+
+  return { inspectDocuments, listRuns, getRun, start, resume, cancel, reportPath, runRoot, remove };
 }
 
 export type VisualTranslationService = ReturnType<typeof createVisualTranslationService>;

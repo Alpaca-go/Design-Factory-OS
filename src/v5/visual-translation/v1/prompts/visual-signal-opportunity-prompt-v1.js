@@ -3,7 +3,7 @@ export const VISUAL_SIGNAL_OPPORTUNITY_PROMPT_VERSION = 'visual-signal-opportuni
 export function buildVisualSignalOpportunityPrompt(evidenceMap) {
   return [{ role: 'system', content: `PROTOCOL_STAGE=02-visual-signal-opportunity
 PROMPT_VERSION=${VISUAL_SIGNAL_OPPORTUNITY_PROMPT_VERSION}
-Compress Visual Evidence into visual strategy signals and opportunity areas. Do not create final directions. Copy audienceBoundary exactly and include 1–3 audience-boundary signals. All other signal types also require 1–3 items; total signal count is 7–12.
+Compress Visual Evidence into visual strategy signals and opportunity areas. Do not create final directions. Copy audienceBoundary exactly and include 1–3 audience-boundary signals. Required signal types (capability, relationship, audience-boundary) require 1–3 items each. Optional types (emotion, culture, aesthetic-tension) may have 0–3 items each, but together they must provide at least 1 item. Total signal count is 5–12.
 
 Report language is ${evidenceMap.reportLanguage}. Use that language for every statement, rationale and category-cliché explanation. Every Signal and Opportunity must include reason_basis, evidence_confidence and evidence_ids. Confidence is fixed: direct_evidence=1.00, derived_evidence=0.85, inference=0.65.
 

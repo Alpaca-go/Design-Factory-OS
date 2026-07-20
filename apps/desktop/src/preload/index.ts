@@ -47,6 +47,7 @@ const api: DesktopApi = {
     start: (input) => ipcRenderer.invoke('visual-translation:start', input),
     resume: (runId, apiProfileId) => ipcRenderer.invoke('visual-translation:resume', runId, apiProfileId),
     cancel: (runId) => ipcRenderer.invoke('visual-translation:cancel', runId),
+    remove: (runId) => ipcRenderer.invoke('visual-translation:remove', runId),
     readReport: (runId) => ipcRenderer.invoke('visual-translation:read-report', runId),
     exportReport: (runId) => ipcRenderer.invoke('visual-translation:export-report', runId),
     openFolder: (runId) => ipcRenderer.invoke('visual-translation:open-folder', runId),

@@ -68,7 +68,8 @@ export function validateVisualCreativeDirections(value, context) {
     const deferredToAnchor = stringArray(item.deferredToAnchor, `${path}.deferredToAnchor`, { min: DEFERRED_ANCHOR_DETAILS.length });
     if (DEFERRED_ANCHOR_DETAILS.some((detail) => !deferredToAnchor.includes(detail))) throw Object.assign(new Error(`${path}.deferredToAnchor must preserve all Sprint 2 details`), { code: 'FAILED_SCHEMA', path: `${path}.deferredToAnchor` });
     const assetIds = stringArray(item.executableAssetIds || [], `${path}.executableAssetIds`);
-    if (assetIds.some((id) => !executableAssetIds.has(id))) throw Object.assign(new Error(`${path}.executableAssetIds contains a restricted or unknown asset`), { code: 'RESTRICTED_ASSET_EXECUTION', path: `${path}.executableAssetIds` });
+    const invalidAssetIds = assetIds.filter((id) => !executableAssetIds.has(id));
+    if (invalidAssetIds.length) throw Object.assign(new Error(`${path}.executableAssetIds contains restricted or unknown assets: ${invalidAssetIds.join(', ')}. Only the following executable assets are allowed: ${[...executableAssetIds].join(', ')}`), { code: 'RESTRICTED_ASSET_EXECUTION', path: `${path}.executableAssetIds`, repairDirectionIds: [`D0${index + 1}`], invalidAssetIds });
     const direction = {
       directionId: `D0${index + 1}`,
       name: stringValue(item.name, `${path}.name`),

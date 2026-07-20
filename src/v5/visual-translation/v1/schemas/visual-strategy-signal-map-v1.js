@@ -7,7 +7,7 @@ export const SIGNAL_TYPES = Object.freeze(['capability', 'relationship', 'emotio
 export function validateVisualStrategySignalMap(value, evidenceMap) {
   const root = objectValue(value?.visualStrategySignalMap || value, 'visualStrategySignalMap');
   const evidenceIds = new Set(evidenceMap.evidence.map((item) => item.evidenceId));
-  const signals = arrayValue(root.signals, 'visualStrategySignalMap.signals', { min: 7, max: 12 }).map((raw, index) => {
+  const signals = arrayValue(root.signals, 'visualStrategySignalMap.signals', { min: 5, max: 12 }).map((raw, index) => {
     const path = `visualStrategySignalMap.signals[${index}]`;
     const item = objectValue(raw, path);
     const refs = stringArray(item.evidenceIds, `${path}.evidenceIds`, { min: 1 });
@@ -24,9 +24,18 @@ export function validateVisualStrategySignalMap(value, evidenceMap) {
     };
   });
   const counts = new Map(SIGNAL_TYPES.map((type) => [type, signals.filter((item) => item.type === type).length]));
-  for (const [type, count] of counts) {
+  const OPTIONAL_TYPES = new Set(['emotion', 'culture', 'aesthetic-tension']);
+  const REQUIRED_TYPES = ['audience-boundary', 'capability', 'relationship'];
+  for (const type of REQUIRED_TYPES) {
+    const count = counts.get(type);
     if (count < 1 || count > 3) throw Object.assign(new Error(`视觉信号 ${type} 必须为 1–3 条`), { code: 'FAILED_SCHEMA', path: 'visualStrategySignalMap.signals' });
   }
+  for (const type of OPTIONAL_TYPES) {
+    const count = counts.get(type);
+    if (count > 3) throw Object.assign(new Error(`视觉信号 ${type} 最多 3 条`), { code: 'FAILED_SCHEMA', path: 'visualStrategySignalMap.signals' });
+  }
+  const optionalTotal = [...OPTIONAL_TYPES].reduce((sum, type) => sum + (counts.get(type) || 0), 0);
+  if (optionalTotal < 1) throw Object.assign(new Error('视觉信号 emotion、culture、aesthetic-tension 合计至少 1 条'), { code: 'FAILED_SCHEMA', path: 'visualStrategySignalMap.signals' });
   return Object.freeze({
     audienceBoundary: assertAudienceBoundaryMatches(root.audienceBoundary, evidenceMap.audienceBoundary, 'visualStrategySignalMap.audienceBoundary'),
     signals

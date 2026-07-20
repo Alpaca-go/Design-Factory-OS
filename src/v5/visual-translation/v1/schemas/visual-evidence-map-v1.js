@@ -237,10 +237,7 @@ export function validateVisualEvidenceMap(value, prepared) {
         [`visualEvidenceMap.audienceBoundary.excludedAudience[${index}].label`, item.label],
         [`visualEvidenceMap.audienceBoundary.excludedAudience[${index}].reason`, item.reason]
       ]),
-      ...suggestedAssets.flatMap((item, index) => [
-        [`visualEvidenceMap.suggestedAssets[${index}].name`, item.name],
-        [`visualEvidenceMap.suggestedAssets[${index}].reason`, item.reason]
-      ]),
+      ...suggestedAssets.map((item, index) => [`visualEvidenceMap.suggestedAssets[${index}].reason`, item.reason]),
       ...conflicts.map((item, index) => [`visualEvidenceMap.conflicts[${index}].statement`, item.statement]),
       ...missingInformation.map((item, index) => [`visualEvidenceMap.missingInformation[${index}].statement`, item.statement])
     ];

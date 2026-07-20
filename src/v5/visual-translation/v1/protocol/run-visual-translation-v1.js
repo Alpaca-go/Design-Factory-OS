@@ -11,7 +11,7 @@ import { validateVisualOpportunityMap } from '../schemas/visual-opportunity-map-
 import { validateVisualCreativeDirections } from '../schemas/visual-creative-directions-v1.js';
 import { buildDirectionRecommendation } from '../schemas/direction-recommendation-v1.js';
 import { buildVisualDirectionsViewModel } from '../report/build-visual-directions-view-model.js';
-import { compileVisualDirectionsReport, measureVisualReportComposition } from '../report/compile-visual-directions-report.js';
+import { compileVisualDirectionsReport, measureVisualReportComposition, sanitizeDecisionReport, validateDecisionReportRender } from '../report/compile-visual-directions-report.js';
 import { measurePrimaryLanguage } from '../schemas/report-language-v1.js';
 import { buildVisualTranslationCheckpoint, canResumeVisualTranslationCheckpoint } from '../runtime/visual-translation-checkpoint-store.js';
 import { STAGE_PROFILES, VISUAL_TRANSLATION_V1 } from './stage-registry.js';
@@ -81,7 +81,9 @@ export async function runVisualTranslationV1(input) {
           metrics.push({ stageId, kind: 'model-retry', attempt, durationMs: Date.now() - started, resumed: false, usage: response.usage || null, modelId: response.model || input.modelId, provider: response.provider || input.provider, validationError: error.message });
           const repairInstruction = stageId === '04-three-creative-directions' && error.repairDirectionIds?.length
             ? `Only rewrite these similar or invalid directions: ${error.repairDirectionIds.join(', ')}. Preserve every other direction unchanged. Do not rerun Evidence, Signals or Opportunities.`
-            : 'Correct only the invalid fields.';
+            : error.code === 'RESTRICTED_ASSET_EXECUTION' && error.invalidAssetIds?.length
+              ? `Remove these invalid asset IDs from executableAssetIds: ${error.invalidAssetIds.join(', ')}. Only use asset IDs that are explicitly listed as executable in the Evidence context. If no executable assets are available, leave executableAssetIds empty.`
+              : 'Correct only the invalid fields.';
           requestMessages = [
             ...messages,
             { role: 'assistant', content: response.text },
@@ -134,7 +136,9 @@ export async function runVisualTranslationV1(input) {
 
   const partial = { analysisRunId, prepared, evidenceMap, signalMap, opportunityMap, directions, recommendation, metrics, outputs };
   const view = buildVisualDirectionsViewModel(partial);
-  const reportMarkdown = await local('10-local-report-compiler', () => compileVisualDirectionsReport(view));
+  const reportMarkdownRaw = await local('10-local-report-compiler', () => compileVisualDirectionsReport(view, { mode: input.reportMode || 'decision' }));
+  const reportMarkdown = sanitizeDecisionReport(reportMarkdownRaw);
+  validateDecisionReportRender(reportMarkdown);
   const composition = measureVisualReportComposition(reportMarkdown);
   const languageMetadata = measurePrimaryLanguage(reportMarkdown, evidenceMap.reportLanguage);
   if (composition.visualRatio < 0.65) throw Object.assign(new Error(`Visual content ratio is too low: ${(composition.visualRatio * 100).toFixed(1)}%`), { code: 'REPORT_VISUAL_RATIO_LOW', composition });

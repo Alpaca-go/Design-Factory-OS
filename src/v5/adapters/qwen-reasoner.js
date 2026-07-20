@@ -143,7 +143,11 @@ export function createQwenReasoner(options = {}) {
   if (!model) throw new QwenReasonerError('QWEN_MODEL_MISSING', '未配置 QWEN_MODEL，无法选择 Qwen 多模态模型');
   const url = completionUrl(baseUrl);
 
-  return async function qwenReasoner(context) {
+  return async function qwenReasoner(context, options = {}) {
+    // 兼容 model 函数直接传入 messages 数组的调用方式
+    if (Array.isArray(context)) {
+      context = { prompt: { messages: context, attachments: [] }, ...options };
+    }
     const diagnostics = [];
     const prepared = await buildMultimodalUserContent(context.prompt, diagnostics);
     for (const diagnostic of diagnostics) onDiagnostic(Object.freeze({ ...diagnostic }));

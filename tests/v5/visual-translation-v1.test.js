@@ -9,7 +9,7 @@ import { audienceBoundary, corpus, directionsOutput, evidenceOutput, mockReasone
 
 test('Sprint 1 runs three model stages, compiles a visual-first directions report and saves checkpoints', async () => {
   const mock = mockReasoner(); const checkpoints = {};
-  const result = await runVisualTranslationV1({ projectId: 'project-1', corpus, reasoner: mock.reasoner, provider: 'mock', modelId: 'mock-visual-model', onCheckpoint(stage, value) { checkpoints[stage] = structuredClone(value); } });
+  const result = await runVisualTranslationV1({ projectId: 'project-1', corpus, reasoner: mock.reasoner, provider: 'mock', modelId: 'mock-visual-model', reportMode: 'full', onCheckpoint(stage, value) { checkpoints[stage] = structuredClone(value); } });
   assert.equal(result.modelCallCount, 3);
   assert.deepEqual(mock.calls.map((item) => item.stage), ['01-visual-evidence', '02-visual-signal-opportunity', '04-three-creative-directions']);
   assert.equal(result.directions.directions.length, 3);
@@ -24,9 +24,9 @@ test('Sprint 1 runs three model stages, compiles a visual-first directions repor
 
 test('valid Visual Translation checkpoints resume without another model call', async () => {
   const first = mockReasoner(); const checkpoints = {};
-  await runVisualTranslationV1({ projectId: 'project-1', corpus, reasoner: first.reasoner, provider: 'mock', modelId: 'mock-visual-model', onCheckpoint(stage, value) { checkpoints[stage] = structuredClone(value); } });
+  await runVisualTranslationV1({ projectId: 'project-1', corpus, reasoner: first.reasoner, provider: 'mock', modelId: 'mock-visual-model', reportMode: 'full', onCheckpoint(stage, value) { checkpoints[stage] = structuredClone(value); } });
   let calls = 0;
-  const result = await runVisualTranslationV1({ projectId: 'project-1', corpus, checkpoints, reasoner: async () => { calls += 1; throw new Error('should not run'); }, provider: 'mock', modelId: 'mock-visual-model' });
+  const result = await runVisualTranslationV1({ projectId: 'project-1', corpus, checkpoints, reasoner: async () => { calls += 1; throw new Error('should not run'); }, provider: 'mock', modelId: 'mock-visual-model', reportMode: 'full' });
   assert.equal(calls, 0);
   assert.equal(result.modelCallCount, 0);
   assert.ok(result.metrics.some((item) => item.stageId === '04-three-creative-directions' && item.resumed));
@@ -46,7 +46,7 @@ test('evidence schema failure gets one bounded model repair retry', async () => 
     }
     return { provider: 'mock', model: 'mock', text: JSON.stringify(stage === '02-visual-signal-opportunity' ? signalOpportunityOutput() : directionsOutput()) };
   };
-  const result = await runVisualTranslationV1({ projectId: 'retry-project', corpus, reasoner, provider: 'mock', modelId: 'mock' });
+  const result = await runVisualTranslationV1({ projectId: 'retry-project', corpus, reasoner, provider: 'mock', modelId: 'mock', reportMode: 'full' });
   assert.equal(evidenceAttempts, 2);
   assert.equal(result.modelCallCount, 4);
   assert.ok(result.metrics.some((metric) => metric.kind === 'model-retry' && metric.stageId === '01-visual-evidence'));

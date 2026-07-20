@@ -19,7 +19,7 @@ export function validateVisualOpportunityMap(value, evidenceMap) {
       brandability: enumValue(item.brandability, ['high', 'medium', 'low'], `${path}[${index}].brandability`)
     };
   });
-  const categoryCliches = arrayValue(root.categoryCliches, 'visualOpportunityMap.categoryCliches', { min: 2 }).map((raw, index) => {
+  const categoryCliches = arrayValue(root.categoryCliches, 'visualOpportunityMap.categoryCliches', { min: 1 }).map((raw, index) => {
     const path = `visualOpportunityMap.categoryCliches[${index}]`;
     const item = objectValue(raw, path);
     return {

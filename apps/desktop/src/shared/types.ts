@@ -335,6 +335,7 @@ export interface DesktopApi {
     start(input: StartVisualTranslationInput): Promise<VisualTranslationResult>;
     resume(runId: string, apiProfileId?: string): Promise<VisualTranslationResult>;
     cancel(runId: string): Promise<boolean>;
+    remove(runId: string): Promise<void>;
     readReport(runId: string): Promise<string>;
     exportReport(runId: string): Promise<string | null>;
     openFolder(runId: string): Promise<void>;

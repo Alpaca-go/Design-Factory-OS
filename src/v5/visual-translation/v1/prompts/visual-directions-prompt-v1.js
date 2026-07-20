@@ -17,7 +17,7 @@ Every mechanism must include brandSpecificReason, reasonBasis, industryTemplateR
 
 Keep this stage at direction level: metaphor, mechanism, composition principle, emotional role, material family and applications. Defer specific shots, person actions, exact lighting/camera, full product staging and a single Anchor Image scene to Sprint 2.
 
-All scores use 0–100. Do not use 0–1 scores. Only Suggested Assets with executable=true and execution_scope=current_direction may appear in executableAssetIds. Never execute a proposed Logo or unauthorized parent-brand VI asset.
+All scores use 0–100. Do not use 0–1 scores. Only Suggested Assets with executable=true and execution_scope=current_direction may appear in executableAssetIds. Never execute a proposed Logo or unauthorized parent-brand VI asset. The following executable asset IDs are currently available: ${context.evidenceMap.executableSuggestedAssets.map((item) => item.assetId).join(', ') || 'none'}. If no executable assets exist, executableAssetIds must be an empty array.
 
 Evidence: ${JSON.stringify(context.evidenceMap)}
 Signals: ${JSON.stringify(context.signalMap)}

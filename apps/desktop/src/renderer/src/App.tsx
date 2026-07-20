@@ -35,6 +35,7 @@ export function App() {
   const [error, setError] = useState('');
   const [runFailure, setRunFailure] = useState('');
   const [deletingProjectId, setDeletingProjectId] = useState('');
+  const [deletingRunId, setDeletingRunId] = useState('');
   const [loading, setLoading] = useState(true);
   const enabledProfiles = settings?.profiles.filter((profile) => profile.isEnabled) || [];
   const selectedProfile = enabledProfiles.find((profile) => profile.id === selectedApiProfileId)
@@ -182,6 +183,24 @@ export function App() {
     }
   }
 
+  async function deleteTranslationRun(run: VisualTranslationRunRecord) {
+    if (run.status === 'running') return;
+    if (!window.confirm(`确定删除文档视觉转译任务“${run.projectName}”吗？\n\n此操作会同时永久删除该任务对应的本地文件夹，包括策略文档、缓存、报告和运行记录，且无法撤销。`)) return;
+    setDeletingRunId(run.id);
+    setError('');
+    try {
+      await window.masterpiece.visualTranslation.remove(run.id);
+      setTranslationRuns((current) => current.filter((item) => item.id !== run.id));
+      if (requestedTranslationRunId === run.id) {
+        setRequestedTranslationRunId('');
+      }
+    } catch (reason) {
+      setError(cleanError(reason));
+    } finally {
+      setDeletingRunId('');
+    }
+  }
+
   function saveSettings(next: PublicSettings) {
     setSettings(next);
     const currentStillEnabled = next.profiles.some((profile) => profile.id === selectedApiProfileId && profile.isEnabled);
@@ -271,7 +290,7 @@ export function App() {
             <div className="project-time"><small>DURATION</small><strong>{formatDuration(record.run.durationMs || null)}</strong></div>
             <span className="row-arrow">→</span>
           </button>
-          <span className="record-spacer" />
+          <button className="project-delete" disabled={record.run.status === 'running' || deletingRunId === record.run.id} title={record.run.status === 'running' ? '请先取消正在运行的分析' : `删除文档视觉转译任务 ${record.run.projectName} 及本地文件夹`} aria-label={`删除文档视觉转译任务 ${record.run.projectName}`} onClick={() => void deleteTranslationRun(record.run)}>{deletingRunId === record.run.id ? '…' : '删除'}</button>
         </div>)}</div> : <div className="empty-home"><div className="empty-orbit" /><strong>还没有分析记录</strong><p>进入分析工作台，选择视觉分析或文档视觉转译开始第一次任务。</p><button className="button primary" onClick={() => { setAnalysisMode('visual-analysis'); setScreen('create'); }}>开始第一次分析</button></div>}
       </section>
     </main>
