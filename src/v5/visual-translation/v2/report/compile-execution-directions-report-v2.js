@@ -117,13 +117,14 @@ function familyLabel(direction) {
   return '未声明';
 }
 
-export function compileExecutionDirectionsReportV2({ projectId = 'unknown', compiled, abComparison } = {}) {
+export function compileExecutionDirectionsReportV2({ projectId = 'unknown', compiled, abComparison, analysisPipelineMode } = {}) {
   const lines = [];
   lines.push(`# 执行向视觉方向 v2.1.5 实验报告（experimental）`);
   lines.push('');
   lines.push(`> 报告版本：visual-directions-execution-report-v2.1.5-experimental`);
   lines.push(`> 协议：visual-translation-v2-execution`);
   lines.push(`> 项目：${projectId}`);
+  if (analysisPipelineMode) lines.push(`> 上游分析管线：${analysisPipelineMode}`);
   lines.push(`> 生成模式：${compiled?.direction_generation_mode || 'execution_oriented_v2'}`);
   if (compiled?.overall_status) {
     lines.push(`> 整体状态：${OVERALL_STATUS_LABEL[compiled.overall_status] || compiled.overall_status}`);

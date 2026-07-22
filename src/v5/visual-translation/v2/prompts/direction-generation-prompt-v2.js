@@ -277,6 +277,20 @@ Audience Boundary: ${JSON.stringify(context.audienceBoundary || {})}
 Asset Boundary (allowed): ${allowedAssets.map(assetId).filter(Boolean).join(', ') || 'none'}
 Asset Boundary (restricted): ${restrictedAssets.map(assetId).filter(Boolean).join(', ') || 'none'}
 Selected Touchpoints: ${(context.selectedTouchpoints || []).join(', ') || 'none'}
+${context.visual_opportunities ? `
+Visual Fact First 决策上下文（只用于视觉决策，不得重新分析商业战略）：
+- Brand Identity: ${JSON.stringify(context.brand_identity || {})}
+- Business Model: ${JSON.stringify(context.business_model || {})}
+- Audience Structure: ${JSON.stringify(context.audience_structure || {})}
+- Visual Positioning: ${JSON.stringify(context.visual_positioning || {})}
+- Locked Assets: ${JSON.stringify(context.locked_assets || {})}
+- Visual Asset Evidence: ${JSON.stringify(context.visual_asset_evidence || {})}
+- Benchmark Findings: ${JSON.stringify(context.benchmark_findings || {})}
+- Visual Opportunities: ${JSON.stringify(context.visual_opportunities || {})}
+- Prohibited Directions: ${JSON.stringify(context.prohibited_directions || [])}
+- Evidence Constraints: ${JSON.stringify(context.evidence_constraints || {})}
+
+不要重新分析完整商业战略，不要复述市场规模和行业数据。联网案例是视觉参照而非模仿对象；三个方向必须分别从不同 Visual Opportunity 出发，并在 strategic_idea 或 brand_evidence 中保留对应 opportunity_id。品牌事实的优先级高于 Benchmark。` : ''}
 
 输出必须简洁：同一品牌事实和消费者价值不要在不同层级重复全文；资产通过 ID 引用；每个执行示例的全部文字合计尽量不超过 600 中文字符；资产描述不超过 120 字；约束和风险每项不超过 80 字。
 

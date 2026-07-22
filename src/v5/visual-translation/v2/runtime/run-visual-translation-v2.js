@@ -32,6 +32,8 @@ import { buildExecutionDirectionV2Prompt, VISUAL_DIRECTIONS_PROMPT_V2_VERSION } 
 import { validateExecutionDirectionV2Set } from '../schemas/direction-contract-v2.js';
 import { compileExecutionDirectionV2 } from './compile-execution-direction-v2.js';
 import { compileExecutionDirectionsReportV2 } from '../report/compile-execution-directions-report-v2.js';
+import { normalizeAnalysisPipelineMode, ANALYSIS_PIPELINE_MODES } from '../config/analysis-pipeline-mode.js';
+import { runVisualFactFirstUpstream } from '../visual-fact-first/run-upstream.js';
 
 const RETRYABLE_VALIDATION_CODES = new Set([
   'FAILED_SCHEMA', 'DIRECTIONS_NOT_DISTINCT', 'B2B_BOUNDARY_VIOLATION',
@@ -45,6 +47,21 @@ const DEFAULT_SELECTED_TOUCHPOINTS = Object.freeze([
 
 const STEP4_REPAIR_CHECKPOINT_STAGE = '04-step4-repair-pending';
 const STEP4_REPAIR_CHECKPOINT_SCHEMA = 'visual-direction-v2-step4-repair-pending-r1';
+const V2_STAGE_SEQUENCE = Object.freeze({
+  '00-document-preparation': 0,
+  '01-visual-evidence': 10,
+  '01-visual-relevant-facts': 11,
+  '01b-visual-facts-review': 12,
+  '02-visual-signal-opportunity': 20,
+  '02-visual-asset-evidence': 21,
+  '02b-visual-asset-evidence-review': 22,
+  '03a-benchmark-query-compiler': 30,
+  '03b-benchmark-retrieval': 31,
+  '03c-visual-opportunity-synthesis': 32,
+  '03d-visual-opportunity-review': 33,
+  '04-three-creative-directions': 40,
+  '10-local-report-compiler': 100
+});
 
 const VISUAL_TRANSLATION_V2 = Object.freeze({
   protocolVersion: 'visual-translation-v2-execution',
@@ -79,12 +96,19 @@ function buildV2Context(evidenceMap) {
   };
 }
 
+function countFactLeaves(value) {
+  if (Array.isArray(value)) return value.reduce((total, item) => total + countFactLeaves(item), 0);
+  if (value && typeof value === 'object') return Object.values(value).reduce((total, item) => total + countFactLeaves(item), 0);
+  return value === null || value === undefined || value === '' ? 0 : 1;
+}
+
 export async function runVisualTranslationV2(input) {
   const analysisRunId = input.analysisRunId || crypto.randomUUID();
   const startedAt = Date.now();
   const metrics = [];
   const outputs = {};
   const checkpoints = input.checkpoints || {};
+  const analysisPipelineMode = normalizeAnalysisPipelineMode(input.analysisPipelineMode);
   const assertRuntime = () => {
     if (input.abortSignal?.aborted) throw abortError();
     if (Date.now() - startedAt >= VISUAL_TRANSLATION_V2.pipelineBudgetMs) throw Object.assign(new Error('Visual Translation V2 exceeded its 22-minute budget'), { code: 'PIPELINE_TIME_BUDGET_EXCEEDED' });
@@ -99,6 +123,7 @@ export async function runVisualTranslationV2(input) {
     outputs[stageId] = output;
     const checkpoint = buildVisualTranslationCheckpoint({
       projectId: input.projectId, analysisRunId, stageId,
+      stageSequence: V2_STAGE_SEQUENCE[stageId],
       documentSetHash: outputs['00-document-preparation'].documentSetHash,
       upstreamHash: metadata.upstreamHash, promptVersion: metadata.promptVersion,
       schemaVersion: metadata.schemaVersion, profile: metadata.profile,
@@ -239,36 +264,49 @@ export async function runVisualTranslationV2(input) {
     }
   };
 
-  // ── 00 / 01 / 02: FROZEN v1 upstream (do not modify v1) ──────────────────
+  // ── 00: shared document preparation ───────────────────────────────────────
   const prepared = await local('00-document-preparation', () => prepareDocumentSet(input));
   outputs['00-document-preparation'] = prepared;
   await save('00-document-preparation', prepared, { upstreamHash: prepared.documentSetHash, promptVersion: 'document-preparation-v1.1', schemaVersion: 'prepared-document-set-v1', outputFile: 'prepared-document-set-v3.json' });
 
-  const evidenceExpected = { stageId: '01-visual-evidence', documentSetHash: prepared.documentSetHash, upstreamHash: prepared.documentSetHash, promptVersion: VISUAL_EVIDENCE_PROMPT_VERSION, schemaVersion: 'visual-evidence-map-v1.4' };
-  let evidenceMap = resume('01-visual-evidence', evidenceExpected, (value) => validateVisualEvidenceMap(value, prepared));
-  if (!evidenceMap) {
-    evidenceMap = await model('01-visual-evidence', buildVisualEvidencePrompt(prepared, input.lockedFacts, input.lockedAssets), (value) => validateVisualEvidenceMap(value, prepared));
-    await save('01-visual-evidence', evidenceMap, { ...evidenceExpected, profile: { ...STAGE_PROFILES['01-visual-evidence'], provider: input.provider, modelId: input.modelId }, outputFile: 'visual-evidence-map-v1.json' });
-  }
+  let evidenceMap;
+  let signalMap;
+  let opportunityMap;
+  let v2Context;
+  let visualFactFirst = null;
+  if (analysisPipelineMode === ANALYSIS_PIPELINE_MODES.VISUAL_FACT_FIRST) {
+    visualFactFirst = await runVisualFactFirstUpstream({
+      input, prepared, model, local, save, resume, selectedTouchpoints: input.selectedTouchpoints || DEFAULT_SELECTED_TOUCHPOINTS
+    });
+    ({ evidenceMap, signalMap, opportunityMap, step4Context: v2Context } = visualFactFirst);
+  } else {
+    // Frozen legacy upstream remains byte-for-byte compatible with v2.1.5.
+    const evidenceExpected = { stageId: '01-visual-evidence', documentSetHash: prepared.documentSetHash, upstreamHash: prepared.documentSetHash, promptVersion: VISUAL_EVIDENCE_PROMPT_VERSION, schemaVersion: 'visual-evidence-map-v1.4' };
+    evidenceMap = resume('01-visual-evidence', evidenceExpected, (value) => validateVisualEvidenceMap(value, prepared));
+    if (!evidenceMap) {
+      evidenceMap = await model('01-visual-evidence', buildVisualEvidencePrompt(prepared, input.lockedFacts, input.lockedAssets), (value) => validateVisualEvidenceMap(value, prepared));
+      await save('01-visual-evidence', evidenceMap, { ...evidenceExpected, profile: { ...STAGE_PROFILES['01-visual-evidence'], provider: input.provider, modelId: input.modelId }, outputFile: 'visual-evidence-map-v1.json' });
+    }
 
-  const signalUpstream = valueHash(evidenceMap);
-  const signalExpected = { stageId: '02-visual-signal-opportunity', documentSetHash: prepared.documentSetHash, upstreamHash: signalUpstream, promptVersion: VISUAL_SIGNAL_OPPORTUNITY_PROMPT_VERSION, schemaVersion: 'visual-signal-opportunity-v1.2' };
-  let signalOpportunity = resume('02-visual-signal-opportunity', signalExpected, (value) => ({
-    signalMap: validateVisualStrategySignalMap(value.signalMap, evidenceMap),
-    opportunityMap: validateVisualOpportunityMap(value.opportunityMap, evidenceMap)
-  }));
-  if (!signalOpportunity) {
-    signalOpportunity = await model('02-visual-signal-opportunity', buildVisualSignalOpportunityPrompt(evidenceMap), (value) => ({
-      signalMap: validateVisualStrategySignalMap(value.visualStrategySignalMap, evidenceMap),
-      opportunityMap: validateVisualOpportunityMap(value.visualOpportunityMap, evidenceMap)
+    const signalUpstream = valueHash(evidenceMap);
+    const signalExpected = { stageId: '02-visual-signal-opportunity', documentSetHash: prepared.documentSetHash, upstreamHash: signalUpstream, promptVersion: VISUAL_SIGNAL_OPPORTUNITY_PROMPT_VERSION, schemaVersion: 'visual-signal-opportunity-v1.2' };
+    let signalOpportunity = resume('02-visual-signal-opportunity', signalExpected, (value) => ({
+      signalMap: validateVisualStrategySignalMap(value.signalMap, evidenceMap),
+      opportunityMap: validateVisualOpportunityMap(value.opportunityMap, evidenceMap)
     }));
-    await save('02-visual-signal-opportunity', signalOpportunity, { ...signalExpected, profile: { ...STAGE_PROFILES['02-visual-signal-opportunity'], provider: input.provider, modelId: input.modelId }, outputFile: 'visual-signal-opportunity-v1.json' });
+    if (!signalOpportunity) {
+      signalOpportunity = await model('02-visual-signal-opportunity', buildVisualSignalOpportunityPrompt(evidenceMap), (value) => ({
+        signalMap: validateVisualStrategySignalMap(value.visualStrategySignalMap, evidenceMap),
+        opportunityMap: validateVisualOpportunityMap(value.visualOpportunityMap, evidenceMap)
+      }));
+      await save('02-visual-signal-opportunity', signalOpportunity, { ...signalExpected, profile: { ...STAGE_PROFILES['02-visual-signal-opportunity'], provider: input.provider, modelId: input.modelId }, outputFile: 'visual-signal-opportunity-v1.json' });
+    }
+    ({ signalMap, opportunityMap } = signalOpportunity);
+    v2Context = buildV2Context(evidenceMap);
   }
-  const { signalMap, opportunityMap } = signalOpportunity;
 
   // ── 04: EXECUTION-ORIENTED v2 direction generation (replaces v1) ────────
-  const v2Context = buildV2Context(evidenceMap);
-  const directionsUpstream = valueHash({ evidenceMap, signalMap, opportunityMap });
+  const directionsUpstream = valueHash({ analysisPipelineMode, evidenceMap, signalMap, opportunityMap });
   const directionsExpected = {
     stageId: '04-three-creative-directions',
     documentSetHash: prepared.documentSetHash,
@@ -372,11 +410,34 @@ export async function runVisualTranslationV2(input) {
   }));
 
   // ── 10: EXPERIMENTAL v2 report (independent of v1 Decision Report) ───────
-  const reportMarkdown = await local('10-local-report-compiler', () => compileExecutionDirectionsReportV2({ projectId: input.projectId, compiled }));
+  const reportMarkdown = await local('10-local-report-compiler', () => compileExecutionDirectionsReportV2({ projectId: input.projectId, compiled, analysisPipelineMode }));
   const composition = measureExecutionReportComposition(reportMarkdown);
   await save('10-local-report-compiler', reportMarkdown, { upstreamHash: valueHash({ directions: rawDirections, compiled }), promptVersion: VISUAL_TRANSLATION_V2.directionsReportVersion, schemaVersion: VISUAL_TRANSLATION_V2.directionsReportVersion, outputFile: 'visual-directions-report-v2-experimental.md' });
 
-  const partial = { analysisRunId, prepared, evidenceMap, signalMap, opportunityMap, rawDirections, compiled, metrics, outputs };
+  const stageDuration = (stageId) => metrics.filter((item) => item.stageId === stageId).reduce((total, item) => total + Number(item.durationMs || 0), 0);
+  const stageTokens = (stageId, key) => metrics.filter((item) => item.stageId === stageId && item.usage).reduce((total, item) => total + Number(item.usage?.[key] || 0), 0);
+  const pipelineObservability = Object.freeze({
+    pipeline_mode: analysisPipelineMode,
+    source_document_chars: prepared.sourceDocuments.reduce((total, item) => total + item.characterCount, 0),
+    extracted_fact_count: visualFactFirst ? countFactLeaves(visualFactFirst.visualFacts) : evidenceMap.evidence.length,
+    unresolved_fact_count: visualFactFirst?.visualFacts.confidence.unresolved_fields.length || evidenceMap.missingInformation.length,
+    fact_extraction_ms: visualFactFirst ? stageDuration('01-visual-relevant-facts') : stageDuration('01-visual-evidence'),
+    fact_input_tokens: visualFactFirst ? stageTokens('01-visual-relevant-facts', 'inputTokens') : stageTokens('01-visual-evidence', 'inputTokens'),
+    fact_output_tokens: visualFactFirst ? stageTokens('01-visual-relevant-facts', 'outputTokens') : stageTokens('01-visual-evidence', 'outputTokens'),
+    benchmark_query_count: visualFactFirst?.benchmarkRetrieval.query_count || 0,
+    benchmark_result_count: visualFactFirst?.benchmarkRetrieval.result_count || 0,
+    benchmark_relevant_count: visualFactFirst?.benchmarkRetrieval.relevant_count || 0,
+    benchmark_ms: stageDuration('03b-benchmark-retrieval'),
+    opportunity_count: visualFactFirst?.visualOpportunitySynthesis.differentiation_opportunities.length || 0,
+    opportunity_ms: visualFactFirst ? stageDuration('03c-visual-opportunity-synthesis') : stageDuration('02-visual-signal-opportunity'),
+    step4_input_chars: JSON.stringify(v2Context).length,
+    step4_input_tokens: stageTokens('04-three-creative-directions', 'inputTokens'),
+    step4_output_tokens: stageTokens('04-three-creative-directions', 'outputTokens'),
+    total_runtime_ms: Date.now() - startedAt,
+    final_status: compiled.overall_status
+  });
+  metrics.push({ stageId: 'pipeline-observability', kind: 'summary', durationMs: 0, resumed: false, ...pipelineObservability });
+  const partial = { analysisRunId, analysisPipelineMode, prepared, evidenceMap, signalMap, opportunityMap, visualFactFirst, rawDirections, compiled, pipelineObservability, metrics, outputs };
   return Object.freeze({
     ...partial,
     reportMarkdown,

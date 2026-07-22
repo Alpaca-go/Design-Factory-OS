@@ -75,6 +75,7 @@ export interface PublicSettings {
   cacheEnabled: boolean;
   logLevel: 'error' | 'info' | 'debug';
   directionGenerationMode?: DirectionGenerationMode;
+  analysisPipelineMode?: AnalysisPipelineMode;
   connectionStatus: 'untested' | 'connected' | 'failed';
 }
 
@@ -83,6 +84,7 @@ export interface SaveSettingsInput {
   cacheEnabled: boolean;
   logLevel: 'error' | 'info' | 'debug';
   directionGenerationMode?: DirectionGenerationMode;
+  analysisPipelineMode?: AnalysisPipelineMode;
 }
 
 export interface ProjectAsset {
@@ -234,11 +236,20 @@ export interface VisualStrategyCorpus {
 }
 
 export type DirectionGenerationMode = 'conceptual_v1' | 'execution_oriented_v2';
+export type AnalysisPipelineMode = 'legacy_deep_analysis' | 'visual_fact_first';
 
 export type VisualTranslationStage =
   | '00-document-preparation'
   | '01-visual-evidence'
+  | '01-visual-relevant-facts'
+  | '01b-visual-facts-review'
   | '02-visual-signal-opportunity'
+  | '02-visual-asset-evidence'
+  | '02b-visual-asset-evidence-review'
+  | '03a-benchmark-query-compiler'
+  | '03b-benchmark-retrieval'
+  | '03c-visual-opportunity-synthesis'
+  | '03d-visual-opportunity-review'
   | '04-three-creative-directions'
   | '04b-compile-execution-directions'
   | '05-direction-recommendation'

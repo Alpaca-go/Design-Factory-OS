@@ -6,7 +6,7 @@ export function buildVisualTranslationCheckpoint(options) {
     ...options,
     checkpointVersion: VISUAL_TRANSLATION_V1.checkpointVersion,
     protocolVersion: VISUAL_TRANSLATION_V1.protocolVersion,
-    stageSequence: STAGE_SEQUENCE[options.stageId]
+    stageSequence: options.stageSequence ?? STAGE_SEQUENCE[options.stageId]
   });
 }
 

@@ -47,7 +47,15 @@ interface ActiveRun {
 const STAGE_MESSAGES: Record<VisualTranslationStage, string> = {
   '00-document-preparation': '正在整理与去重策略文档',
   '01-visual-evidence': '正在提取视觉证据',
+  '01-visual-relevant-facts': '正在提取与视觉决策直接相关的品牌事实',
+  '01b-visual-facts-review': '正在编译视觉事实审阅文档',
   '02-visual-signal-opportunity': '正在生成视觉信号与机会地图',
+  '02-visual-asset-evidence': '正在整理现有视觉资产证据',
+  '02b-visual-asset-evidence-review': '正在编译视觉资产审阅文档',
+  '03a-benchmark-query-compiler': '正在编译多维视觉基准检索计划',
+  '03b-benchmark-retrieval': '正在检索并筛选视觉基准案例',
+  '03c-visual-opportunity-synthesis': '正在综合品牌视觉机会',
+  '03d-visual-opportunity-review': '正在编译视觉机会审阅文档',
   '04-three-creative-directions': '正在构建三个显著不同的创意方向',
   '05-direction-recommendation': '正在执行本地方向排序',
   '04b-compile-execution-directions': '正在编译执行向方向与回归守卫',
@@ -389,8 +397,10 @@ export function createVisualTranslationService(
       const root = await runRoot(record.id);
       const checkpoints = await loadCheckpoints(record.id);
       const reasoner = reasonerFactory({ apiKey: credentials.apiKey, model: credentials.model, provider: credentials.provider, baseUrl: credentials.baseUrl });
-      const mode = normalizeDirectionGenerationMode((await readSettings()).directionGenerationMode || PRODUCTION_BASELINE_MODE);
-      const runner = isExecutionMode(mode) ? v2Runner : pipelineRunner;
+      const runtimeSettings = await readSettings();
+      const mode = normalizeDirectionGenerationMode(runtimeSettings.directionGenerationMode || PRODUCTION_BASELINE_MODE);
+      const analysisPipelineMode = process.env.MASTERPIECE_VISUAL_PIPELINE_MODE || runtimeSettings.analysisPipelineMode || 'legacy_deep_analysis';
+      const runner = isExecutionMode(mode) || analysisPipelineMode === 'visual_fact_first' ? v2Runner : pipelineRunner;
       const execution = await runner({
         projectId: record.id,
         analysisRunId: record.analysisRunId,
@@ -400,6 +410,7 @@ export function createVisualTranslationService(
         lockedAssets: [],
         provider: credentials.provider,
         modelId: credentials.model,
+        analysisPipelineMode,
         reasoner,
         checkpoints,
         abortSignal: controller.signal,

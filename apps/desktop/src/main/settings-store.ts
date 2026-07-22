@@ -5,6 +5,7 @@ import { app, safeStorage } from 'electron';
 import sharp from 'sharp';
 import type {
   ApiProfile,
+  AnalysisPipelineMode,
   ConnectionTestResult,
   DirectionGenerationMode,
   ProviderKind,
@@ -23,9 +24,11 @@ interface StoredSettings {
   cacheEnabled: boolean;
   logLevel: 'error' | 'info' | 'debug';
   directionGenerationMode: DirectionGenerationMode;
+  analysisPipelineMode: AnalysisPipelineMode;
 }
 
 const DIRECTION_GENERATION_MODES = Object.freeze(['conceptual_v1', 'execution_oriented_v2']);
+const ANALYSIS_PIPELINE_MODES = Object.freeze(['legacy_deep_analysis', 'visual_fact_first']);
 
 interface LegacySettings {
   provider?: ProviderKind;
@@ -66,7 +69,8 @@ function defaults(): StoredSettings {
     defaultDataPath: path.join(app.getPath('documents'), 'Masterpiece OS Data'),
     cacheEnabled: true,
     logLevel: 'info',
-    directionGenerationMode: 'conceptual_v1'
+    directionGenerationMode: 'conceptual_v1',
+    analysisPipelineMode: 'legacy_deep_analysis'
   };
 }
 
@@ -125,6 +129,8 @@ async function readStored(): Promise<StoredSettings> {
     const parsed = JSON.parse(await fs.readFile(settingsPath(), 'utf8')) as StoredSettings | LegacySettings;
     if (!Array.isArray((parsed as StoredSettings).profiles)) return migrateLegacy(parsed as LegacySettings);
     const stored = { ...defaults(), ...(parsed as StoredSettings) };
+    if (!DIRECTION_GENERATION_MODES.includes(stored.directionGenerationMode)) stored.directionGenerationMode = 'conceptual_v1';
+    if (!ANALYSIS_PIPELINE_MODES.includes(stored.analysisPipelineMode)) stored.analysisPipelineMode = 'legacy_deep_analysis';
     stored.profiles = stored.profiles.map((profile) => ({
       ...profile,
       provider: String(profile.provider || 'openai-compatible').trim(),
@@ -159,6 +165,7 @@ async function publicSettings(settings: StoredSettings): Promise<PublicSettings>
     cacheEnabled: settings.cacheEnabled,
     logLevel: settings.logLevel,
     directionGenerationMode: settings.directionGenerationMode,
+    analysisPipelineMode: settings.analysisPipelineMode,
     connectionStatus: defaultProfile ? profileStatus(defaultProfile) : 'untested'
   };
 }
@@ -194,6 +201,9 @@ export async function saveSettings(input: SaveSettingsInput): Promise<PublicSett
   settings.logLevel = input.logLevel;
   if (input.directionGenerationMode && DIRECTION_GENERATION_MODES.includes(input.directionGenerationMode)) {
     settings.directionGenerationMode = input.directionGenerationMode;
+  }
+  if (input.analysisPipelineMode && ANALYSIS_PIPELINE_MODES.includes(input.analysisPipelineMode)) {
+    settings.analysisPipelineMode = input.analysisPipelineMode;
   }
   await writeStored(settings);
   return publicSettings(settings);

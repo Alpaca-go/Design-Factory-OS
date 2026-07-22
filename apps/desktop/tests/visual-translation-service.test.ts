@@ -79,6 +79,30 @@ test('Visual Translation Desktop service persists documents, checkpoints, report
   }
 });
 
+test('Visual Fact First selects the V2 runner even when the direction setting is legacy', async () => {
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'visual-fact-first-selector-'));
+  const source = path.join(temporary, '品牌策略.md');
+  await fs.writeFile(source, '# 品牌策略\n\n平台服务专业机构。', 'utf8');
+  let selectedMode = '';
+  const service = createVisualTranslationService(
+    async () => ({ profileId: 'profile-test', provider: 'mock', baseUrl: 'https://example.test/v1', model: 'mock-model', apiKey: 'secret' }),
+    async () => ({ profiles: [], defaultProfileId: null, provider: '', baseUrl: '', model: '', hasApiKey: false, defaultDataPath: temporary, cacheEnabled: true, logLevel: 'info', connectionStatus: 'untested', directionGenerationMode: 'conceptual_v1', analysisPipelineMode: 'visual_fact_first' }),
+    () => {}, () => async () => ({ text: '{}' }),
+    async () => { throw new Error('legacy runner must not be used'); },
+    async (input: Record<string, any>) => {
+      selectedMode = input.analysisPipelineMode;
+      return { reportMarkdown: '# Visual Fact First', reportBasename: 'visual-directions-report-v2-experimental.md', modelCallCount: 0, metrics: [], composition: { visualRatio: 0.8 }, protocolVersion: 'visual-translation-v2-execution' };
+    }
+  );
+  try {
+    const result = await service.start({ documentPaths: [source], apiProfileId: 'profile-test' });
+    assert.equal(selectedMode, 'visual_fact_first');
+    assert.equal(result.run.status, 'completed');
+  } finally {
+    await fs.rm(temporary, { recursive: true, force: true });
+  }
+});
+
 test('Visual Translation marks remaining Step 4 schema errors recoverable and resumes from Repair checkpoint', async () => {
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'visual-translation-repair-resume-'));
   const source = path.join(temporary, '品牌策略.md');
