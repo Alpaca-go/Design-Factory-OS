@@ -21,6 +21,7 @@ import { findRecoverableRunProjection } from './runtime/recovery-service.ts';
 import { buildStep4ResultCheckpoint, resultHash } from './runtime/result-checkpoint.ts';
 import { RunWriteCoordinator } from './runtime/run-write-coordinator.ts';
 import { transitionRuntimeStatus, type RuntimeErrorCategory, type RuntimeIssue, type RuntimeStatus } from './runtime/runtime-status.ts';
+import { createLiveBenchmarkRetriever } from './live-benchmark-retriever.ts';
 
 // Bundled from the repository core. Desktop owns persistence and user interaction only.
 // @ts-ignore JavaScript core module intentionally has no TypeScript declaration file.
@@ -30,7 +31,7 @@ import { runVisualTranslationV1 } from '../../../../src/v5/visual-translation/v1
 // @ts-ignore JavaScript core module intentionally has no TypeScript declaration file.
 import { runVisualTranslationV2 } from '../../../../src/v5/visual-translation/v2/runtime/run-visual-translation-v2.js';
 // @ts-ignore JavaScript core module intentionally has no TypeScript declaration file.
-import { EXPERIMENT_MODE, PRODUCTION_BASELINE_MODE, normalizeDirectionGenerationMode, isExecutionMode } from '../../../../src/v5/visual-translation/v2/config/direction-generation-mode.js';
+import { normalizeDirectionGenerationMode, isExecutionMode } from '../../../../src/v5/visual-translation/v2/config/direction-generation-mode.js';
 
 type CredentialsReader = (profileId?: string) => Promise<ProviderCredentials>;
 type SettingsReader = () => Promise<PublicSettings>;
@@ -48,6 +49,8 @@ const STAGE_MESSAGES: Record<VisualTranslationStage, string> = {
   '00-document-preparation': '正在整理与去重策略文档',
   '01-visual-evidence': '正在提取视觉证据',
   '01-visual-relevant-facts': '正在提取与视觉决策直接相关的品牌事实',
+  '01-visual-brief': '正在编译视觉任务简报',
+  '01b-visual-brief-review': '正在编译视觉任务简报审阅文档',
   '01b-visual-facts-review': '正在编译视觉事实审阅文档',
   '02-visual-signal-opportunity': '正在生成视觉信号与机会地图',
   '02-visual-asset-evidence': '正在整理现有视觉资产证据',
@@ -59,7 +62,8 @@ const STAGE_MESSAGES: Record<VisualTranslationStage, string> = {
   '04-three-creative-directions': '正在构建三个显著不同的创意方向',
   '05-direction-recommendation': '正在执行本地方向排序',
   '04b-compile-execution-directions': '正在编译执行向方向与回归守卫',
-  '10-local-report-compiler': '正在编译视觉方向报告'
+  '10-local-report-compiler': '正在编译视觉方向报告',
+  '10b-local-audit-compiler': '正在编译视觉方向技术审计'
 };
 
 const SUPPORTED_EXTENSIONS = new Set(['.pdf', '.docx', '.md', '.markdown', '.txt']);
@@ -398,9 +402,15 @@ export function createVisualTranslationService(
       const checkpoints = await loadCheckpoints(record.id);
       const reasoner = reasonerFactory({ apiKey: credentials.apiKey, model: credentials.model, provider: credentials.provider, baseUrl: credentials.baseUrl });
       const runtimeSettings = await readSettings();
-      const mode = normalizeDirectionGenerationMode(runtimeSettings.directionGenerationMode || PRODUCTION_BASELINE_MODE);
-      const analysisPipelineMode = process.env.MASTERPIECE_VISUAL_PIPELINE_MODE || runtimeSettings.analysisPipelineMode || 'legacy_deep_analysis';
-      const runner = isExecutionMode(mode) || analysisPipelineMode === 'visual_fact_first' ? v2Runner : pipelineRunner;
+      const legacyDebugEnabled = process.env.MASTERPIECE_ENABLE_LEGACY_PIPELINES === '1';
+      const mode = normalizeDirectionGenerationMode(
+        process.env.MASTERPIECE_DIRECTION_PROTOCOL
+        || (legacyDebugEnabled ? runtimeSettings.directionGenerationMode : 'execution_oriented_v2')
+      );
+      const analysisPipelineMode = process.env.MASTERPIECE_VISUAL_PIPELINE_MODE
+        || (legacyDebugEnabled ? runtimeSettings.analysisPipelineMode : 'retrieval_first')
+        || 'retrieval_first';
+      const runner = isExecutionMode(mode) || ['retrieval_first', 'visual_fact_first', 'visual_fact_first_legacy'].includes(analysisPipelineMode) ? v2Runner : pipelineRunner;
       const execution = await runner({
         projectId: record.id,
         analysisRunId: record.analysisRunId,
@@ -411,6 +421,7 @@ export function createVisualTranslationService(
         provider: credentials.provider,
         modelId: credentials.model,
         analysisPipelineMode,
+        benchmarkRetriever: analysisPipelineMode === 'retrieval_first' ? createLiveBenchmarkRetriever() : undefined,
         reasoner,
         checkpoints,
         abortSignal: controller.signal,

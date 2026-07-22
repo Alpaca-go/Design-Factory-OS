@@ -10,9 +10,20 @@ export const CONSUMER_VALUE_ROLES = Object.freeze([
   'auxiliary',
   'none'
 ]);
+export const VALUE_AUDIENCES = Object.freeze(['upstream', 'platform', 'institution', 'consumer']);
 
 const ROLE_RANK = new Map(CONSUMER_VALUE_ROLES.map((role, index) => [role, CONSUMER_VALUE_ROLES.length - index]));
 const CONSUMER_KEYWORDS = ['消费者', '安心', '用户体验', '美学价值', '信任', '用户', '终端', '终端消费者', '消费者体验', '品质感', '精致'];
+const CONSUMER_OUTCOME_KEYWORDS = ['消费者', '终端', '安全', '安心', '透明', '稳定', '可追溯', '不确定性', '一致的终端体验', '信任', '用户体验'];
+const INSTITUTION_VALUE_KEYWORDS = ['机构采购风险', '机构运营', '运营效率', '采购效率', '降低采购风险', '稳定上下游交付'];
+
+function classifyValueAudience(text) {
+  const value = String(text || '');
+  if (CONSUMER_OUTCOME_KEYWORDS.some((keyword) => value.includes(keyword))) return 'consumer';
+  if (INSTITUTION_VALUE_KEYWORDS.some((keyword) => value.includes(keyword))) return 'institution';
+  if (/上游|供应商|品牌方/u.test(value)) return 'upstream';
+  return 'platform';
+}
 
 function validRole(value) {
   return ROLE_RANK.has(value) ? value : undefined;
@@ -87,6 +98,9 @@ export function normalizeConsumerValue(direction = {}) {
   if (!role) role = present ? 'strong_secondary' : 'none';
 
   const allValues = [canonicalDirectionValue, ...exampleValues.map(({ value }) => value)].filter(Boolean);
+  const valueStatement = uniqueStrings(allValues.map((value) => value.value_statement)).join('；');
+  const visualExpression = uniqueStrings(allValues.map((value) => value.visual_expression)).join('；');
+  const valueAudience = classifyValueAudience(`${valueStatement} ${visualExpression}`);
   const sourcePaths = [];
   if (directionHasSignal) {
     if (root.consumer_value) sourcePaths.push('visualDirectionV2.consumer_value');
@@ -102,8 +116,9 @@ export function normalizeConsumerValue(direction = {}) {
     direction_id: root.direction_id,
     present: Boolean(present),
     consumer_value_role: role,
-    value_statement: uniqueStrings(allValues.map((value) => value.value_statement)).join('；'),
-    visual_expression: uniqueStrings(allValues.map((value) => value.visual_expression)).join('；'),
+    value_statement: valueStatement,
+    visual_expression: visualExpression,
+    value_audience: valueAudience,
     touchpoints: uniqueStrings(allValues.flatMap((value) => value.touchpoints || [])),
     evidence_ids: uniqueStrings(allValues.flatMap((value) => value.evidence_ids || [])),
     explicit: source === 'direction_level' || source === 'execution_examples',

@@ -388,6 +388,43 @@ test('validation collector reports every present=true and role=none contradictio
   ]);
 });
 
+test('selection mechanism blanks across directions are collected and repaired in one bounded pass', () => {
+  const fixture = JSON.parse(readFileSync(join(HERE, '..', 'fixtures', 'visual-direction-v2', 'jiuzhou-meixue', 'v2-directions.json'), 'utf8'));
+  const directions = structuredClone(fixture);
+  for (const index of [0, 2]) {
+    directions[index].selection_mechanism = {
+      selection_dimensions: [], visual_mapping_rule: '', multi_category_rule: '',
+      comparison_behavior: '', platform_signature: ''
+    };
+  }
+  const context = {
+    reportLanguage: 'zh-CN',
+    evidenceIds: new Set(directions.flatMap((direction) => direction.evidence_ids || [])),
+    allowedAssetIds: new Set(directions.flatMap((direction) => direction.asset_references || [])),
+    restrictedAssetIds: new Set()
+  };
+  const issues = collectExecutionDirectionV2ValidationErrors(directions, context);
+  assert.equal(issues.length, 10);
+  for (const index of [0, 2]) {
+    for (const field of ['selection_dimensions', 'visual_mapping_rule', 'multi_category_rule', 'comparison_behavior', 'platform_signature']) {
+      assert.ok(issues.some((issue) => issue.path === `visualDirectionV2Set.directions[${index}].selection_mechanism.${field}`));
+    }
+  }
+  const error = Object.assign(new Error('selection mechanism incomplete'), { code: 'FAILED_SCHEMA', issues });
+  const prompt = buildFieldRepairPrompt({ originalJson: { visualDirectionV2Set: { directions } }, validationError: error })[0].content;
+  assert.match(prompt, /The JSON has 10 validation error\(s\)/u);
+  assert.match(prompt, /state how each selection dimension maps to an observable graphic/u);
+  const valueFor = (field) => field === 'selection_dimensions'
+    ? ['证据可验证性', '机构决策价值']
+    : `${field} 的项目专属可观察规则`;
+  const repaired = applyFieldRepairPatch(
+    { visualDirectionV2Set: { directions } },
+    { corrections: issues.map((issue) => ({ path: issue.path, operation: 'replace', value: valueFor(issue.path.split('.').at(-1)) })) },
+    error
+  );
+  assert.doesNotThrow(() => validateExecutionDirectionV2Set(repaired.visualDirectionV2Set.directions, context));
+});
+
 test('an incomplete Repair advances the recovery checkpoint to the repaired JSON', async () => {
   const initial = JSON.stringify({ visualDirectionV2Set: { directions: [{ brand_evidence: null, direction_name: null }] } });
   const pendingStates = [];

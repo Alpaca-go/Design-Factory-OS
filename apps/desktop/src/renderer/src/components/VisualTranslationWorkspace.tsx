@@ -2,7 +2,6 @@ import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { useEffect, useMemo, useState } from 'react';
 import type {
-  DirectionGenerationMode,
   PublicSettings,
   VisualTranslationDocumentSummary,
   VisualTranslationProgress,
@@ -23,12 +22,26 @@ interface Props {
 
 const STAGES: Array<[VisualTranslationStage, string]> = [
   ['00-document-preparation', '文档准备'],
-  ['01-visual-evidence', '视觉证据'],
-  ['02-visual-signal-opportunity', '信号与机会地图'],
-  ['04-three-creative-directions', '三个创意方向'],
-  ['05-direction-recommendation', '本地方向排序'],
-  ['10-local-report-compiler', '报告编译']
+  ['01-visual-brief', '视觉简报'],
+  ['02-visual-asset-evidence', '视觉资产证据'],
+  ['03b-benchmark-retrieval', '实时案例研究'],
+  ['03c-visual-opportunity-synthesis', '视觉机会综合'],
+  ['04-three-creative-directions', '三个视觉方向'],
+  ['10-local-report-compiler', '报告编译'],
+  ['10b-local-audit-compiler', '技术审计']
 ];
+
+const stageGroupIndex = (stage?: VisualTranslationStage): number => {
+  if (!stage) return -1;
+  if (stage === '00-document-preparation') return 0;
+  if (stage === '01-visual-relevant-facts' || stage === '01-visual-brief' || stage === '01b-visual-brief-review') return 1;
+  if (stage === '02-visual-asset-evidence' || stage === '02b-visual-asset-evidence-review') return 2;
+  if (stage === '03a-benchmark-query-compiler' || stage === '03b-benchmark-retrieval') return 3;
+  if (stage === '03c-visual-opportunity-synthesis' || stage === '03d-visual-opportunity-review') return 4;
+  if (stage === '04-three-creative-directions' || stage === '04b-compile-execution-directions') return 5;
+  if (stage === '10-local-report-compiler' || stage === '10b-local-audit-compiler') return 6;
+  return -1;
+};
 
 const STATUS_LABELS: Record<VisualTranslationRunRecord['status'], string> = {
   pending: '等待中',
@@ -79,23 +92,7 @@ export function VisualTranslationWorkspace({ settings, selectedApiProfileId, ini
   const [error, setError] = useState('');
   const [userError, setUserError] = useState<VisualTranslationUserError | null>(null);
   const [notice, setNotice] = useState('');
-  const [mode, setMode] = useState<DirectionGenerationMode>(settings.directionGenerationMode || 'conceptual_v1');
-
-  async function changeMode(next: DirectionGenerationMode) {
-    setMode(next);
-    try {
-      await window.masterpiece.settings.save({
-        defaultDataPath: settings.defaultDataPath,
-        cacheEnabled: settings.cacheEnabled,
-        logLevel: settings.logLevel,
-        directionGenerationMode: next
-      });
-    } catch (reason) {
-      setError(cleanError(reason));
-    }
-  }
-
-  const activeStageIndex = STAGES.findIndex(([stage]) => stage === progress?.stage);
+  const activeStageIndex = stageGroupIndex(progress?.stage);
   const totalCharacters = useMemo(() => documents.reduce((sum, document) => sum + document.characterCount, 0), [documents]);
 
   async function refreshRuns() {
@@ -211,7 +208,7 @@ export function VisualTranslationWorkspace({ settings, selectedApiProfileId, ini
 
   if (selectedRun && reportMarkdown) return <div className="page report-page visual-translation-report">
     <header className="page-header">
-      <div><p className="eyebrow">VISUAL TRANSLATION {selectedRun.reportFilename?.includes('v2-experimental') ? 'V2 (EXPERIMENT)' : 'V1'} / DIRECTIONS COMPLETE</p><h1>{selectedRun.projectName}</h1><p>{selectedRun.reportFilename}</p></div>
+      <div><p className="eyebrow">VISUAL DIRECTIONS COMPLETE</p><h1>{selectedRun.projectName}</h1><p>{selectedRun.reportFilename}</p></div>
       <button className="button ghost" onClick={() => { setSelectedRun(null); setReportMarkdown(''); }}>返回工作台</button>
     </header>
     <div className="result-summary">
@@ -232,7 +229,7 @@ export function VisualTranslationWorkspace({ settings, selectedApiProfileId, ini
 
   return <div className="page visual-translation-page">
     <header className="page-header">
-      <div><p className="eyebrow">DOCUMENT → VISUAL DIRECTIONS</p><h1>视觉转译 {mode === 'execution_oriented_v2' ? 'V2（实验）' : 'V1'}</h1><p>上传策略文档，通过三次模型调用生成三个可比较的创意方向。</p></div>
+      <div><p className="eyebrow">DOCUMENT → VISUAL DIRECTIONS</p><h1>视觉方向</h1><p>上传项目资料，系统将编译视觉简报并生成三个可执行方向。</p></div>
       <div className="button-row"><button className="button ghost" onClick={onOpenSettings}>API 设置</button><button className="button ghost" onClick={onBack}>返回首页</button></div>
     </header>
 
@@ -243,13 +240,7 @@ export function VisualTranslationWorkspace({ settings, selectedApiProfileId, ini
       <section className="panel visual-translation-form">
         <div className="section-heading"><span>01</span><div><h2>准备分析任务</h2><p>支持 PDF、DOCX、Markdown 和 TXT</p></div></div>
         <label>分析模型<select value={profileId} onChange={(event) => onApiProfileChange(event.target.value)}><option value="">请选择 API Profile</option>{profiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.displayName} / {profile.modelId}</option>)}</select></label>
-        <label>方向生成模式
-          <div className="mode-toggle">
-            <button type="button" className={mode === 'conceptual_v1' ? 'active' : ''} onClick={() => void changeMode('conceptual_v1')}>概念方向 V1（生产）</button>
-            <button type="button" className={mode === 'execution_oriented_v2' ? 'active' : ''} onClick={() => void changeMode('execution_oriented_v2')}>执行向 V2（实验）</button>
-          </div>
-        </label>
-        <p className="mode-hint">{mode === 'execution_oriented_v2' ? '实验分支：生成可直接落地的执行向视觉方向，与 V1 生产基线并存。' : '生产基线：生成三个可比较的概念创意方向。'}</p>
+        <div className="mode-hint">系统将提取视觉相关品牌事实，研究同品类与相同商业模式案例，并生成 3 个可执行视觉方向。</div>
         <div className="document-toolbar"><div><strong>策略文档</strong><small>{documents.length} 份 · {totalCharacters.toLocaleString('zh-CN')} 字符</small></div></div>
         <div className={`drop-zone translation-drop-zone ${busy ? 'busy' : ''}`} onDragOver={(event) => event.preventDefault()} onDrop={(event) => {
           event.preventDefault();
@@ -262,7 +253,7 @@ export function VisualTranslationWorkspace({ settings, selectedApiProfileId, ini
         </div>
         {documents.length ? <div className="visual-document-list translation-selected-documents">{documents.map((document) => <div key={document.path}><span className="document-kind">{document.sourceType.toUpperCase()}</span><div><strong>{document.filename}</strong><small>{document.title || '未识别标题'} · {document.characterCount.toLocaleString('zh-CN')} 字符{document.pageCount ? ` · ${document.pageCount} 页` : ''}</small>{document.warnings.map((warning) => <em key={warning}>{warning}</em>)}</div><button aria-label={`移除 ${document.filename}`} onClick={() => setDocuments((current) => current.filter((item) => item.path !== document.path))}>×</button></div>)}</div> : <div className="auto-project-name-note">上传后将从文档标题和正文自动识别项目名称，无需手动填写。</div>}
         {!profiles.some((profile) => profile.hasApiKey) && <div className="notice error">尚未配置可用的 API Profile，请先前往 API 设置。</div>}
-        <button className="button primary full" disabled={busy || !documents.length || !profiles.find((profile) => profile.id === profileId)?.hasApiKey} onClick={() => void start()}>{busy ? '分析运行中…' : (mode === 'execution_oriented_v2' ? '开始 Visual Translation V2（实验）' : '开始 Visual Translation V1')}</button>
+        <button className="button primary full" disabled={busy || !documents.length || !profiles.find((profile) => profile.id === profileId)?.hasApiKey} onClick={() => void start()}>{busy ? '分析运行中…' : '开始分析'}</button>
       </section>
 
       <aside className="panel visual-translation-history">
@@ -276,7 +267,7 @@ export function VisualTranslationWorkspace({ settings, selectedApiProfileId, ini
     </div>
 
     {(busy || progress) && <section className="panel visual-progress-panel">
-      <div><p className="eyebrow">PIPELINE STATUS</p><h2>{progress?.message || '正在创建任务'}</h2><p>{progress?.model || profiles.find((profile) => profile.id === profileId)?.modelId}</p></div>
+      <div><p className="eyebrow">分析进度</p><h2>{progress?.message || '正在创建任务'}</h2><p>{progress?.model || profiles.find((profile) => profile.id === profileId)?.modelId}</p></div>
       <div className="visual-stage-strip">{STAGES.map(([stage, label], index) => <div key={stage} className={index < activeStageIndex ? 'done' : index === activeStageIndex ? 'active' : ''}><span>{index < activeStageIndex ? '✓' : String(index + 1).padStart(2, '0')}</span><strong>{label}</strong></div>)}</div>
       {busy && activeRunId && <button className="button danger" onClick={() => void window.masterpiece.visualTranslation.cancel(activeRunId)}>取消分析</button>}
     </section>}

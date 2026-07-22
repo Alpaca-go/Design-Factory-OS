@@ -28,7 +28,7 @@ interface StoredSettings {
 }
 
 const DIRECTION_GENERATION_MODES = Object.freeze(['conceptual_v1', 'execution_oriented_v2']);
-const ANALYSIS_PIPELINE_MODES = Object.freeze(['legacy_deep_analysis', 'visual_fact_first']);
+const ANALYSIS_PIPELINE_MODES = Object.freeze(['retrieval_first', 'visual_fact_first_legacy', 'deep_analysis_legacy', 'legacy_deep_analysis', 'visual_fact_first']);
 
 interface LegacySettings {
   provider?: ProviderKind;
@@ -69,8 +69,8 @@ function defaults(): StoredSettings {
     defaultDataPath: path.join(app.getPath('documents'), 'Masterpiece OS Data'),
     cacheEnabled: true,
     logLevel: 'info',
-    directionGenerationMode: 'conceptual_v1',
-    analysisPipelineMode: 'visual_fact_first'
+    directionGenerationMode: 'execution_oriented_v2',
+    analysisPipelineMode: 'retrieval_first'
   };
 }
 
@@ -129,8 +129,8 @@ async function readStored(): Promise<StoredSettings> {
     const parsed = JSON.parse(await fs.readFile(settingsPath(), 'utf8')) as StoredSettings | LegacySettings;
     if (!Array.isArray((parsed as StoredSettings).profiles)) return migrateLegacy(parsed as LegacySettings);
     const stored = { ...defaults(), ...(parsed as StoredSettings) };
-    if (!DIRECTION_GENERATION_MODES.includes(stored.directionGenerationMode)) stored.directionGenerationMode = 'conceptual_v1';
-    if (!ANALYSIS_PIPELINE_MODES.includes(stored.analysisPipelineMode)) stored.analysisPipelineMode = 'visual_fact_first';
+    if (!DIRECTION_GENERATION_MODES.includes(stored.directionGenerationMode)) stored.directionGenerationMode = 'execution_oriented_v2';
+    if (!ANALYSIS_PIPELINE_MODES.includes(stored.analysisPipelineMode)) stored.analysisPipelineMode = 'retrieval_first';
     stored.profiles = stored.profiles.map((profile) => ({
       ...profile,
       provider: String(profile.provider || 'openai-compatible').trim(),

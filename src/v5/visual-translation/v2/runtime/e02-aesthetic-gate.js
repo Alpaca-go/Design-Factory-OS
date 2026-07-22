@@ -360,6 +360,11 @@ export function evaluateE02AestheticGate(directions = []) {
     // info-level only — blockingReasons must stay clean of pass_with_warning.
   }
 
+  const rewriteRequired = (blockingReasons.length > 0 && !positiveQualityConditional && !positiveQualityPassWithWarning) || weightSumInvalid;
+  const platformRolePreserved = /平台/u.test(text);
+  const anchorMechanismEnhancement = rewriteRequired && platformRolePreserved && degradationPass
+    && !blockingReasons.some((reason) => /weight_sum_invalid|direction_family_label_mismatch|degradation_fail/u.test(reason));
+
   return {
     evaluator_version: E02_AESTHETIC_GATE_VERSION,
     evaluated_direction_id: target.direction_id,
@@ -374,7 +379,9 @@ export function evaluateE02AestheticGate(directions = []) {
     degradation_pass: degradationPass,
     direction_family_label_mismatch: labelMismatch,
     // v2.1.4.1 — rewrite_required includes weight_sum_invalid (doc §3.1).
-    rewrite_required: (blockingReasons.length > 0 && !positiveQualityConditional && !positiveQualityPassWithWarning) || weightSumInvalid,
+    rewrite_required: rewriteRequired,
+    resolution_code: anchorMechanismEnhancement ? 'ANCHOR_MECHANISM_ENHANCEMENT_REQUIRED' : (rewriteRequired ? 'E02_POSITIVE_QUALITY' : null),
+    platform_role_preserved: platformRolePreserved,
     positive_quality_pass: positiveQualityPass,
     positive_quality_pass_with_warning: positiveQualityPassWithWarning,
     positive_quality_status: positiveQuality.status,

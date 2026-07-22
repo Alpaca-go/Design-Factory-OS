@@ -1,11 +1,13 @@
 export const ANALYSIS_PIPELINE_MODES = Object.freeze({
-  LEGACY_DEEP_ANALYSIS: 'legacy_deep_analysis',
-  VISUAL_FACT_FIRST: 'visual_fact_first'
+  RETRIEVAL_FIRST: 'retrieval_first',
+  VISUAL_FACT_FIRST_LEGACY: 'visual_fact_first_legacy',
+  DEEP_ANALYSIS_LEGACY: 'deep_analysis_legacy',
+  // Backward-compatible persisted values. They remain internal-only.
+  VISUAL_FACT_FIRST: 'visual_fact_first',
+  LEGACY_DEEP_ANALYSIS: 'legacy_deep_analysis'
 });
 
-// Core API calls remain backward compatible. The experiment Desktop selects
-// Visual Fact First through its persisted default setting.
-export const DEFAULT_ANALYSIS_PIPELINE_MODE = ANALYSIS_PIPELINE_MODES.LEGACY_DEEP_ANALYSIS;
+export const DEFAULT_ANALYSIS_PIPELINE_MODE = ANALYSIS_PIPELINE_MODES.RETRIEVAL_FIRST;
 
 export function normalizeAnalysisPipelineMode(value) {
   const selected = value || process.env.MASTERPIECE_VISUAL_PIPELINE_MODE || DEFAULT_ANALYSIS_PIPELINE_MODE;
@@ -18,5 +20,13 @@ export function normalizeAnalysisPipelineMode(value) {
 }
 
 export function isVisualFactFirstMode(value) {
-  return normalizeAnalysisPipelineMode(value) === ANALYSIS_PIPELINE_MODES.VISUAL_FACT_FIRST;
+  return [
+    ANALYSIS_PIPELINE_MODES.RETRIEVAL_FIRST,
+    ANALYSIS_PIPELINE_MODES.VISUAL_FACT_FIRST_LEGACY,
+    ANALYSIS_PIPELINE_MODES.VISUAL_FACT_FIRST
+  ].includes(normalizeAnalysisPipelineMode(value));
+}
+
+export function isRetrievalFirstMode(value) {
+  return normalizeAnalysisPipelineMode(value) === ANALYSIS_PIPELINE_MODES.RETRIEVAL_FIRST;
 }

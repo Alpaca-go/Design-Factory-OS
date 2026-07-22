@@ -31,9 +31,11 @@ import { VISUAL_TRANSLATION_V2_RUNTIME_CONFIG } from '../config/visual-translati
 import { buildExecutionDirectionV2Prompt, VISUAL_DIRECTIONS_PROMPT_V2_VERSION } from '../prompts/direction-generation-prompt-v2.js';
 import { validateExecutionDirectionV2Set } from '../schemas/direction-contract-v2.js';
 import { compileExecutionDirectionV2 } from './compile-execution-direction-v2.js';
-import { compileExecutionDirectionsReportV2 } from '../report/compile-execution-directions-report-v2.js';
-import { normalizeAnalysisPipelineMode, ANALYSIS_PIPELINE_MODES } from '../config/analysis-pipeline-mode.js';
+import { compileExecutionDirectionsAuditV2, compileExecutionDirectionsReportV2 } from '../report/visual-directions-report-compiler.js';
+import { normalizeAnalysisPipelineMode, isVisualFactFirstMode } from '../config/analysis-pipeline-mode.js';
 import { runVisualFactFirstUpstream } from '../visual-fact-first/run-upstream.js';
+import { VISUAL_FACT_FIRST_REQUIRED_ARTIFACTS } from '../visual-fact-first/pipeline-completeness.js';
+import { evaluateModelCriticAdvisory, validateLightweightDirections } from './lightweight-validator.js';
 
 const RETRYABLE_VALIDATION_CODES = new Set([
   'FAILED_SCHEMA', 'DIRECTIONS_NOT_DISTINCT', 'B2B_BOUNDARY_VIOLATION',
@@ -51,7 +53,9 @@ const V2_STAGE_SEQUENCE = Object.freeze({
   '00-document-preparation': 0,
   '01-visual-evidence': 10,
   '01-visual-relevant-facts': 11,
-  '01b-visual-facts-review': 12,
+  '01-visual-brief': 12,
+  '01b-visual-brief-review': 13,
+  '01b-visual-facts-review': 14,
   '02-visual-signal-opportunity': 20,
   '02-visual-asset-evidence': 21,
   '02b-visual-asset-evidence-review': 22,
@@ -59,8 +63,10 @@ const V2_STAGE_SEQUENCE = Object.freeze({
   '03b-benchmark-retrieval': 31,
   '03c-visual-opportunity-synthesis': 32,
   '03d-visual-opportunity-review': 33,
+  '04-step4-input-context': 34,
   '04-three-creative-directions': 40,
-  '10-local-report-compiler': 100
+  '10-local-report-compiler': 100,
+  '10b-local-audit-compiler': 101
 });
 
 const VISUAL_TRANSLATION_V2 = Object.freeze({
@@ -70,6 +76,21 @@ const VISUAL_TRANSLATION_V2 = Object.freeze({
 });
 
 function abortError() { return new DOMException('User cancelled the analysis', 'AbortError'); }
+
+function attachOpportunityTraceability(directions, visualOpportunitySynthesis) {
+  const opportunities = visualOpportunitySynthesis?.differentiation_opportunities || [];
+  const knownOpportunityIds = new Set(opportunities.map((item) => item.opportunity_id));
+  const familyMap = new Map((visualOpportunitySynthesis?.recommended_direction_families || [])
+    .map((item) => [item.family, item.opportunity_id]));
+  return (directions || []).map((direction, index) => {
+    const root = direction?.visualDirectionV2 || direction;
+    if (Array.isArray(root.source_opportunity_ids) && root.source_opportunity_ids.length
+      && (!knownOpportunityIds.size || root.source_opportunity_ids.every((id) => knownOpportunityIds.has(id)))) return direction;
+    const opportunityId = familyMap.get(root.direction_family) || opportunities[index]?.opportunity_id;
+    const enriched = { ...root, source_opportunity_ids: opportunityId ? [opportunityId] : [] };
+    return direction?.visualDirectionV2 ? { ...direction, visualDirectionV2: enriched } : enriched;
+  });
+}
 
 // The v2 experimental report has a different section layout than v1, so the v1
 // `measureVisualReportComposition` (tuned for v1 headers) is not meaningful. We
@@ -109,6 +130,7 @@ export async function runVisualTranslationV2(input) {
   const outputs = {};
   const checkpoints = input.checkpoints || {};
   const analysisPipelineMode = normalizeAnalysisPipelineMode(input.analysisPipelineMode);
+  const retrievalFirstActive = isVisualFactFirstMode(analysisPipelineMode);
   const assertRuntime = () => {
     if (input.abortSignal?.aborted) throw abortError();
     if (Date.now() - startedAt >= VISUAL_TRANSLATION_V2.pipelineBudgetMs) throw Object.assign(new Error('Visual Translation V2 exceeded its 22-minute budget'), { code: 'PIPELINE_TIME_BUDGET_EXCEEDED' });
@@ -274,9 +296,9 @@ export async function runVisualTranslationV2(input) {
   let opportunityMap;
   let v2Context;
   let visualFactFirst = null;
-  if (analysisPipelineMode === ANALYSIS_PIPELINE_MODES.VISUAL_FACT_FIRST) {
+  if (retrievalFirstActive) {
     visualFactFirst = await runVisualFactFirstUpstream({
-      input, prepared, model, local, save, resume, selectedTouchpoints: input.selectedTouchpoints || DEFAULT_SELECTED_TOUCHPOINTS
+      input, prepared, model, local, save, resume, selectedTouchpoints: input.selectedTouchpoints
     });
     ({ evidenceMap, signalMap, opportunityMap, step4Context: v2Context } = visualFactFirst);
   } else {
@@ -342,7 +364,7 @@ export async function runVisualTranslationV2(input) {
   let rawDirections = resume('04-three-creative-directions', directionsExpected, (value) => {
     const list = Array.isArray(value) ? value : (value.rawDirections || []);
     const normalized = conservativelyNormalizeDirectionSet({ visualDirectionV2Set: { directions: list } });
-    return validateExecutionDirectionV2Set(normalized.visualDirectionV2Set.directions, contractContext);
+    return validateExecutionDirectionV2Set(attachOpportunityTraceability(normalized.visualDirectionV2Set.directions, visualFactFirst?.visualOpportunitySynthesis), contractContext);
   });
   if (!rawDirections || !rawDirections.length) {
     assertRuntime();
@@ -391,16 +413,16 @@ export async function runVisualTranslationV2(input) {
         metrics.push({ stageId: '04-three-creative-directions', kind: attempt === 1 ? 'model' : 'model-repair', attempt, durationMs: 0, resumed: false, usage: response.usage || null, modelId: response.model || input.modelId, provider: response.provider || input.provider, finishReason: response.finishReason || null, thinkingEnabled: profile.thinking });
       },
       validate(list) {
-        return validateExecutionDirectionV2Set(list, contractContext);
+        return validateExecutionDirectionV2Set(attachOpportunityTraceability(list, visualFactFirst?.visualOpportunitySynthesis), contractContext);
       }
     });
     rawDirections = step4.directions;
-    await save('04-three-creative-directions', rawDirections, { ...directionsExpected, profile: { ...getStageProfile('04-execution-oriented-directions-v2'), provider: input.provider, modelId: input.modelId }, outputFile: 'visual-direction-v2-set.json' });
+    await save('04-three-creative-directions', rawDirections, { ...directionsExpected, profile: { ...getStageProfile('04-execution-oriented-directions-v2'), provider: input.provider, modelId: input.modelId }, outputFile: retrievalFirstActive ? '06-Visual-Directions.json' : 'visual-direction-v2-set.json' });
   }
   await input.onCheckpointRemoved?.(STEP4_REPAIR_CHECKPOINT_STAGE);
 
   // ── 04b: Compile v2 directions (readiness + regression guards) ───────────
-  const compiled = await local('04b-compile-execution-directions', () => compileExecutionDirectionV2({
+  const compiledBase = await local('04b-compile-execution-directions', () => compileExecutionDirectionV2({
     brandFacts: v2Context.brandFacts,
     evidenceIndex: v2Context.evidenceIndex,
     audienceBoundary: v2Context.audienceBoundary,
@@ -409,26 +431,68 @@ export async function runVisualTranslationV2(input) {
     rawDirections
   }));
 
-  // ── 10: EXPERIMENTAL v2 report (independent of v1 Decision Report) ───────
-  const reportMarkdown = await local('10-local-report-compiler', () => compileExecutionDirectionsReportV2({ projectId: input.projectId, compiled, analysisPipelineMode }));
+  const lightweightValidation = retrievalFirstActive
+    ? validateLightweightDirections({ compiled: compiledBase, pipelineCompleteness: visualFactFirst?.pipelineCompleteness, benchmarkRetrieval: visualFactFirst?.benchmarkRetrieval })
+    : null;
+  const modelCritic = retrievalFirstActive ? evaluateModelCriticAdvisory(compiledBase) : null;
+  const compiled = lightweightValidation ? {
+    ...compiledBase,
+    legacy_gate_status: compiledBase.overall_status,
+    overall_status: lightweightValidation.status,
+    execution_permission_status: lightweightValidation.status === 'blocked' ? 'blocked' : lightweightValidation.status === 'ready' ? 'allowed' : 'conditional',
+    blocking_reasons: [...lightweightValidation.hard_blocks, ...lightweightValidation.rewrite_required, ...lightweightValidation.warnings],
+    lightweight_validation: lightweightValidation,
+    model_critic: modelCritic
+  } : compiledBase;
+  // ── 10: compile the formal visual-direction report ───────────────────────
+  const reportMarkdown = await local('10-local-report-compiler', () => compileExecutionDirectionsReportV2({
+    projectId: input.projectId, compiled, analysisPipelineMode,
+    pipelineCompleteness: visualFactFirst?.pipelineCompleteness,
+    visualFactFirst
+  }));
   const composition = measureExecutionReportComposition(reportMarkdown);
-  await save('10-local-report-compiler', reportMarkdown, { upstreamHash: valueHash({ directions: rawDirections, compiled }), promptVersion: VISUAL_TRANSLATION_V2.directionsReportVersion, schemaVersion: VISUAL_TRANSLATION_V2.directionsReportVersion, outputFile: 'visual-directions-report-v2-experimental.md' });
+  await save('10-local-report-compiler', reportMarkdown, { upstreamHash: valueHash({ directions: rawDirections, compiled }), promptVersion: VISUAL_TRANSLATION_V2.directionsReportVersion, schemaVersion: VISUAL_TRANSLATION_V2.directionsReportVersion, outputFile: retrievalFirstActive ? '06-Visual-Directions-Report.md' : 'visual-directions-report-v2-experimental.md' });
+  const auditMarkdown = retrievalFirstActive
+    ? await local('10b-local-audit-compiler', () => compileExecutionDirectionsAuditV2({
+      projectId: input.projectId, compiled, analysisPipelineMode,
+      pipelineCompleteness: visualFactFirst?.pipelineCompleteness,
+      visualFactFirst
+    }))
+    : null;
+  if (auditMarkdown) {
+    await save('10b-local-audit-compiler', auditMarkdown, {
+      upstreamHash: valueHash({ directions: rawDirections, compiled }),
+      promptVersion: VISUAL_TRANSLATION_V2.directionsReportVersion,
+      schemaVersion: VISUAL_TRANSLATION_V2.directionsReportVersion,
+      outputFile: '06-Visual-Directions-Audit.md'
+    });
+  }
 
   const stageDuration = (stageId) => metrics.filter((item) => item.stageId === stageId).reduce((total, item) => total + Number(item.durationMs || 0), 0);
   const stageTokens = (stageId, key) => metrics.filter((item) => item.stageId === stageId && item.usage).reduce((total, item) => total + Number(item.usage?.[key] || 0), 0);
+  const vffFactRecords = Object.values(visualFactFirst?.visualFacts.fact_records || {});
   const pipelineObservability = Object.freeze({
     pipeline_mode: analysisPipelineMode,
+    pipeline_completeness: visualFactFirst?.pipelineCompleteness || 'complete',
+    artifact_manifest: visualFactFirst ? VISUAL_FACT_FIRST_REQUIRED_ARTIFACTS : [],
     source_document_chars: prepared.sourceDocuments.reduce((total, item) => total + item.characterCount, 0),
     extracted_fact_count: visualFactFirst ? countFactLeaves(visualFactFirst.visualFacts) : evidenceMap.evidence.length,
     unresolved_fact_count: visualFactFirst?.visualFacts.confidence.unresolved_fields.length || evidenceMap.missingInformation.length,
+    fact_evidence_coverage: visualFactFirst && vffFactRecords.length
+      ? Number((vffFactRecords.filter((item) => item.evidence_ids.length > 0).length / vffFactRecords.length).toFixed(4))
+      : null,
     fact_extraction_ms: visualFactFirst ? stageDuration('01-visual-relevant-facts') : stageDuration('01-visual-evidence'),
     fact_input_tokens: visualFactFirst ? stageTokens('01-visual-relevant-facts', 'inputTokens') : stageTokens('01-visual-evidence', 'inputTokens'),
     fact_output_tokens: visualFactFirst ? stageTokens('01-visual-relevant-facts', 'outputTokens') : stageTokens('01-visual-evidence', 'outputTokens'),
     benchmark_query_count: visualFactFirst?.benchmarkRetrieval.query_count || 0,
     benchmark_result_count: visualFactFirst?.benchmarkRetrieval.result_count || 0,
     benchmark_relevant_count: visualFactFirst?.benchmarkRetrieval.relevant_count || 0,
+    benchmark_minimum_requirements_met: visualFactFirst?.benchmarkRetrieval.minimum_case_requirements_met || false,
     benchmark_ms: stageDuration('03b-benchmark-retrieval'),
     opportunity_count: visualFactFirst?.visualOpportunitySynthesis.differentiation_opportunities.length || 0,
+    opportunity_traceability_rate: visualFactFirst && rawDirections.length
+      ? Number((rawDirections.filter((direction) => direction.source_opportunity_ids?.length).length / rawDirections.length).toFixed(4))
+      : null,
     opportunity_ms: visualFactFirst ? stageDuration('03c-visual-opportunity-synthesis') : stageDuration('02-visual-signal-opportunity'),
     step4_input_chars: JSON.stringify(v2Context).length,
     step4_input_tokens: stageTokens('04-three-creative-directions', 'inputTokens'),
@@ -441,10 +505,11 @@ export async function runVisualTranslationV2(input) {
   return Object.freeze({
     ...partial,
     reportMarkdown,
+    auditMarkdown,
     composition,
     modelCallCount: metrics.filter((item) => item.kind === 'model' || item.kind === 'model-retry' || item.kind === 'model-repair').length,
     status: 'completed-directions',
     protocolVersion: VISUAL_TRANSLATION_V2.protocolVersion,
-    reportBasename: 'visual-directions-report-v2-experimental.md'
+    reportBasename: retrievalFirstActive ? '06-Visual-Directions-Report.md' : 'visual-directions-report-v2-experimental.md'
   });
 }

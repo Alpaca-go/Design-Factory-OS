@@ -24,8 +24,8 @@ export function evaluateConsumerValueCoverage(directions = []) {
     return normalizeConsumerValue(direction);
   });
 
-  const explicitCount = perDirection.filter((item) => item.present).length;
-  const primaryOrStrong = perDirection.filter((item) => PRIMARY_SECONDARY_ROLES.includes(item.consumer_value_role)).length;
+  const explicitCount = perDirection.filter((item) => item.present && item.value_audience === 'consumer').length;
+  const primaryOrStrong = perDirection.filter((item) => item.value_audience === 'consumer' && PRIMARY_SECONDARY_ROLES.includes(item.consumer_value_role)).length;
   const setCovered = primaryOrStrong > 0;
 
   const blockingReasons = [];

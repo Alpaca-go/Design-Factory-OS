@@ -74,6 +74,13 @@ test('Visual Translation API selection is controlled by App and survives setting
   assert.doesNotMatch(workspace, /useState\(initialProfile\?\.id/);
 });
 
+test('Visual Translation exposes one formal workflow without internal version selectors', async () => {
+  const workspace = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'renderer', 'src', 'components', 'VisualTranslationWorkspace.tsx'), 'utf8');
+  assert.match(workspace, /系统将提取视觉相关品牌事实/);
+  assert.match(workspace, /'开始分析'/);
+  assert.doesNotMatch(workspace, /方向生成模式|文档分析流程|概念方向 V1|执行向 V2|视觉事实优先 V2|深度分析 V1|实验分支|生产基线/u);
+});
+
 test('analysis intake shares tabs, translation supports drop upload, and home distinguishes both record types', async () => {
   const app = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'renderer', 'src', 'App.tsx'), 'utf8');
   const tabs = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'renderer', 'src', 'components', 'AnalysisModeTabs.tsx'), 'utf8');

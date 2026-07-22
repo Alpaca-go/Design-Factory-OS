@@ -56,6 +56,13 @@ function classifyBrandReferenceRole(context, fieldPath, candidate, sourceEvidenc
   for (const [role, pattern] of RELATION_PATTERNS) {
     if (pattern.test(context)) return { role, source_supported: sourceEvidenceText.includes(candidate) };
   }
+  // A source-supported related brand is not an identity substitution merely
+  // because the direction proposes a Logo/VI/watermark. Authorization is a
+  // separate rewrite-level gate; only an unsupported replacement hard-blocks.
+  if (sourceEvidenceText.includes(candidate)) {
+    const storedRole = RELATION_PATTERNS.find(([role]) => sourceEvidenceText.includes(`"relationship":"${role}"`))?.[0];
+    return { role: storedRole || 'group_backing', source_supported: true };
+  }
   if (REPLACEMENT_MARKERS.test(context) || (fieldPath && BRAND_CONTEXT_FIELDS.test(fieldPath))) {
     return { role: 'unauthorized_replacement', source_supported: false };
   }

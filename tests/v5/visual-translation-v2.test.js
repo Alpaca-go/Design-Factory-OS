@@ -251,8 +251,8 @@ test('A/B runner recommends merge when >= 2 projects meet criteria', () => {
   assert.deepEqual(summary, stored);
 });
 
-test('direction_generation_mode keeps conceptual_v1 as production baseline and execution_oriented_v2 isolated', () => {
-  assert.equal(v2.PRODUCTION_BASELINE_MODE, 'conceptual_v1');
+test('direction_generation_mode uses execution_oriented_v2 as the formal default and keeps conceptual_v1 internal', () => {
+  assert.equal(v2.PRODUCTION_BASELINE_MODE, 'execution_oriented_v2');
   assert.equal(v2.EXPERIMENT_MODE, 'execution_oriented_v2');
   assert.equal(v2.isExecutionMode('conceptual_v1'), false);
   assert.equal(v2.isExecutionMode('execution_oriented_v2'), true);

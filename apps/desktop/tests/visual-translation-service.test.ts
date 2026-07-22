@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createVisualTranslationService, deriveVisualTranslationProjectName } from '../src/main/visual-translation-service.ts';
+import { createLiveBenchmarkRetriever, parseBenchmarkSearchHtml } from '../src/main/live-benchmark-retriever.ts';
 
 test('Visual Translation derives the project name from document content without manual input', () => {
   const projectName = deriveVisualTranslationProjectName({
@@ -53,6 +54,7 @@ test('Visual Translation Desktop service persists documents, checkpoints, report
     async () => ({ profiles: [], defaultProfileId: null, provider: '', baseUrl: '', model: '', hasApiKey: false, defaultDataPath: temporary, cacheEnabled: true, logLevel: 'info', connectionStatus: 'untested' }),
     (event) => { progress.push(event.stage); progressMessages.push(event.message); },
     () => async () => ({ text: '{}' }),
+    runner,
     runner
   );
 
@@ -79,7 +81,7 @@ test('Visual Translation Desktop service persists documents, checkpoints, report
   }
 });
 
-test('Visual Fact First selects the V2 runner even when the direction setting is legacy', async () => {
+test('Retrieval First selects the formal runner regardless of persisted legacy settings', async () => {
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'visual-fact-first-selector-'));
   const source = path.join(temporary, '品牌策略.md');
   await fs.writeFile(source, '# 品牌策略\n\n平台服务专业机构。', 'utf8');
@@ -96,11 +98,23 @@ test('Visual Fact First selects the V2 runner even when the direction setting is
   );
   try {
     const result = await service.start({ documentPaths: [source], apiProfileId: 'profile-test' });
-    assert.equal(selectedMode, 'visual_fact_first');
+    assert.equal(selectedMode, 'retrieval_first');
     assert.equal(result.run.status, 'completed');
   } finally {
     await fs.rm(temporary, { recursive: true, force: true });
   }
+});
+
+test('live benchmark retrieval parses current search results into traceable cases', async () => {
+  const html = '<div class="result"><a class="result__a" href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fcase">Example Brand System</a><div class="result__snippet">A modular identity across service touchpoints.</div></div>';
+  const query = { query: 'service platform visual identity', purpose: '寻找同商业模式案例', expected_case_type: 'business_model', exclusion_terms: ['template'], priority: 'high' as const };
+  const parsed = parseBenchmarkSearchHtml(html, query);
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0]?.source_url, 'https://example.com/case');
+  const retriever = createLiveBenchmarkRetriever(async () => new Response(html, { status: 200 }));
+  const result = await retriever(query);
+  assert.equal(result[0]?.case_type, 'business_model');
+  assert.match(String(result[0]?.relevance_reason), /同商业模式/u);
 });
 
 test('Visual Translation marks remaining Step 4 schema errors recoverable and resumes from Repair checkpoint', async () => {

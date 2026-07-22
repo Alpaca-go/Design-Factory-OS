@@ -11,7 +11,7 @@ import { evaluateExecutionExampleCompleteness, hasMeaningfulValue } from '../../
 import { evaluateDirectionFamilyDifference } from '../../src/v5/visual-translation/v2/runtime/direction-family-difference-evaluator.js';
 import { aggregateGateIssues } from '../../src/v5/visual-translation/v2/runtime/gate-issue-aggregator.js';
 import { compileExecutionDirectionV2 } from '../../src/v5/visual-translation/v2/runtime/compile-execution-direction-v2.js';
-import { compileExecutionDirectionsReportV2 } from '../../src/v5/visual-translation/v2/report/compile-execution-directions-report-v2.js';
+import { compileExecutionDirectionsAuditV2, compileExecutionDirectionsReportV2 } from '../../src/v5/visual-translation/v2/report/visual-directions-report-compiler.js';
 import { buildExecutionDirectionV2Prompt } from '../../src/v5/visual-translation/v2/prompts/direction-generation-prompt-v2.js';
 
 const fixtureRoot = path.resolve('tests/fixtures/visual-direction-v2/jiuzhou-meixue');
@@ -106,9 +106,12 @@ test('direction issues preserve their source direction without pretending to aff
   assert.notDeepEqual(issue.affected_direction_ids, ['E01', 'E02', 'E03']);
   assert.equal(compiled.directions.find((item) => item.direction.direction_id === 'E03').local_status, 'rewrite_required');
   const report = compileExecutionDirectionsReportV2({ projectId: 'gate-context-test', compiled });
-  assert.match(report, /问题发生方向 E03/u);
-  assert.doesNotMatch(report, /影响方向：E01、E02、E03/u);
-  assert.match(report, /Anchor Readiness：\*\*Blocked\*\*/u);
+  const audit = compileExecutionDirectionsAuditV2({ projectId: 'gate-context-test', compiled });
+  assert.match(report, /E03/u);
+  assert.doesNotMatch(report, /visualDirectionV2\.|matched_rule|field_path/u);
+  assert.match(report, /Anchor 就绪度：\*\*未就绪\*\*/u);
+  assert.match(audit, /"source_direction_ids": \[\s*"E03"/u);
+  assert.doesNotMatch(audit, /"affected_direction_ids": \[\s*"E01",\s*"E02",\s*"E03"/u);
 });
 
 test('warning aggregation folds identical rule evidence while retaining field details', () => {
@@ -121,6 +124,95 @@ test('warning aggregation folds identical rule evidence while retaining field de
   assert.equal(issues.length, 1);
   assert.equal(issues[0].occurrences.length, 8);
   assert.equal(issues[0].field_paths.length, 8);
+});
+
+test('short business words do not independently trigger authenticity warnings', () => {
+  const result = evaluateAssetAuthorization({
+    direction_id: 'E01', strategic_idea: '用批次、比例、指标、数据、地图与覆盖组织信息层级'
+  });
+  assert.equal(result.detections.length, 0);
+});
+
+test('specific business values require a confirmed EvidenceBoundValue whitelist entry', () => {
+  const direction = {
+    direction_id: 'E01',
+    strategic_idea: '服务范围200公里，拥有141座物流中心、10,560家合作机构，区域覆盖率96%，温层10–25℃，批次号ABC123'
+  };
+  const blocked = evaluateAssetAuthorization(direction, { evidenceBoundValues: [], enforceEvidenceBoundValues: true });
+  for (const value of ['200公里', '141座物流中心', '10,560家合作机构', '96%', '10–25℃', '批次号ABC123']) {
+    assert.ok(blocked.detections.some((item) => item.rule_id === 'EVIDENCE_BOUND_VALUE_REQUIRED' && item.detected_text.includes(value)), value);
+  }
+  const allowed = evaluateAssetAuthorization(direction, {
+    enforceEvidenceBoundValues: true,
+    evidenceBoundValues: blocked.detections.map((item, index) => ({
+      raw_value: item.detected_text, normalized_value: item.detected_text.replace(/[,，\s]/gu, '').replace(/[—–~～至]/gu, '-').toLowerCase(),
+      fact_id: `DATA-${index}`, evidence_ref_ids: ['VF-DATA'], status: 'confirmed', allowed_in_visual_direction: true
+    }))
+  });
+  assert.equal(allowed.detections.filter((item) => item.rule_id === 'EVIDENCE_BOUND_VALUE_REQUIRED').length, 0);
+});
+
+test('structured information and brand zones require every meaningful subfield', () => {
+  const example = {
+    touchpoint: '官网', hero_subject: '平台界面', reused_assets: ['A'], industry_recognition_source: 'VF001',
+    information_zone: { position: '右侧', width_or_height: '40%', content_types: ['能力'], alignment: '左对齐', background_relationship: '独立底板' },
+    brand_zone: { position: '左上', logo_usage: '项目品牌', safety_margin: '一个字高', relationship_to_main_visual: '独立', prohibited_behavior: ['不得遮挡'] },
+    canvas_ratio: '16:9', subject: '平台', visual_structure: '选择框', hero_subject_position: '中央', hero_subject_scale: '大',
+    whitespace_behavior: '功能留白', responsive_adaptation: '垂直重排', anti_concept_art_rule: '平面优先'
+  };
+  const complete = evaluateExecutionExampleCompleteness([{ direction_id: 'E02', execution_examples: [example] }]);
+  assert.deepEqual(complete.per_direction[0].examples[0].required_missing, []);
+  example.information_zone.content_types = [];
+  example.brand_zone.safety_margin = '待确认';
+  const incomplete = evaluateExecutionExampleCompleteness([{ direction_id: 'E02', execution_examples: [example] }]);
+  assert.deepEqual(incomplete.per_direction[0].examples[0].required_missing, ['information_zone', 'brand_zone']);
+});
+
+test('unconfirmed group watermark is a direction-local authorization rewrite', () => {
+  const input = context();
+  input.brandFacts.brandRelationship = {
+    relationship: 'group_backing', related_brand_name: '九州通医药集团',
+    visual_authorization: 'not_confirmed', evidence_ids: []
+  };
+  input.rawDirections[0].strategic_idea = '九州美学以九州通医药集团水印强化平台可信交付与生态协同';
+  const compiled = compileExecutionDirectionV2(input);
+  const issue = compiled.gate_issues.find((item) => item.code === 'UNSUPPORTED_GROUP_VISUAL_AUTHORIZATION');
+  assert.ok(issue);
+  assert.equal(issue.severity, 'rewrite');
+  assert.deepEqual(issue.source_direction_ids, ['E01']);
+  assert.equal(compiled.directions.find((item) => item.direction.direction_id === 'E01').local_status, 'rewrite_required');
+  assert.notEqual(compiled.directions.find((item) => item.direction.direction_id === 'E02').local_status, 'blocked');
+});
+
+test('E02 packaging_front is retained as a local platform/product-brand touchpoint risk', () => {
+  const input = context();
+  input.rawDirections[1].composition_templates[0].touchpoint = 'packaging_front';
+  const compiled = compileExecutionDirectionV2(input);
+  const issue = compiled.gate_issues.find((item) => item.code === 'PLATFORM_PRODUCT_BRAND_TOUCHPOINT_RISK');
+  assert.ok(issue);
+  assert.deepEqual(issue.source_direction_ids, ['E02']);
+  const e02 = compiled.directions.find((item) => item.direction.direction_id === 'E02');
+  assert.ok(e02.local_gate_reasons.warnings.includes('PLATFORM_PRODUCT_BRAND_TOUCHPOINT_RISK'));
+  assert.notEqual(e02.local_status, 'blocked');
+});
+
+test('Visual Fact First refines an incomplete E02 selection mechanism to anchor enhancement', () => {
+  const input = context();
+  input.brandFacts.evidenceBoundValues = [];
+  const compiled = compileExecutionDirectionV2(input);
+  assert.equal(compiled.gates.e02_aesthetic_gate.selection_mechanism_complete, false);
+  assert.equal(compiled.gates.e02_aesthetic_gate.resolution_code, 'ANCHOR_MECHANISM_ENHANCEMENT_REQUIRED');
+  assert.ok(compiled.directions.find((item) => item.direction.direction_id === 'E02').local_gate_reasons.rewrite_required.includes('ANCHOR_MECHANISM_ENHANCEMENT_REQUIRED'));
+});
+
+test('E03 exhibition backdrop and generic topology remain local mechanism risks', () => {
+  const input = context();
+  input.rawDirections[2].composition_templates[0].touchpoint = 'exhibition_backdrop';
+  input.rawDirections[2].graphic_system.how_graphics_form = '节点、箭头、拓扑与生态网格连接节点';
+  const compiled = compileExecutionDirectionV2(input);
+  const codes = compiled.gate_issues.filter((item) => item.source_direction_ids.includes('E03')).map((item) => item.code);
+  assert.ok(codes.includes('ECOSYSTEM_EXHIBITION_TOUCHPOINT_RISK'));
+  assert.ok(codes.includes('GENERIC_ECOSYSTEM_TOPOLOGY_RISK'));
 });
 
 test('similarity gate detects one shared execution composition despite different wording', () => {

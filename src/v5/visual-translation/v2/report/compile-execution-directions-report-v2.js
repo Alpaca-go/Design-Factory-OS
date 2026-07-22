@@ -117,15 +117,16 @@ function familyLabel(direction) {
   return '未声明';
 }
 
-export function compileExecutionDirectionsReportV2({ projectId = 'unknown', compiled, abComparison, analysisPipelineMode } = {}) {
+export function compileExecutionDirectionsReportV2({ projectId = 'unknown', compiled, abComparison, analysisPipelineMode, pipelineCompleteness, visualFactFirst } = {}) {
   const lines = [];
-  lines.push(`# 执行向视觉方向 v2.1.5 实验报告（experimental）`);
+  lines.push('# 视觉方向报告');
   lines.push('');
-  lines.push(`> 报告版本：visual-directions-execution-report-v2.1.5-experimental`);
-  lines.push(`> 协议：visual-translation-v2-execution`);
   lines.push(`> 项目：${projectId}`);
-  if (analysisPipelineMode) lines.push(`> 上游分析管线：${analysisPipelineMode}`);
-  lines.push(`> 生成模式：${compiled?.direction_generation_mode || 'execution_oriented_v2'}`);
+  if (pipelineCompleteness) {
+    const label = { complete: 'Complete', partial: 'Partial', fallback: 'Fallback', failed: 'Failed' }[pipelineCompleteness] || pipelineCompleteness;
+    lines.push(`> Pipeline Completeness：${label}`);
+    lines.push(`> Legacy Fallback：${pipelineCompleteness === 'fallback' ? 'Yes' : 'No'}`);
+  }
   if (compiled?.overall_status) {
     lines.push(`> 整体状态：${OVERALL_STATUS_LABEL[compiled.overall_status] || compiled.overall_status}`);
   }
@@ -133,6 +134,7 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
     lines.push(`> 整体执行许可：**${PERMISSION_LABEL[compiled.execution_permission_status] || compiled.execution_permission_status}**`);
   }
   lines.push(`> Anchor Readiness：**${compiled?.anchor_readiness === 'ready' ? 'Ready' : 'Blocked'}**`);
+  if (compiled?.model_critic) lines.push(`> 方向建议：**${compiled.model_critic.recommendation}**（${compiled.model_critic.score}/100，不改变 Runtime 状态）`);
   lines.push('');
 
   if (!compiled || !compiled.directions?.length) {
@@ -209,6 +211,10 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
     lines.push('');
     lines.push(`**战略构想：** ${d.strategic_idea}`);
     lines.push(`**方向家族：** ${familyLabel(d)}`);
+    if (d.source_opportunity_ids?.length) {
+      const opportunityMap = new Map((visualFactFirst?.visualOpportunitySynthesis?.differentiation_opportunities || []).map((item) => [item.opportunity_id, item.title]));
+      lines.push(`**方向来源机会：** ${d.source_opportunity_ids.map((id) => `${id}${opportunityMap.get(id) ? ` ${opportunityMap.get(id)}` : ''}`).join('、')}`);
+    }
     lines.push(`**品牌身份：** ${gates.brand_identity_preservation?.brand_identity_preserved ? '保留 ✅' : '污染 ❌'}${fam}`);
     lines.push('');
 
@@ -304,27 +310,18 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
     }
     lines.push('');
 
-    // Structural completeness is local; collection permission is displayed
-    // separately so a set-level block no longer makes all directions look
-    // equally weak.
-    const expl = item.readiness.content_readiness_explanation;
-    if (expl) {
-      lines.push(`**结构完整度（方向级）：** ${item.structural_completeness_score ?? expl.quality_cap ?? expl.raw_score}/100`);
-      lines.push(`- 原始结构分：${expl.raw_score}`);
-      if (expl.quality_cap !== expl.raw_score) {
-        lines.push(`- 质量上限：${expl.quality_cap}（${expl.quality_cap_reasons.join('；')}）`);
-      }
-      if (expl.permission_cap !== null && expl.permission_cap !== expl.quality_cap) {
-        lines.push(`- 兼容分数的执行许可上限：${expl.permission_cap}（不改变方向级结构完整度）`);
-      }
-      lines.push(`- 兼容 Content Readiness：${expl.final_score}/100`);
-    } else {
-      lines.push(`**内容就绪度：** ${item.content_readiness_score}/100${item.execution_permission_status === 'blocked' ? '（已封顶 59，因执行许可为阻断）' : ''}`);
-    }
-    // v2.1.1 (doc section 五) — explainable Content Readiness breakdown (legacy).
+    const readiness = item.readiness_score || {
+      raw_structural_readiness: item.content_readiness_score,
+      execution_cap: null,
+      final_content_readiness: item.content_readiness_score,
+      cap_reasons: []
+    };
+    lines.push(`**Raw Structural Readiness：** ${readiness.raw_structural_readiness}`);
+    lines.push(`**Execution Cap：** ${readiness.execution_cap ?? 'None'}`);
+    lines.push(`**Final Content Readiness：** ${readiness.final_content_readiness}`);
+    if (readiness.cap_reasons?.length) lines.push(`- Cap Reasons：${readiness.cap_reasons.join('；')}`);
     const br = item.readiness.content_readiness_breakdown;
     if (br) {
-      lines.push(`**Content Readiness 明细：** raw=${br.raw} → 封顶 ${item.content_readiness_score}${br.caps.length ? `（${br.caps.join('，')}）` : ''}`);
       lines.push(`- 维度权重：行业识别 ${br.weights.industry_recognition} / 可直接执行 ${br.weights.direct_executability} / 可复用资产 ${br.weights.reusable_asset_quality} / 平面转化 ${br.weights.graphic_translation} / 触点覆盖 ${br.weights.touchpoint_coverage} / 品牌专属 ${br.weights.brand_exclusivity}`);
     }
     lines.push(`**方向本地状态：** ${OVERALL_STATUS_LABEL[item.local_status] || item.local_status || '未评估'}`);
@@ -351,7 +348,6 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
       lines.push(`**概念稿违规：** ` + r.concept_art_violations.join('、'));
     }
     lines.push(`**回归守卫：** 资产权限 ${item.assetAuthorization.ok ? 'OK' : 'FAIL'} ｜ 证据保护 ${item.evidencePreservation.ok ? 'OK' : 'FAIL'} ｜ 受众边界 ${item.audienceBoundaryGuard.ok ? 'OK' : 'FAIL'}`);
-    if (item.readiness.score_capped) lines.push(`**就绪分已封顶：** 59（存在未通过 Gate 或硬指标）`);
     lines.push('');
 
     // 资产权限与伪造风险（explainable, doc section 七 / v2.1.2 风险折叠）
@@ -466,9 +462,9 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
       lines.push(`  - ${pair} 多维：战略 ${det.strategic_entry_similarity} | 行业对象 ${det.industry_object_similarity} | 资产 ${det.reusable_asset_similarity} | 摄影 ${det.photography_subject_similarity} | 版式 ${det.layout_similarity} | 触点 ${det.touchpoint_similarity} | 受众 ${det.audience_similarity} | 语义 ${det.semantic_similarity} | 家族声明 ${det.declared_family_similarity}`);
       lines.push(`  - ${pair} 执行模板：构图 ${det.composition_template_similarity} | 主体位置 ${det.subject_position_similarity} | 图像/图形比例 ${det.image_graphic_ratio_similarity} | 叠加 ${det.overlay_behavior_similarity} | 信息层级 ${det.information_hierarchy_similarity} | 响应式 ${det.responsive_pattern_similarity}`);
     }
-    lines.push(`- Direction Family Difference：${dfd.rewrite_required ? 'Rewrite Required' : 'Pass'}`);
-    lines.push(`- Execution Template Difference：${dfd.execution_template_difference}`);
-    lines.push(`- Anchor Mechanism Difference：${dfd.anchor_mechanism_difference}`);
+    lines.push(`- Direction Family Difference：${dfd.direction_family_difference || (dfd.rewrite_required ? 'weak' : 'clear')}`);
+    lines.push(`- Anchor Mechanism Difference：${dfd.anchor_mechanism_difference_band || dfd.anchor_mechanism_difference}`);
+    lines.push(`- Execution Template Difference：${dfd.execution_template_difference_band || dfd.execution_template_difference}`);
     if (dfd.declared_families_distinct === false) lines.push(`- ⚠️ 声明的 direction_family 未区分（需 A/B/C 不同）`);
     lines.push('');
   }
@@ -500,6 +496,8 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
     } else {
       const e02StatusLabel = e02.rewrite_required ? '❌ 需重写' : (e02.positive_quality_status === 'conditional' ? '⚠️ 条件通过' : (e02.positive_quality_status === 'pass_with_warning' ? '✅ 通过（有 Warning）' : '✅'));
       lines.push(`### 6. E02 产品材料美学 Gate ${e02StatusLabel}`);
+      if (e02.resolution_code) lines.push(`- Gate 语义：${e02.resolution_code}`);
+      if (e02.selection_mechanism_complete === false) lines.push('- 平台甄选机制：不完整（需补齐甄选维度、视觉映射、多品类规则、比较行为与平台签名）');
       if (e02.evaluated_direction_id) {
         lines.push(`- 评估方向：${e02.evaluated_direction_id} ｜ 品牌美学 ${e02.brand_aesthetic_weight} 消费者 ${e02.consumer_value_weight} 产品材料 ${e02.product_material_weight}`);
         // v2.1.4.1 — weight sum validation (doc §3.1).
@@ -684,6 +682,61 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
     lines.push(`- 人工偏好：${abComparison.human_preference}`);
     lines.push(`- v2 全部就绪：${abComparison.v2_all_ready}`);
     lines.push(`- 指标改善：${JSON.stringify(abComparison.measurable_criteria)}`);
+    lines.push('');
+  }
+
+  if (visualFactFirst) {
+    const facts = visualFactFirst.visualFacts;
+    const benchmark = visualFactFirst.benchmarkRetrieval;
+    const opportunities = visualFactFirst.visualOpportunitySynthesis?.differentiation_opportunities || [];
+    const factStatus = facts?.fact_records || {};
+    const unresolved = Object.values(factStatus).filter((item) => item.status !== 'confirmed');
+    lines.push('## 附录：Retrieval First 证据链');
+    lines.push('');
+    lines.push('### Visual Facts 摘要');
+    lines.push(`- 品牌身份：${facts.project_identity.brand_name}（${factStatus.brand_name?.status || 'unknown'}）`);
+    lines.push(`- 业务类型：${facts.project_identity.business_type}（${factStatus.business_type?.status || 'unknown'}）`);
+    lines.push(`- 目标客户：${facts.audience_structure.primary_customer.join('、') || '未确认'}`);
+    lines.push(`- 最终消费者：${facts.audience_structure.final_user_or_beneficiary.join('、') || '未确认'}（${factStatus.final_consumer?.status || 'unknown'}）`);
+    lines.push(`- 核心能力：${[...facts.business_objects.real_services, ...facts.business_objects.real_processes].join('、') || '未确认'}`);
+    lines.push(`- Locked Assets：${Object.entries(facts.locked_assets).filter(([, value]) => value === true).map(([key]) => key).join('、') || '无已确认项'}`);
+    lines.push(`- 未确认事实：${unresolved.map((item) => `${item.field}(${item.status})`).join('、') || '无'}`);
+    lines.push('');
+    lines.push('### Benchmark 摘要');
+    lines.push(`- 检索状态：${benchmark.retrieval_status}`);
+    lines.push(`- 使用案例数量：${benchmark.cases.length}`);
+    lines.push(`- 案例类别：${[...new Set(benchmark.cases.map((item) => item.case_type))].join('、') || '无'}`);
+    lines.push(`- 同行业案例数量：${benchmark.category_counts?.direct_industry || 0}`);
+    lines.push(`- 同商业模式案例数量：${benchmark.category_counts?.business_model || 0}`);
+    lines.push(`- 同气质案例数量：${benchmark.category_counts?.tone_price || 0}`);
+    lines.push(`- 反模板案例数量：${benchmark.category_counts?.anti_template || 0}`);
+    lines.push(`- 主要可借鉴机制：${[...new Set(benchmark.cases.flatMap((item) => item.useful_visual_mechanisms))].slice(0, 8).join('、') || '无'}`);
+    lines.push(`- 主要模板风险：${[...new Set(benchmark.cases.flatMap((item) => item.template_risks))].slice(0, 8).join('、') || '无'}`);
+    lines.push('');
+    lines.push('### Opportunity 摘要');
+    for (const entry of compiled.directions) {
+      const ids = entry.direction.source_opportunity_ids || [];
+      const sources = opportunities.filter((item) => ids.includes(item.opportunity_id));
+      lines.push(`- ${entry.direction.direction_id} 方向来源机会：${ids.map((id) => `${id}${opportunities.find((item) => item.opportunity_id === id)?.title ? ` ${opportunities.find((item) => item.opportunity_id === id).title}` : ''}`).join('、') || '未建立追踪'}`);
+      lines.push(`  - 对应品牌事实：${[...new Set(sources.flatMap((item) => item.brand_evidence_refs || item.brand_evidence || []))].join('、') || '无'}`);
+      lines.push(`  - 对应视觉资产：${[...new Set(sources.flatMap((item) => item.visual_asset_evidence_refs || []))].join('、') || '无'}`);
+      lines.push(`  - 对应案例：${[...new Set(sources.flatMap((item) => item.benchmark_case_refs || item.benchmark_evidence || []))].join('、') || '无'}`);
+      lines.push(`  - 反模板约束：${[...new Set(sources.flatMap((item) => item.anti_template_refs || []))].join('、') || '无'}`);
+    }
+    lines.push('');
+    const boundValues = visualFactFirst.step4Context?.brandFacts?.evidenceBoundValues || [];
+    const confirmedValues = boundValues.filter((item) => item.status === 'confirmed');
+    const inferredValues = boundValues.filter((item) => item.status === 'inferred');
+    const confirmationValues = boundValues.filter((item) => item.status === 'requires_confirmation');
+    const rejectedDirectionValues = (compiled.gates.asset_authorization?.per_direction || [])
+      .flatMap((item) => item.detections || [])
+      .filter((item) => item.rule_id === 'EVIDENCE_BOUND_VALUE_REQUIRED')
+      .map((item) => item.detected_text);
+    lines.push('### Evidence Risk 摘要');
+    lines.push(`- confirmed 数据：${confirmedValues.map((item) => item.raw_value).join('、') || '无'}`);
+    lines.push(`- inferred 数据：${inferredValues.map((item) => item.raw_value).join('、') || '无'}`);
+    lines.push(`- requires_confirmation 数据：${confirmationValues.map((item) => item.raw_value).join('、') || '无'}`);
+    lines.push(`- 被 Step 4 拒绝的数据：${[...new Set([...boundValues.filter((item) => !item.allowed_in_visual_direction).map((item) => item.raw_value), ...rejectedDirectionValues])].join('、') || '无'}`);
     lines.push('');
   }
 

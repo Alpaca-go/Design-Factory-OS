@@ -126,6 +126,30 @@ function optionalNumber(value, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function validateInformationZone(value, path) {
+  if (value === undefined || value === null || typeof value === 'string') return optionalString(value);
+  const item = objectValue(value, path);
+  return {
+    position: stringValue(item.position, `${path}.position`),
+    width_or_height: stringValue(item.width_or_height, `${path}.width_or_height`),
+    content_types: stringArray(item.content_types || [], `${path}.content_types`, { min: 1 }),
+    alignment: stringValue(item.alignment, `${path}.alignment`),
+    background_relationship: stringValue(item.background_relationship, `${path}.background_relationship`)
+  };
+}
+
+function validateBrandZone(value, path) {
+  if (value === undefined || value === null || typeof value === 'string') return optionalString(value);
+  const item = objectValue(value, path);
+  return {
+    position: stringValue(item.position, `${path}.position`),
+    logo_usage: stringValue(item.logo_usage, `${path}.logo_usage`),
+    safety_margin: stringValue(item.safety_margin, `${path}.safety_margin`),
+    relationship_to_main_visual: stringValue(item.relationship_to_main_visual, `${path}.relationship_to_main_visual`),
+    prohibited_behavior: stringArray(item.prohibited_behavior || [], `${path}.prohibited_behavior`, { min: 1 })
+  };
+}
+
 export function validateReusableAsset(value, path) {
   const item = objectValue(value, path);
   const assetType = enumValue(item.asset_type, REUSABLE_ASSET_TYPES, `${path}.asset_type`);
@@ -271,9 +295,9 @@ function validateExecutionExample(value, path, assetIds) {
     graphic_overlay: optionalString(item.graphic_overlay),
     industry_content: optionalString(item.industry_content),
     layout_structure: optionalString(item.layout_structure),
-    information_zone: optionalString(item.information_zone),
+    information_zone: validateInformationZone(item.information_zone, `${path}.information_zone`),
     information_hierarchy: optionalString(item.information_hierarchy),
-    brand_zone: optionalString(item.brand_zone),
+    brand_zone: validateBrandZone(item.brand_zone, `${path}.brand_zone`),
     whitespace_behavior: optionalString(item.whitespace_behavior),
     canvas_ratio: optionalString(item.canvas_ratio),
     photography_ratio: optionalString(item.photography_ratio),
@@ -348,6 +372,18 @@ function validateOptionalAssetAuthorization(value, path) {
   };
 }
 
+function validateOptionalSelectionMechanism(value, path) {
+  if (value === undefined || value === null) return undefined;
+  const obj = objectValue(value, path);
+  return {
+    selection_dimensions: stringArray(obj.selection_dimensions || [], `${path}.selection_dimensions`, { min: 1 }),
+    visual_mapping_rule: stringValue(obj.visual_mapping_rule, `${path}.visual_mapping_rule`, { maxLength: 300 }),
+    multi_category_rule: stringValue(obj.multi_category_rule, `${path}.multi_category_rule`, { maxLength: 300 }),
+    comparison_behavior: stringValue(obj.comparison_behavior, `${path}.comparison_behavior`, { maxLength: 300 }),
+    platform_signature: stringValue(obj.platform_signature, `${path}.platform_signature`, { maxLength: 300 })
+  };
+}
+
 export function validateExecutionDirectionV2(value, context = {}) {
   const root = objectValue(value?.visualDirectionV2 || value, 'visualDirectionV2');
   const reportLanguage = context.reportLanguage || 'zh-CN';
@@ -363,6 +399,7 @@ export function validateExecutionDirectionV2(value, context = {}) {
     direction_id: stringValue(root.direction_id, 'visualDirectionV2.direction_id'),
     direction_name: stringValue(root.direction_name, 'visualDirectionV2.direction_name'),
     strategic_idea: strategicIdea,
+    source_opportunity_ids: uniqueStringArray(root.source_opportunity_ids || [], 'visualDirectionV2.source_opportunity_ids'),
     industry_recognition_layer: validateIndustryRecognitionLayer(root.industry_recognition_layer, 'visualDirectionV2.industry_recognition_layer'),
     core_reusable_assets: arrayValue(root.core_reusable_assets, 'visualDirectionV2.core_reusable_assets', { min: 3 })
       .map((item, index) => validateReusableAsset(item, `visualDirectionV2.core_reusable_assets[${index}]`)),
@@ -387,6 +424,7 @@ export function validateExecutionDirectionV2(value, context = {}) {
     compliance_weights: validateOptionalComplianceWeights(root.compliance_weights, 'visualDirectionV2.compliance_weights'),
     industry_recognition_classification: validateOptionalIndustryClassification(root.industry_recognition_classification, 'visualDirectionV2.industry_recognition_classification'),
     asset_authorization: validateOptionalAssetAuthorization(root.asset_authorization, 'visualDirectionV2.asset_authorization'),
+    selection_mechanism: validateOptionalSelectionMechanism(root.selection_mechanism, 'visualDirectionV2.selection_mechanism'),
     downstream_consumer_value: root.downstream_consumer_value === undefined
       ? undefined
       : validateDownstreamConsumerValue(root.downstream_consumer_value, 'visualDirectionV2.downstream_consumer_value')
@@ -488,6 +526,33 @@ function collectConsumerValueContradiction(issues, direction, directionIndex, re
   });
 }
 
+const SELECTION_MECHANISM_STRING_FIELDS = Object.freeze([
+  'visual_mapping_rule', 'multi_category_rule', 'comparison_behavior', 'platform_signature'
+]);
+
+function collectSelectionMechanismIssues(issues, direction, directionIndex) {
+  const mechanism = direction?.selection_mechanism;
+  if (mechanism === undefined || mechanism === null) return;
+  if (!mechanism || typeof mechanism !== 'object' || Array.isArray(mechanism)) return;
+  const base = `visualDirectionV2Set.directions[${directionIndex}].selection_mechanism`;
+  if (!Array.isArray(mechanism.selection_dimensions)
+    || mechanism.selection_dimensions.length < 1
+    || mechanism.selection_dimensions.some((item) => typeof item !== 'string' || !item.trim())) {
+    issues.push({
+      code: 'FAILED_SCHEMA', path: `${base}.selection_dimensions`, expected: 'non-empty string[]',
+      received: mechanism.selection_dimensions,
+      message: `${base}.selection_dimensions must contain at least one non-empty string`
+    });
+  }
+  for (const field of SELECTION_MECHANISM_STRING_FIELDS) {
+    if (typeof mechanism[field] === 'string' && mechanism[field].trim()) continue;
+    issues.push({
+      code: 'FAILED_SCHEMA', path: `${base}.${field}`, expected: 'non-empty string',
+      received: mechanism[field], message: `${base}.${field} must be a non-empty string`
+    });
+  }
+}
+
 function indexedValidationPath(path, directionIndex) {
   return String(path || 'visualDirectionV2')
     .replace(/^visualDirectionV2(?=\.|$)/u, `visualDirectionV2Set.directions[${directionIndex}]`);
@@ -505,6 +570,7 @@ export function collectExecutionDirectionV2ValidationErrors(directions, context 
       collectEnumIssue(issues, direction, directionIndex, spec.path, spec.allowed, spec.optional);
     }
     collectConsumerValueContradiction(issues, direction, directionIndex, 'downstream_consumer_value');
+    collectSelectionMechanismIssues(issues, direction, directionIndex);
     collectRepeatedEnumIssues(issues, direction, directionIndex, 'core_reusable_assets', 'asset_type', REUSABLE_ASSET_TYPES);
     collectRepeatedEnumIssues(issues, direction, directionIndex, 'composition_templates', 'touchpoint', COMPOSITION_TOUCHPOINTS);
     collectRepeatedEnumIssues(issues, direction, directionIndex, 'execution_examples', 'touchpoint_category', EXECUTION_EXAMPLE_CATEGORIES);

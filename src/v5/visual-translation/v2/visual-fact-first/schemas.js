@@ -8,12 +8,16 @@ const BUSINESS_TYPES = new Set([
 const PRICE_TIERS = new Set(['mass', 'mid', 'mid_premium', 'premium', 'luxury', 'professional_procurement', 'unknown']);
 const DECISION_COSTS = new Set(['low', 'medium', 'high', 'very_high']);
 const PRIORITIES = new Set(['high', 'medium', 'low']);
+const FACT_STATUSES = new Set(['confirmed', 'inferred', 'conflicting', 'unknown', 'requires_confirmation']);
+const SOURCE_QUALITIES = new Set(['high', 'medium', 'low', 'unknown']);
+const BRAND_RELATIONSHIPS = new Set(['project_brand', 'parent_company', 'group_backing', 'shareholder', 'partner', 'unknown']);
+const VISUAL_AUTHORIZATIONS = new Set(['confirmed', 'not_confirmed', 'forbidden', 'not_applicable']);
 const ASSET_GROUPS = Object.freeze([
   'logo', 'color', 'typography', 'graphic_assets', 'photography', 'layout',
   'packaging_structure', 'reusable_assets', 'weak_assets', 'replaceable_assets'
 ]);
 const QUERY_GROUPS = Object.freeze([
-  'direct_industry_queries', 'business_model_queries', 'tone_price_queries',
+  'industry_queries', 'business_model_queries', 'tone_queries',
   'touchpoint_queries', 'anti_template_queries'
 ]);
 
@@ -71,6 +75,41 @@ function evidenceRefs(value, path, prepared, min = 0) {
   return value.map((item, index) => validateEvidenceRef(item, `${path}[${index}]`, prepared));
 }
 
+const REQUIRED_FACT_FIELDS = Object.freeze([
+  'brand_name', 'industry', 'business_type', 'brand_role', 'business_model', 'primary_offer',
+  'primary_customer', 'final_consumer', 'brand_relationship', 'core_capabilities', 'price_tier',
+  'locked_assets', 'prohibited_misinterpretations', 'specific_business_data', 'qualifications_and_coverage'
+]);
+
+function deriveFactRecords(root, registry, factEvidence) {
+  const explicit = root.fact_records && typeof root.fact_records === 'object' ? root.fact_records : {};
+  const unresolved = new Set((root.confidence?.unresolved_fields || []).map((item) => String(item).toLowerCase()));
+  const conflicting = new Set((root.confidence?.conflicting_evidence || []).map((item) => String(item).toLowerCase()));
+  return Object.fromEntries(REQUIRED_FACT_FIELDS.map((field) => {
+    const item = explicit[field] && typeof explicit[field] === 'object' ? explicit[field] : {};
+    const evidenceIds = Array.isArray(item.evidence_ids) ? item.evidence_ids : (factEvidence[field] || []);
+    const refs = evidenceIds.filter((id) => registry.some((evidence) => evidence.evidence_id === id));
+    const fieldKey = field.toLowerCase();
+    let status = item.status;
+    if (status === 'confirmed' && (!refs.length || refs.some((id) => registry.find((evidence) => evidence.evidence_id === id)?.confidence < 0.8))) {
+      status = refs.length ? 'inferred' : 'requires_confirmation';
+    }
+    if (!FACT_STATUSES.has(status)) {
+      if ([...conflicting].some((value) => value.includes(fieldKey))) status = 'conflicting';
+      else if (refs.length) status = refs.every((id) => registry.find((evidence) => evidence.evidence_id === id)?.confidence >= 0.8) ? 'confirmed' : 'inferred';
+      else if ([...unresolved].some((value) => value.includes(fieldKey))) status = 'requires_confirmation';
+      else status = field === 'brand_relationship' ? 'requires_confirmation' : 'unknown';
+    }
+    return [field, Object.freeze({
+      field,
+      status,
+      evidence_ids: Object.freeze(refs),
+      evidence: Object.freeze(refs.map((id) => registry.find((evidence) => evidence.evidence_id === id)).filter(Boolean)),
+      value: item.value ?? null
+    })];
+  }));
+}
+
 export function validateVisualRelevantBrandFacts(value, prepared) {
   const root = object(value?.visualRelevantBrandFacts || value, 'visualRelevantBrandFacts');
   if (root.schema_version !== 'visual-facts-v1') fail('schema_version must be visual-facts-v1', 'visualRelevantBrandFacts.schema_version');
@@ -95,6 +134,15 @@ export function validateVisualRelevantBrandFacts(value, prepared) {
     const refs = strings(factEvidence[key], `visualRelevantBrandFacts.fact_evidence.${key}`);
     if (!refs.length || refs.some((id) => !registry.some((item) => item.evidence_id === id))) fail('must reference known evidence', `visualRelevantBrandFacts.fact_evidence.${key}`);
   }
+  const normalizedFactEvidence = Object.fromEntries(REQUIRED_FACT_FIELDS.map((key) => [key, strings(factEvidence[key] || [], `visualRelevantBrandFacts.fact_evidence.${key}`)]));
+  const factRecords = deriveFactRecords(root, registry, normalizedFactEvidence);
+  const relationship = root.brand_relationship && typeof root.brand_relationship === 'object' ? root.brand_relationship : {};
+  const relationshipEvidenceIds = strings(relationship.evidence_ids || [], 'visualRelevantBrandFacts.brand_relationship.evidence_ids')
+    .filter((id) => registry.some((item) => item.evidence_id === id));
+  const requestedVisualAuthorization = relationship.visual_authorization || 'not_confirmed';
+  const visualAuthorization = requestedVisualAuthorization === 'confirmed' && !relationshipEvidenceIds.length
+    ? 'not_confirmed'
+    : requestedVisualAuthorization;
   return Object.freeze({
     schema_version: 'visual-facts-v1',
     project_identity: {
@@ -148,7 +196,14 @@ export function validateVisualRelevantBrandFacts(value, prepared) {
       conflicting_evidence: strings(confidence.conflicting_evidence, 'visualRelevantBrandFacts.confidence.conflicting_evidence')
     },
     evidence_registry: registry,
-    fact_evidence: Object.fromEntries(Object.entries(factEvidence).map(([key, refs]) => [key, strings(refs, `visualRelevantBrandFacts.fact_evidence.${key}`)]))
+    fact_evidence: normalizedFactEvidence,
+    fact_records: Object.freeze(factRecords),
+    brand_relationship: Object.freeze({
+      relationship: enumeration(relationship.relationship || 'unknown', BRAND_RELATIONSHIPS, 'visualRelevantBrandFacts.brand_relationship.relationship'),
+      related_brand_name: relationship.related_brand_name ? string(relationship.related_brand_name, 'visualRelevantBrandFacts.brand_relationship.related_brand_name', { allowUnknown: true }) : null,
+      visual_authorization: enumeration(visualAuthorization, VISUAL_AUTHORIZATIONS, 'visualRelevantBrandFacts.brand_relationship.visual_authorization'),
+      evidence_ids: relationshipEvidenceIds
+    })
   });
 }
 
@@ -194,18 +249,30 @@ export function validateBenchmarkQueryPlan(value) {
 export function validateBenchmarkCase(value, index = 0) {
   const path = `benchmarkCases[${index}]`;
   const item = object(value, path);
+  const relevanceScore = number(item.relevance_score, `${path}.relevance_score`);
   return Object.freeze({
+    case_id: item.case_id ? string(item.case_id, `${path}.case_id`, { allowUnknown: true }) : `BC${String(index + 1).padStart(3, '0')}`,
     case_name: string(item.case_name, `${path}.case_name`, { allowUnknown: true }),
+    title: string(item.title || item.case_name, `${path}.title`, { allowUnknown: true }),
     source_url: string(item.source_url, `${path}.source_url`, { allowUnknown: true }),
     case_type: string(item.case_type, `${path}.case_type`, { allowUnknown: true }),
+    category: string(item.category || item.case_type, `${path}.category`, { allowUnknown: true }),
     industry: string(item.industry, `${path}.industry`, { allowUnknown: true }),
     business_model: string(item.business_model, `${path}.business_model`, { allowUnknown: true }),
     relevant_touchpoints: strings(item.relevant_touchpoints, `${path}.relevant_touchpoints`),
     useful_visual_mechanisms: strings(item.useful_visual_mechanisms, `${path}.useful_visual_mechanisms`),
+    reusable_mechanisms: strings(item.reusable_mechanisms || item.useful_visual_mechanisms, `${path}.reusable_mechanisms`),
+    relevance_reason: item.relevance_reason ? string(item.relevance_reason, `${path}.relevance_reason`, { allowUnknown: true }) : strings(item.visual_strengths || [], `${path}.visual_strengths.fallback`).join('；'),
+    non_copyable_elements: strings(item.non_copyable_elements || item.template_risks || [], `${path}.non_copyable_elements`),
+    non_transferable_elements: strings(item.non_transferable_elements || item.non_copyable_elements || item.template_risks || [], `${path}.non_transferable_elements`),
     visual_strengths: strings(item.visual_strengths, `${path}.visual_strengths`),
     template_risks: strings(item.template_risks, `${path}.template_risks`),
-    relevance_score: number(item.relevance_score, `${path}.relevance_score`),
-    evidence_images: strings(item.evidence_images || [], `${path}.evidence_images`)
+    relevance_score: relevanceScore,
+    source_quality: enumeration(item.source_quality || 'unknown', SOURCE_QUALITIES, `${path}.source_quality`),
+    visual_evidence_available: item.visual_evidence_available === undefined ? Boolean(item.evidence_images?.length) : boolean(item.visual_evidence_available, `${path}.visual_evidence_available`),
+    business_model_match: item.business_model_match === undefined ? relevanceScore : number(item.business_model_match, `${path}.business_model_match`),
+    evidence_images: strings(item.evidence_images || [], `${path}.evidence_images`),
+    source_urls: strings(item.source_urls || [item.source_url], `${path}.source_urls`)
   });
 }
 
@@ -222,12 +289,19 @@ export function validateVisualOpportunitySynthesis(value, evidenceIds = new Set(
     differentiation_opportunities: opportunities.map((raw, index) => {
       const path = `visualOpportunitySynthesis.differentiation_opportunities[${index}]`;
       const item = object(raw, path);
-      const brandEvidence = strings(item.brand_evidence, `${path}.brand_evidence`);
+      const brandEvidence = strings(item.brand_fact_refs || item.brand_evidence_refs || item.brand_evidence || [], `${path}.brand_fact_refs`);
       if (evidenceIds.size && brandEvidence.some((id) => !evidenceIds.has(id))) fail('contains unknown brand evidence', `${path}.brand_evidence`);
       return {
         opportunity_id: string(item.opportunity_id, `${path}.opportunity_id`, { allowUnknown: true }), title: string(item.title, `${path}.title`, { allowUnknown: true }),
-        visual_problem: string(item.visual_problem, `${path}.visual_problem`, { allowUnknown: true }), brand_evidence: brandEvidence,
-        benchmark_evidence: strings(item.benchmark_evidence, `${path}.benchmark_evidence`), opportunity_statement: string(item.opportunity_statement, `${path}.opportunity_statement`, { allowUnknown: true }),
+        visual_problem: string(item.visual_problem, `${path}.visual_problem`, { allowUnknown: true }), brand_evidence: brandEvidence, brand_evidence_refs: brandEvidence, brand_fact_refs: brandEvidence,
+        visual_asset_evidence_refs: strings(item.visual_asset_refs || item.visual_asset_evidence_refs || [], `${path}.visual_asset_refs`),
+        visual_asset_refs: strings(item.visual_asset_refs || item.visual_asset_evidence_refs || [], `${path}.visual_asset_refs`),
+        benchmark_evidence: strings(item.benchmark_case_refs || item.benchmark_evidence || [], `${path}.benchmark_case_refs`),
+        benchmark_case_refs: strings(item.benchmark_case_refs || item.benchmark_evidence || [], `${path}.benchmark_case_refs`),
+        anti_template_refs: strings(item.anti_template_refs || conventions.overused_templates || [], `${path}.anti_template_refs`),
+        opportunity_statement: string(item.opportunity_statement, `${path}.opportunity_statement`, { allowUnknown: true }),
+        visual_protagonist: string(item.visual_protagonist || item.opportunity_statement, `${path}.visual_protagonist`, { allowUnknown: true }),
+        generative_mechanism: string(item.generative_mechanism || item.opportunity_statement, `${path}.generative_mechanism`, { allowUnknown: true }),
         reusable_asset_potential: strings(item.reusable_asset_potential, `${path}.reusable_asset_potential`), suitable_touchpoints: strings(item.suitable_touchpoints, `${path}.suitable_touchpoints`),
         risks: strings(item.risks, `${path}.risks`), confidence: number(item.confidence, `${path}.confidence`)
       };
@@ -240,3 +314,4 @@ export function validateVisualOpportunitySynthesis(value, evidenceIds = new Set(
 
 export const VISUAL_FACT_FIRST_ASSET_GROUPS = ASSET_GROUPS;
 export const VISUAL_FACT_FIRST_QUERY_GROUPS = QUERY_GROUPS;
+export const VISUAL_FACT_FIRST_REQUIRED_FACT_FIELDS = REQUIRED_FACT_FIELDS;

@@ -1,6 +1,6 @@
-export const VISUAL_FACTS_PROMPT_VERSION = 'visual-facts-prompt-v1';
+export const VISUAL_FACTS_PROMPT_VERSION = 'visual-facts-prompt-v2';
 export const VISUAL_ASSET_EVIDENCE_PROMPT_VERSION = 'visual-asset-evidence-prompt-v1';
-export const VISUAL_OPPORTUNITY_SYNTHESIS_PROMPT_VERSION = 'visual-opportunity-synthesis-prompt-v1';
+export const VISUAL_OPPORTUNITY_SYNTHESIS_PROMPT_VERSION = 'visual-opportunity-synthesis-prompt-v2';
 
 export function buildVisualFactsPrompt(prepared, lockedFacts = [], lockedAssets = []) {
   return [{ role: 'system', content: `PROTOCOL_STAGE=01-visual-relevant-facts
@@ -9,7 +9,8 @@ PROMPT_VERSION=${VISUAL_FACTS_PROMPT_VERSION}
 你是视觉事实提取器，不是品牌策划分析器。只提取会改变视觉对象、视觉气质、信息密度、摄影、图形、版式、触点、资产锁定或禁用方向的事实。
 不要总结市场规模、增长率、销售预测、宏观趋势或完整竞争格局。不要生成创意方向。不要因行业关键词套用护肤品、实验室、医械、科技节点网络或地产展厅模板。
 关键事实必须引用原文 EvidenceRef；excerpt 必须是对应 Chunk 的逐字子串。不确定信息使用 unknown，并加入 confidence.unresolved_fields，不得推测集团 VI 使用权、价格、消费者角色或品牌风格。
-fact_evidence 必须为 brand_name、industry、business_type、brand_role、business_model、primary_offer、primary_customer、locked_assets 分别列出 evidence_registry 中的 ID。
+fact_evidence 必须覆盖 brand_name、industry、business_type、brand_role、business_model、primary_offer、primary_customer、final_consumer、brand_relationship、core_capabilities、price_tier、locked_assets、prohibited_misinterpretations、specific_business_data、qualifications_and_coverage；没有证据时返回空数组。
+fact_records 为上述每个字段标记 confirmed|inferred|conflicting|unknown|requires_confirmation。集团关系与视觉授权必须分离；未明确授权时 visual_authorization=not_confirmed。
 
 Sources: ${JSON.stringify(prepared.sourceDocuments)}
 Chunks: ${JSON.stringify(prepared.chunks)}
@@ -41,7 +42,7 @@ export function buildVisualOpportunitySynthesisPrompt({ visualFacts, visualAsset
 PROMPT_VERSION=${VISUAL_OPPORTUNITY_SYNTHESIS_PROMPT_VERSION}
 
 将视觉事实、现有视觉资产和外部视觉案例编译成视觉机会。不要输出市场报告，不复述行业规模或经营战略。Benchmark 只是视觉参照，品牌事实优先；不得直接模仿案例。
-先识别行业常用语言和过度使用模板，再给出至少三个机制不同的视觉空位。每个机会必须说明视觉问题、品牌证据 ID、案例证据 URL、可复用资产、触点、风险和置信度。没有 Benchmark 时 benchmark_evidence 可为空，但不得伪造来源。
+先识别行业常用语言和过度使用模板，再给出至少三个机制不同的视觉空位。每个机会必须分别列出 brand_fact_refs、visual_asset_refs、benchmark_case_refs、anti_template_refs，并说明视觉问题、视觉主角、生成机制、可复用资产、触点、风险和置信度。机会不得只是“现代简约、科技感、高级感、东方美学、年轻化”等风格标签。没有某类证据时数组可为空，但不得伪造来源。
 
 Visual Facts: ${JSON.stringify(visualFacts)}
 Visual Asset Evidence: ${JSON.stringify(visualAssetEvidence)}
@@ -49,5 +50,5 @@ Benchmark Query Plan: ${JSON.stringify(benchmarkQueryPlan)}
 Benchmark Cases: ${JSON.stringify(benchmarkCases)}
 
 只返回 JSON：
-{"visualOpportunitySynthesis":{"category_conventions":{"commonly_used_visual_language":[],"useful_industry_codes":[],"overused_templates":[]},"brand_existing_position":{"strengths_to_keep":[],"weaknesses_to_fix":[],"underused_assets":[]},"differentiation_opportunities":[{"opportunity_id":"VO01","title":"string","visual_problem":"string","brand_evidence":["VF001"],"benchmark_evidence":[],"opportunity_statement":"string","reusable_asset_potential":[],"suitable_touchpoints":[],"risks":[],"confidence":0.8}],"prohibited_shortcuts":[],"direction_generation_constraints":[],"recommended_direction_families":[{"family":"A","opportunity_id":"VO01","reason":"string"}]}}` }];
+{"visualOpportunitySynthesis":{"category_conventions":{"commonly_used_visual_language":[],"useful_industry_codes":[],"overused_templates":[]},"brand_existing_position":{"strengths_to_keep":[],"weaknesses_to_fix":[],"underused_assets":[]},"differentiation_opportunities":[{"opportunity_id":"VO01","title":"string","visual_problem":"string","brand_fact_refs":["VF001"],"visual_asset_refs":[],"benchmark_case_refs":[],"anti_template_refs":["过度使用模板"],"opportunity_statement":"string","visual_protagonist":"string","generative_mechanism":"string","reusable_asset_potential":[],"suitable_touchpoints":[],"risks":[],"confidence":0.8}],"prohibited_shortcuts":[],"direction_generation_constraints":[],"recommended_direction_families":[{"family":"A","opportunity_id":"VO01","reason":"string"}]}}` }];
 }

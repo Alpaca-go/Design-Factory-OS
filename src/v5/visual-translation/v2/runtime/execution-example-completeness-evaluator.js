@@ -10,7 +10,7 @@
 
 export const EXECUTION_EXAMPLE_COMPLETENESS_VERSION = 'execution-example-completeness-evaluator-v1';
 
-const EMPTY_PLACEHOLDERS = new Set(['', '—', '-', 'n/a', 'na', '待补充', '待定', '暂无', 'null', 'undefined']);
+const EMPTY_PLACEHOLDERS = new Set(['', '—', '-', 'n/a', 'na', '待补充', '待确认', '待定', '暂无', 'null', 'undefined']);
 
 export function hasMeaningfulValue(value) {
   if (value === null || value === undefined) return false;
@@ -48,6 +48,26 @@ const OPTIONAL_FIELDS = [
   { key: 'downstream_consumer_note', alt: null, dcv: true, dcvField: 'value_statement' }
 ];
 
+function hasCompleteInformationZone(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return hasMeaningfulValue(value);
+  return ['position', 'width_or_height', 'content_types', 'alignment', 'background_relationship']
+    .every((key) => hasMeaningfulValue(value[key]));
+}
+
+function hasCompleteBrandZone(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return hasMeaningfulValue(value);
+  return ['position', 'logo_usage', 'safety_margin', 'relationship_to_main_visual', 'prohibited_behavior']
+    .every((key) => hasMeaningfulValue(value[key]));
+}
+
+function requiredFieldValid(example, field) {
+  if (field.key === 'information_zone') return hasCompleteInformationZone(example[field.key]);
+  if (field.key === 'brand_zone') return hasCompleteBrandZone(example[field.key]);
+  return field.compound
+    ? field.compound.every((key) => hasMeaningfulValue(example[key]))
+    : hasMeaningfulValue(example[field.key]);
+}
+
 function checkExample(example) {
   const critical = [];
   const required = [];
@@ -66,9 +86,7 @@ function checkExample(example) {
   }
 
   for (const field of REQUIRED_FIELDS) {
-    const valid = field.compound
-      ? field.compound.every((key) => hasMeaningfulValue(example[key]))
-      : hasMeaningfulValue(example[field.key]);
+    const valid = requiredFieldValid(example, field);
     if (!valid) required.push(field.key);
   }
 
@@ -114,9 +132,7 @@ function computeTouchpointCoverageScore(directions) {
       }
       for (const field of REQUIRED_FIELDS) {
         totalFields++;
-        const valid = field.compound
-          ? field.compound.every((key) => hasMeaningfulValue(ex[key]))
-          : hasMeaningfulValue(ex[field.key]);
+        const valid = requiredFieldValid(ex, field);
         if (valid) filledFields++;
       }
     });

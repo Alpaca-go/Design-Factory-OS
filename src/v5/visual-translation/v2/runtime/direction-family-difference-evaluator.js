@@ -201,10 +201,17 @@ export function evaluateDirectionFamilyDifference(directions = []) {
   for (const p of highOverlapPairs) blockingReasons.push(`pair_high_overlap(${p.pair}:${p.similarity})`);
   for (const p of templateOverlapPairs) blockingReasons.push(`execution_template_overlap(${p.pair}:${p.execution_template_similarity})`);
 
+  const differenceBand = (values) => values.every((value) => value <= 0.55)
+    ? 'clear'
+    : values.some((value) => value > 0.72) ? 'weak' : 'moderate';
+
   return {
     evaluator_version: DIRECTION_FAMILY_DIFFERENCE_EVALUATOR_VERSION,
     pairwise_similarity: Object.fromEntries(pairs.map((p) => [p.pair, p.similarity])),
     pairwise_details: details,
+    direction_family_difference: differenceBand(pairs.map((pair) => pair.similarity)),
+    anchor_mechanism_difference_band: differenceBand(pairs.map((pair) => pair.anchor_mechanism_similarity)),
+    execution_template_difference_band: differenceBand(pairs.map((pair) => pair.execution_template_similarity)),
     execution_template_difference: pairs.every((pair) => pair.execution_template_similarity <= 0.55) ? 'clear' : pairs.some((pair) => pair.execution_template_similarity > 0.72) ? 'rewrite_required' : 'partial_overlap',
     anchor_mechanism_difference: pairs.every((pair) => pair.anchor_mechanism_similarity <= 0.55) ? 'clear' : pairs.some((pair) => pair.anchor_mechanism_similarity > 0.72) ? 'rewrite_required' : 'partial_overlap',
     overlap_dimensions: highOverlapPairs.length,

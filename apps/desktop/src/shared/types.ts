@@ -235,13 +235,20 @@ export interface VisualStrategyCorpus {
   warnings: string[];
 }
 
-export type DirectionGenerationMode = 'conceptual_v1' | 'execution_oriented_v2';
-export type AnalysisPipelineMode = 'legacy_deep_analysis' | 'visual_fact_first';
+export type DirectionGenerationMode = 'execution_oriented_v2' | 'conceptual_v1';
+export type AnalysisPipelineMode =
+  | 'retrieval_first'
+  | 'visual_fact_first_legacy'
+  | 'deep_analysis_legacy'
+  | 'visual_fact_first'
+  | 'legacy_deep_analysis';
 
 export type VisualTranslationStage =
   | '00-document-preparation'
   | '01-visual-evidence'
   | '01-visual-relevant-facts'
+  | '01-visual-brief'
+  | '01b-visual-brief-review'
   | '01b-visual-facts-review'
   | '02-visual-signal-opportunity'
   | '02-visual-asset-evidence'
@@ -253,7 +260,8 @@ export type VisualTranslationStage =
   | '04-three-creative-directions'
   | '04b-compile-execution-directions'
   | '05-direction-recommendation'
-  | '10-local-report-compiler';
+  | '10-local-report-compiler'
+  | '10b-local-audit-compiler';
 
 export type VisualTranslationRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'timed_out' | 'cancelled';
 export type VisualTranslationStep4Status = VisualTranslationRunStatus;

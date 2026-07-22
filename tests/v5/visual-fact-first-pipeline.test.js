@@ -7,9 +7,11 @@ import { retrieveBenchmarkCases } from '../../src/v5/visual-translation/v2/visua
 import { evaluateVisualFactFirstAB } from '../../src/v5/visual-translation/v2/visual-fact-first/ab-evaluator.js';
 import { buildVisualFactsPrompt } from '../../src/v5/visual-translation/v2/visual-fact-first/prompts.js';
 import { runVisualFactFirstUpstream } from '../../src/v5/visual-translation/v2/visual-fact-first/run-upstream.js';
+import { buildEvidenceBoundValueRegistry } from '../../src/v5/visual-translation/v2/visual-fact-first/evidence-bound-values.js';
 import { prepareDocumentSet } from '../../src/v5/shared/analysis/document-preparation.js';
 import { runVisualTranslationV2 } from '../../src/v5/visual-translation/v2/runtime/run-visual-translation-v2.js';
 import { DEFAULT_ANALYSIS_PIPELINE_MODE, normalizeAnalysisPipelineMode } from '../../src/v5/visual-translation/v2/config/analysis-pipeline-mode.js';
+import { evaluateModelCriticAdvisory, validateLightweightDirections } from '../../src/v5/visual-translation/v2/runtime/lightweight-validator.js';
 
 const sourceText = '九州美学是医美产业服务品牌，定位为B2B2C医美全链生态平台，服务上游品牌与医美机构，最终受益者为消费者。核心能力包括物流、仓储、GSP、温控与上下游协同。目标气质是专业、稳定、安全、可信、有温度。';
 const prepared = {
@@ -48,18 +50,19 @@ test('Visual Facts prompt rejects broad business analysis and requires grounded 
   assert.match(text, /excerpt 必须是对应 Chunk 的逐字子串/u);
 });
 
-test('the core keeps Legacy compatibility while Desktop can explicitly select Visual Fact First', () => {
-  assert.equal(DEFAULT_ANALYSIS_PIPELINE_MODE, 'legacy_deep_analysis');
-  assert.equal(normalizeAnalysisPipelineMode(), 'legacy_deep_analysis');
+test('Retrieval First is the formal default while Legacy modes remain explicit', () => {
+  assert.equal(DEFAULT_ANALYSIS_PIPELINE_MODE, 'retrieval_first');
+  assert.equal(normalizeAnalysisPipelineMode(), 'retrieval_first');
+  assert.equal(normalizeAnalysisPipelineMode('retrieval_first'), 'retrieval_first');
   assert.equal(normalizeAnalysisPipelineMode('visual_fact_first'), 'visual_fact_first');
   assert.equal(normalizeAnalysisPipelineMode('legacy_deep_analysis'), 'legacy_deep_analysis');
 });
 
 test('query compiler creates five query families and propagates exclusions', () => {
   const plan = compileBenchmarkQueryPlan(facts);
-  for (const key of ['direct_industry_queries', 'business_model_queries', 'tone_price_queries', 'touchpoint_queries', 'anti_template_queries']) assert.equal(plan[key].length, 1);
+  for (const key of ['industry_queries', 'business_model_queries', 'tone_queries', 'touchpoint_queries', 'anti_template_queries']) assert.equal(plan[key].length, 1);
   assert.ok(plan.business_model_queries[0].query.includes('b2b2c_ecosystem'));
-  assert.ok(plan.direct_industry_queries[0].exclusion_terms.includes('skincare'));
+  assert.ok(plan.industry_queries[0].exclusion_terms.includes('skincare'));
 });
 
 test('benchmark retrieval deduplicates canonical URLs and ranks relevant cases', async () => {
@@ -71,7 +74,24 @@ test('benchmark retrieval deduplicates canonical URLs and ranks relevant cases',
   assert.equal(result.relevant_count, 1);
 });
 
-test('Visual Fact First upstream produces six review/program artifacts and Step 4 context', async () => {
+test('EvidenceBoundValue registry only authorizes values linked to confirmed evidence', () => {
+  const registry = buildEvidenceBoundValueRegistry({
+    fact_records: {
+      specific_business_data: { status: 'confirmed', evidence_ids: ['VF-DATA'] },
+      qualifications_and_coverage: { status: 'requires_confirmation', evidence_ids: ['VF-LOW'] }
+    },
+    evidence_registry: [
+      { evidence_id: 'VF-DATA', excerpt: '服务覆盖200公里，拥有141座物流中心，温层10–25℃。', confidence: 0.95 },
+      { evidence_id: 'VF-LOW', excerpt: '区域覆盖率96%。', confidence: 0.6 }
+    ]
+  });
+  assert.equal(registry.find((item) => item.raw_value === '200公里').allowed_in_visual_direction, true);
+  assert.equal(registry.find((item) => item.raw_value === '141座物流中心').status, 'confirmed');
+  assert.equal(registry.find((item) => item.raw_value === '10–25℃').allowed_in_visual_direction, true);
+  assert.equal(registry.find((item) => item.raw_value === '96%').allowed_in_visual_direction, false);
+});
+
+test('Retrieval First upstream persists the formal artifact chain and exposes Partial when retrieval is absent', async () => {
   const saved = [];
   const fixtures = { '01-visual-relevant-facts': facts, '02-visual-asset-evidence': assets, '03c-visual-opportunity-synthesis': synthesis };
   const result = await runVisualFactFirstUpstream({
@@ -84,8 +104,37 @@ test('Visual Fact First upstream produces six review/program artifacts and Step 
   assert.equal(result.visualFacts.project_identity.brand_name, '九州美学');
   assert.equal(result.step4Context.brand_identity.business_type, 'b2b2c_ecosystem');
   assert.equal(result.step4Context.visual_opportunities.differentiation_opportunities.length, 3);
-  assert.deepEqual(saved.filter((item) => /\.md$/u.test(item.metadata.outputFile)).map((item) => item.metadata.outputFile), ['01-Visual-Relevant-Brand-Facts.md', '02-Visual-Asset-Evidence.md', '03-Visual-Opportunity-Synthesis.md']);
+  assert.equal(result.visualBrief.schema_version, 'visual-brief-v1');
+  assert.equal(result.visualBrief.identity.brand_name.status, 'confirmed');
+  assert.ok(sourceText.includes(result.visualBrief.identity.brand_name.evidence[0].excerpt));
+  assert.deepEqual(saved.filter((item) => /\.md$/u.test(item.metadata.outputFile)).map((item) => item.metadata.outputFile), ['01-Visual-Brief.md', '02-Visual-Asset-Evidence.md', '04-Visual-Opportunity-Synthesis.md']);
+  assert.deepEqual(saved.filter((item) => /Benchmark|Step4/u.test(item.metadata.outputFile)).map((item) => item.metadata.outputFile), [
+    '03-Benchmark-Query-Plan.json', '03-Benchmark-Cases.json', '05-Step4-Input-Context.json'
+  ]);
   assert.equal(saved.find((item) => item.stage === '03b-benchmark-retrieval').output.retrieval_status, 'not_configured');
+  assert.equal(result.pipelineCompleteness, 'partial');
+  assert.ok(result.step4Context.fact_status_groups.confirmed.some((item) => item.field === 'brand_name'));
+  assert.equal(result.step4Context.brand_relationship.visual_authorization, 'not_confirmed');
+  assert.deepEqual(result.step4Context.audience_structure.final_user_or_beneficiary, [], 'unconfirmed final-consumer facts must not enter Step 4');
+  assert.ok(result.step4Context.fact_status_groups.unknown.some((item) => item.field === 'final_consumer'));
+});
+
+test('Lightweight Validator owns runtime status while Model Critic remains advisory', () => {
+  const compiled = {
+    directions: [{ content_readiness_score: 75 }, { content_readiness_score: 75 }, { content_readiness_score: 75 }],
+    gates: {
+      brand_identity_preservation: { brand_name_preserved: true },
+      asset_authorization: { forgery_detected: false },
+      direction_family_difference: { rewrite_required: true, difference_score: 0.5 },
+      execution_example_completeness: {}, execution_example_specificity: {}
+    }
+  };
+  const validation = validateLightweightDirections({ compiled, pipelineCompleteness: 'complete', benchmarkRetrieval: { retrieval_status: 'completed' } });
+  const critic = evaluateModelCriticAdvisory(compiled);
+  assert.equal(validation.status, 'rewrite_required');
+  assert.deepEqual(validation.hard_blocks, []);
+  assert.equal(critic.runtime_effect, 'none');
+  assert.ok(['Recommended', 'Promising With Revision', 'Weak'].includes(critic.recommendation));
 });
 
 test('A/B evaluator permits replacement only when every documented threshold passes', () => {
@@ -96,7 +145,7 @@ test('A/B evaluator permits replacement only when every documented threshold pas
   assert.equal(result.summary.anchor_wins, 3);
 });
 
-test('V2 runner switches to Visual Fact First while preserving Step 4 and Gate', async () => {
+test('V2 runner executes Retrieval First while preserving Step 4 and lightweight validation', async () => {
   const corpus = { documents: [{ id: 'doc1', filename: '策略.md', sourceType: 'markdown', rawText: sourceText, characterCount: sourceText.length, sections: [{ heading: '品牌', content: sourceText }] }] };
   const runtimePrepared = prepareDocumentSet({ projectId: 'visual-fact-first-e2e', corpus });
   const runtimeFacts = structuredClone(facts);
@@ -112,7 +161,7 @@ test('V2 runner switches to Visual Fact First while preserving Step 4 and Gate',
   const checkpoints = [];
   const result = await runVisualTranslationV2({
     projectId: 'visual-fact-first-e2e', analysisRunId: 'run-vff-01', corpus,
-    provider: 'fixture', modelId: 'fixture-model', analysisPipelineMode: 'visual_fact_first',
+    provider: 'fixture', modelId: 'fixture-model', analysisPipelineMode: 'retrieval_first',
     reasoner: async (messages) => {
       const protocol = messages[0].content.match(/PROTOCOL_STAGE=([^\n]+)/u)?.[1];
       stages.push(protocol);
@@ -126,10 +175,25 @@ test('V2 runner switches to Visual Fact First while preserving Step 4 and Gate',
     onProgress: () => {}, onModelResponse: () => {}
   });
   assert.deepEqual(stages, ['01-visual-relevant-facts', '03-visual-opportunity-synthesis', '04-execution-oriented-directions-v2']);
-  assert.equal(result.analysisPipelineMode, 'visual_fact_first');
-  assert.equal(result.pipelineObservability.pipeline_mode, 'visual_fact_first');
+  assert.equal(result.analysisPipelineMode, 'retrieval_first');
+  assert.equal(result.pipelineObservability.pipeline_mode, 'retrieval_first');
+  assert.equal(result.pipelineObservability.pipeline_completeness, 'partial');
   assert.equal(result.modelCallCount, 3);
-  assert.match(result.reportMarkdown, /上游分析管线：visual_fact_first/u);
-  assert.ok(checkpoints.some((item) => item.outputFile === '03-Visual-Opportunity-Synthesis.md'));
+  assert.match(result.reportMarkdown, /管线完整度：\*\*部分完整\*\*/u);
+  assert.match(result.reportMarkdown, /## 4\. 三方向对比/u);
+  assert.match(result.reportMarkdown, /## 附录 A：Retrieval First 证据摘要/u);
+  assert.doesNotMatch(result.reportMarkdown, /visualDirectionV2\.|field_path|matched_rule|moderate_confidence_brand_indicator/u);
+  assert.match(result.auditMarkdown, /## 1\. Pipeline Integrity/u);
+  assert.match(result.auditMarkdown, /## 14\. Collection Status Compilation/u);
+  for (const item of result.compiled.directions) {
+    assert.equal(item.readiness_score.final_content_readiness, item.content_readiness_score);
+  }
+  assert.equal(result.compiled.directions.find((item) => item.direction.direction_id === 'E03').readiness_score.final_content_readiness, 59);
+  assert.ok(result.rawDirections.every((direction) => direction.source_opportunity_ids.length > 0));
+  assert.ok(checkpoints.some((item) => item.outputFile === '04-Visual-Opportunity-Synthesis.md'));
+  assert.ok(checkpoints.some((item) => item.outputFile === '06-Visual-Directions.json'));
+  assert.ok(checkpoints.some((item) => item.outputFile === '06-Visual-Directions-Report.md'));
+  assert.ok(checkpoints.some((item) => item.outputFile === '06-Visual-Directions-Audit.md'));
+  assert.equal(result.reportBasename, '06-Visual-Directions-Report.md');
   assert.equal(result.status, 'completed-directions');
 });

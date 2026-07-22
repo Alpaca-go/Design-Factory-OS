@@ -114,11 +114,9 @@ export const FABRICATION_SCIENTIFIC_PATTERNS = Object.freeze([
 // already caught above as blocked).
 export const FABRICATION_FIELD_STRUCTURE_PATTERNS = Object.freeze([
   { re: /责任人(?![\s:：]*[一-龥]{2,4})/, rule_id: 'FABRICATED_DATA_FIELD_STRUCTURE', reason: '责任人字段可保留结构，但不得填入真实姓名；标注为 structure_only / placeholder', rewrite: '改为「责任角色」占位', type: 'field_structure' },
-  { re: /批次(?![\s:：]*[A-Za-z0-9]{4,})/, rule_id: 'FABRICATED_DATA_FIELD_STRUCTURE', reason: '批次字段可保留结构 / 占位，不得填具体编码', rewrite: '改为批次结构示意 / 占位', type: 'field_structure' },
   { re: /注册证(?![\s\S]{0,12}(号|编号)[\s:：]*[A-Za-z0-9]{4,})/, rule_id: 'FABRICATED_DATA_FIELD_STRUCTURE', reason: '注册证字段可保留结构 / 占位，不得填具体编号', rewrite: '改为「注册证结构示意」', type: 'field_structure' },
   { re: /证书(?![\s:：]*[A-Za-z0-9]{4,})/, rule_id: 'FABRICATED_DATA_FIELD_STRUCTURE', reason: '证书字段可保留结构 / 占位', rewrite: '改为证书结构示意 / 占位', type: 'field_structure' },
-  { re: /合格率(?![\s:：]*\d{1,3}(\.\d+)?\s?%)/, rule_id: 'FABRICATED_DATA_FIELD_STRUCTURE', reason: '合格率字段可保留结构 / 占位，不得填具体比例', rewrite: '改为合格率结构示意', type: 'field_structure' },
-  { re: /(数|指数|比例|覆盖率|参数|区间|排名|增长率|达标率|准确率|合格率|时效|容量|规模)(?![\s:：]*\d)/, rule_id: 'FABRICATED_DATA_FIELD_STRUCTURE', reason: '该指标字段可保留结构 / 占位，不得填具体数值', rewrite: '改为指标结构示意 / 占位（structure_only）', type: 'field_structure' }
+  { re: /[一-龥]{2,}(?:指数|覆盖率|增长率|达标率|准确率|合格率|时效|容量|规模)(?![\s:：]*\d)/, rule_id: 'FABRICATED_DATA_FIELD_STRUCTURE', reason: '该业务指标字段可保留结构 / 占位，不得填具体数值', rewrite: '改为指标结构示意 / 占位（structure_only）', type: 'field_structure' }
 ]);
 
 export const FABRICATION_PLACEHOLDER_PATTERNS = Object.freeze([

@@ -5,7 +5,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { compileExecutionDirectionV2 } from '../../src/v5/visual-translation/v2/runtime/compile-execution-direction-v2.js';
-import { compileExecutionDirectionsReportV2, renderNestedField } from '../../src/v5/visual-translation/v2/report/compile-execution-directions-report-v2.js';
+import { renderNestedField } from '../../src/v5/visual-translation/v2/report/compile-execution-directions-report-v2.js';
+import { compileExecutionDirectionsReportV2 } from '../../src/v5/visual-translation/v2/report/visual-directions-report-compiler.js';
 import { gateIssueKey } from '../../src/v5/visual-translation/v2/runtime/gate-issue-aggregator.js';
 import { normalizeConsumerValue } from '../../src/v5/visual-translation/v2/runtime/consumer-value-normalizer.js';
 
@@ -73,6 +74,21 @@ test('consumer normalization preserves precedence and legacy compatibility', () 
   assert.equal(legacy.consumer_value_role, 'strong_secondary');
   assert.equal(legacy.present, true);
   assert.equal(legacy.source, 'direction_level');
+
+  const institutionValue = normalizeConsumerValue({
+    direction_id: 'E03', downstream_consumer_value: {
+      present: true, consumer_value_role: 'strong_secondary',
+      value_statement: '降低机构采购风险并提升机构运营效率', visual_expression: '机构运营看板', touchpoints: [], evidence_ids: []
+    }
+  });
+  assert.equal(institutionValue.value_audience, 'institution');
+  const consumerValue = normalizeConsumerValue({
+    direction_id: 'E02', downstream_consumer_value: {
+      present: true, consumer_value_role: 'strong_secondary',
+      value_statement: '让消费者获得安全、透明且可追溯的终端体验', visual_expression: '消费者结果层', touchpoints: [], evidence_ids: []
+    }
+  });
+  assert.equal(consumerValue.value_audience, 'consumer');
 });
 
 for (const project of PROJECTS) {

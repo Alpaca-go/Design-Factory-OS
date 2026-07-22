@@ -46,6 +46,8 @@ import { evaluateConsumerWeightConsistency } from './consumer-weight-consistency
 import { evaluateExecutionExampleCompleteness, hasMeaningfulValue } from './execution-example-completeness-evaluator.js';
 import { evaluateExecutionExampleSpecificity } from './execution-example-specificity-evaluator.js';
 import { aggregateGateIssues } from './gate-issue-aggregator.js';
+import { evaluateGroupVisualAuthorization } from './group-visual-authorization-evaluator.js';
+import { evaluateDirectionTouchpointRisk } from './direction-touchpoint-risk-evaluator.js';
 
 // v2.1.4 — unified execution example quality computation (doc §三).
 // Computes the single source of truth for touchpoint coverage scoring.
@@ -121,7 +123,9 @@ function buildStructuredGateIssues({
   spatialDrift,
   e02Aesthetic,
   consumerWeightConsistency,
-  executionExampleCompleteness
+  executionExampleCompleteness,
+  groupVisualAuthorization,
+  touchpointRisk
 }) {
   const issues = [];
   const directionSpecificCode = (code) => code === 'schema_validation_failed'
@@ -168,6 +172,8 @@ function buildStructuredGateIssues({
   }
 
   issues.push(...(brandIdentity.issues || []));
+  issues.push(...(groupVisualAuthorization?.issues || []));
+  issues.push(...(touchpointRisk?.issues || []));
 
   for (const item of assetAuthorizationSet.per_direction || []) {
     for (const detection of item.detections || []) {
@@ -202,7 +208,7 @@ function buildStructuredGateIssues({
 
   if (e02Aesthetic?.evaluated_direction_id && (e02Aesthetic.rewrite_required || e02Aesthetic.positive_quality_status === 'conditional')) {
     issues.push({
-      code: 'E02_POSITIVE_QUALITY',
+      code: e02Aesthetic.resolution_code || 'E02_POSITIVE_QUALITY',
       severity: e02Aesthetic.rewrite_required ? 'rewrite' : 'warning',
       scope: 'direction', direction_id: e02Aesthetic.evaluated_direction_id,
       issue_scope: 'direction', source_direction_ids: [e02Aesthetic.evaluated_direction_id],
@@ -293,6 +299,10 @@ function resolveLocalDirectionState(directionId, entry, gates) {
 
   if (!entry.assetAuthorization.ok) hard.push('FORGERY_DETECTED');
   if ((entry.assetAuthorization.detections || []).some((item) => item.risk_level === 'warning')) warnings.push('ASSET_AUTHORIZATION_WARNING');
+  if ((gates.groupVisualAuthorization?.per_direction || []).some((item) => item.direction_id === directionId)) rewrite.push('UNSUPPORTED_GROUP_VISUAL_AUTHORIZATION');
+  warnings.push(...(gates.touchpointRisk?.per_direction || [])
+    .filter((item) => item.direction_id === directionId)
+    .flatMap((item) => item.risks.map((risk) => risk.code)));
 
   const completeness = gates.executionExampleCompleteness.per_direction.find((item) => item.direction_id === directionId);
   if (completeness?.blocked || completeness?.conditional) rewrite.push('EXECUTION_EXAMPLE_MISSING');
@@ -307,7 +317,7 @@ function resolveLocalDirectionState(directionId, entry, gates) {
   if (industry && !industry.meets_minimum) rewrite.push('INDUSTRY_RECOGNITION');
 
   if (gates.e02Aesthetic.evaluated_direction_id === directionId) {
-    if (gates.e02Aesthetic.rewrite_required) rewrite.push('E02_POSITIVE_QUALITY');
+    if (gates.e02Aesthetic.rewrite_required) rewrite.push(gates.e02Aesthetic.resolution_code || 'E02_POSITIVE_QUALITY');
     else if (gates.e02Aesthetic.positive_quality_status === 'conditional' || gates.e02Aesthetic.positive_quality_pass_with_warning) warnings.push('E02_QUALITY_WARNING');
   }
 
@@ -423,6 +433,9 @@ export function compileExecutionDirectionV2({
   knownAliases = []
 } = {}) {
   const reportLanguage = brandFacts.reportLanguage || 'zh-CN';
+  const evidenceBoundOptions = Array.isArray(brandFacts?.evidenceBoundValues)
+    ? { evidenceBoundValues: brandFacts.evidenceBoundValues, enforceEvidenceBoundValues: true }
+    : {};
   const context = {
     reportLanguage,
     evidenceIds: toIdSet(evidenceIndex, 'evidence_id'),
@@ -440,7 +453,7 @@ export function compileExecutionDirectionV2({
   const rawEntries = rawDirections.map((raw, index) => {
     try {
       const validated = validateExecutionDirectionV2(raw, context);
-      const assetAuthorization = evaluateAssetAuthorizationSet([validated]).per_direction[0];
+      const assetAuthorization = evaluateAssetAuthorizationSet([validated], evidenceBoundOptions).per_direction[0];
       const evidencePreservation = guardEvidencePreservation(validated, evidenceIndex);
       const audienceBoundaryGuard = guardAudienceBoundary(validated, audienceBoundary);
       const examplesComplete = hasCompleteExecutionExamples(validated);
@@ -495,8 +508,28 @@ export function compileExecutionDirectionV2({
   const directionFamilyDifference = evaluateDirectionFamilyDifference(validDirections);
   const complianceWeight = evaluateComplianceWeight(validDirections);
   const e02Aesthetic = evaluateE02AestheticGate(validDirections);
+  if (evidenceBoundOptions.enforceEvidenceBoundValues && e02Aesthetic.evaluated_direction_id) {
+    const e02Direction = validDirections.find((direction) => direction.direction_id === e02Aesthetic.evaluated_direction_id);
+    const mechanism = e02Direction?.selection_mechanism;
+    const selectionMechanismComplete = Boolean(
+      mechanism
+      && hasMeaningfulValue(mechanism.selection_dimensions)
+      && hasMeaningfulValue(mechanism.visual_mapping_rule)
+      && hasMeaningfulValue(mechanism.multi_category_rule)
+      && hasMeaningfulValue(mechanism.comparison_behavior)
+      && hasMeaningfulValue(mechanism.platform_signature)
+    );
+    e02Aesthetic.selection_mechanism_complete = selectionMechanismComplete;
+    if (!selectionMechanismComplete) {
+      e02Aesthetic.rewrite_required = true;
+      e02Aesthetic.resolution_code = 'ANCHOR_MECHANISM_ENHANCEMENT_REQUIRED';
+      e02Aesthetic.blocking_reasons = [...new Set([...(e02Aesthetic.blocking_reasons || []), 'e02_selection_mechanism_incomplete'])];
+    }
+  }
   const industryRecognition = evaluateIndustryRecognitionCoverage(validDirections);
-  const assetAuthorizationSet = evaluateAssetAuthorizationSet(validDirections);
+  const assetAuthorizationSet = evaluateAssetAuthorizationSet(validDirections, evidenceBoundOptions);
+  const groupVisualAuthorization = evaluateGroupVisualAuthorization(validDirections, brandFacts?.brandRelationship);
+  const touchpointRisk = evaluateDirectionTouchpointRisk(validDirections);
   const assetIdUniqueness = validateGlobalAssetIds(validDirections);
   const spatialDrift = evaluateSpatialDrift(validDirections);
   const consumerWeightConsistency = evaluateConsumerWeightConsistency(validDirections);
@@ -543,6 +576,7 @@ export function compileExecutionDirectionV2({
   if (industryRecognition.rewrite_required) rewriteIssues.push('industry_recognition');
   if (brandIdentity.blocking_reasons.length > 0) rewriteIssues.push(...brandIdentity.blocking_reasons);
   if (assetAuthorizationSet.blocking_reasons.length > 0) rewriteIssues.push(...assetAuthorizationSet.blocking_reasons);
+  if (groupVisualAuthorization.rewrite_required) rewriteIssues.push('unsupported_group_visual_authorization');
   if (spatialDrift.rewrite_required) rewriteIssues.push('spatial_drift');
   if (consumerWeightConsistency.rewrite_required) rewriteIssues.push('consumer_weight_consistency');
 
@@ -570,7 +604,8 @@ export function compileExecutionDirectionV2({
     const localGateState = resolveLocalDirectionState(item.direction.direction_id, item, {
       brandIdentity, businessModelCoverage, consumerWeightConsistency,
       executionExampleCompleteness, industryRecognition, e02Aesthetic,
-      spatialDrift, executionExampleSpecificity
+      spatialDrift, executionExampleSpecificity,
+      groupVisualAuthorization, touchpointRisk
     });
     const localExecutionPermissionStatus = localGateState.permission;
     const localStatus = localGateState.status;
@@ -603,6 +638,15 @@ export function compileExecutionDirectionV2({
       collection_execution_permission_status: executionPermissionStatus,
       structural_completeness_score: explanation.quality_cap ?? explanation.raw_score ?? item.readiness.content_readiness_score,
       content_readiness_score: capAt,
+      readiness_score: {
+        raw_structural_readiness: updatedExplanation.raw_score ?? capAt,
+        execution_cap: updatedExplanation.permission_cap ?? null,
+        final_content_readiness: capAt,
+        cap_reasons: [...new Set([
+          ...(updatedExplanation.quality_cap_reasons || []),
+          ...(updatedExplanation.permission_cap_reasons || [])
+        ])]
+      },
       readiness: {
         ...item.readiness,
         content_readiness_score: capAt,
@@ -627,6 +671,8 @@ export function compileExecutionDirectionV2({
     e02_aesthetic_gate: e02Aesthetic,
     industry_recognition_coverage: industryRecognition,
     asset_authorization: assetAuthorizationSet,
+    group_visual_authorization: groupVisualAuthorization,
+    direction_touchpoint_risk: touchpointRisk,
     asset_id_uniqueness: assetIdUniqueness,
     spatial_drift: spatialDrift,
     consumer_weight_consistency: consumerWeightConsistency,
@@ -654,7 +700,9 @@ export function compileExecutionDirectionV2({
     spatialDrift,
     e02Aesthetic,
     consumerWeightConsistency,
-    executionExampleCompleteness
+    executionExampleCompleteness,
+    groupVisualAuthorization,
+    touchpointRisk
   });
 
   return {

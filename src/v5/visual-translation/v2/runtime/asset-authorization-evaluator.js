@@ -25,6 +25,8 @@ import {
   PERSONAL_DATA_PATTERNS
 } from './evaluator-keywords.js';
 import { classifyFieldSemanticRole, isNegatedContext } from './field-semantic-role.js';
+import { allowedEvidenceValueSet, detectUnsupportedSpecificData, detectionIsEvidenceBound } from './specific-data-evidence-evaluator.js';
+import { extractEvidenceBoundValues } from '../visual-fact-first/evidence-bound-values.js';
 
 const ALLOWED_MODES = ['abstracted', 'redacted', 'structure_only', 'real_data_required', 'prohibited'];
 
@@ -130,16 +132,23 @@ function classifyFragment({ path, text }, directionId) {
   return detections;
 }
 
-export function detectForgeryStructured(direction) {
+export function detectForgeryStructured(direction, { evidenceBoundValues = [], enforceEvidenceBoundValues = false } = {}) {
   const leaves = [];
   walkStrings(direction, 'visualDirectionV2', leaves);
   const detections = [];
   for (const leaf of leaves) detections.push(...classifyFragment(leaf, direction.direction_id));
-  return detections;
+  if (!enforceEvidenceBoundValues) return detections;
+  const allowedValues = allowedEvidenceValueSet(evidenceBoundValues);
+  const unbound = detectUnsupportedSpecificData(direction, evidenceBoundValues);
+  return [...detections.filter((item) => {
+    if (detectionIsEvidenceBound(item.detected_text, allowedValues)) return false;
+    return extractEvidenceBoundValues(item.detected_text).length === 0;
+  }), ...unbound]
+    .filter((item, index, all) => all.findIndex((candidate) => candidate.field_path === item.field_path && candidate.rule_id === item.rule_id && candidate.detected_text === item.detected_text) === index);
 }
 
-export function evaluateAssetAuthorization(direction) {
-  const detections = detectForgeryStructured(direction);
+export function evaluateAssetAuthorization(direction, options = {}) {
+  const detections = detectForgeryStructured(direction, options);
   const blocked = detections.filter((d) => d.risk_level === 'blocked');
   const ok = blocked.length === 0;
 
@@ -161,8 +170,8 @@ export function evaluateAssetAuthorization(direction) {
   };
 }
 
-export function evaluateAssetAuthorizationSet(directions = []) {
-  const perDirection = directions.map((d) => evaluateAssetAuthorization(d));
+export function evaluateAssetAuthorizationSet(directions = [], options = {}) {
+  const perDirection = directions.map((d) => evaluateAssetAuthorization(d, options));
   const anyForgery = perDirection.some((item) => !item.ok);
   return {
     evaluator_version: 'asset-authorization-evaluator-v1.1',

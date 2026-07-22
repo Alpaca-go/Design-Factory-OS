@@ -123,12 +123,23 @@ export {
 } from './runtime/ab-runner.js';
 
 export { buildExecutionDirectionV2Prompt, VISUAL_DIRECTIONS_PROMPT_V2_VERSION } from './prompts/direction-generation-prompt-v2.js';
-export { ANALYSIS_PIPELINE_MODES, DEFAULT_ANALYSIS_PIPELINE_MODE, normalizeAnalysisPipelineMode, isVisualFactFirstMode } from './config/analysis-pipeline-mode.js';
+export { ANALYSIS_PIPELINE_MODES, DEFAULT_ANALYSIS_PIPELINE_MODE, normalizeAnalysisPipelineMode, isVisualFactFirstMode, isRetrievalFirstMode } from './config/analysis-pipeline-mode.js';
 export { validateVisualRelevantBrandFacts, validateVisualAssetEvidence, validateBenchmarkQueryPlan, validateBenchmarkCase, validateVisualOpportunitySynthesis } from './visual-fact-first/schemas.js';
 export { compileBenchmarkQueryPlan } from './visual-fact-first/benchmark-query-compiler.js';
 export { retrieveBenchmarkCases } from './visual-fact-first/benchmark-retrieval.js';
 export { adaptVisualFactFirstToStep4 } from './visual-fact-first/step4-input-adapter.js';
 export { evaluateVisualFactFirstAB } from './visual-fact-first/ab-evaluator.js';
+export { compileVisualBrief, compileVisualBriefMarkdown } from './retrieval-first/visual-brief.js';
+export { validateLightweightDirections, evaluateModelCriticAdvisory } from './runtime/lightweight-validator.js';
 export { buildAnchorCandidateV2Prompt, ANCHOR_CANDIDATE_PROMPT_V2_VERSION } from './prompts/anchor-candidate-prompt-v2.js';
 
-export { compileExecutionDirectionsReportV2, renderNestedField } from './report/compile-execution-directions-report-v2.js';
+export { renderNestedField } from './report/compile-execution-directions-report-v2.js';
+export {
+  compileExecutionDirectionsReportV2,
+  compileExecutionDirectionsAuditV2,
+  compileVisualDirectionsReportViewModel,
+  compileVisualDirectionsAuditViewModel,
+  groupVisualDirectionIssues,
+  renderVisualDirectionsReport,
+  renderVisualDirectionsAudit
+} from './report/visual-directions-report-compiler.js';

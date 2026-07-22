@@ -223,6 +223,7 @@ async function runStage04({ failureMode = 'none' } = {}) {
     lockedAssets: [],
     provider: ctx.provider,
     modelId: ctx.modelId,
+    analysisPipelineMode: 'legacy_deep_analysis',
     reasoner: mock.reasoner,
     checkpoints: ctx.checkpoints,
     abortSignal: undefined,
@@ -249,6 +250,7 @@ test('v2 runner does not regenerate after a truncated primary response', async (
   await assert.rejects(() => runVisualTranslationV2({
     projectId: ctx.projectId, analysisRunId: ctx.analysisRunId, corpus: ctx.corpus,
     lockedFacts: [], lockedAssets: [], provider: ctx.provider, modelId: ctx.modelId,
+    analysisPipelineMode: 'legacy_deep_analysis',
     reasoner: mock.reasoner, checkpoints: ctx.checkpoints,
     onProgress: () => {}, onModelResponse: () => {}, onCheckpoint: () => {}
   }), (error) => error.code === 'OUTPUT_TRUNCATED');
@@ -275,6 +277,7 @@ test('v2 runner checkpoints a valid primary response and resumes with Repair onl
   await assert.rejects(() => runVisualTranslationV2({
     projectId: ctx.projectId, analysisRunId: ctx.analysisRunId, corpus: ctx.corpus,
     lockedFacts: [], lockedAssets: [], provider: ctx.provider, modelId: ctx.modelId,
+    analysisPipelineMode: 'legacy_deep_analysis',
     checkpoints: ctx.checkpoints,
     reasoner: async (messages) => {
       calls += 1;
@@ -296,6 +299,7 @@ test('v2 runner checkpoints a valid primary response and resumes with Repair onl
   const resumed = await runVisualTranslationV2({
     projectId: ctx.projectId, analysisRunId: ctx.analysisRunId, corpus: ctx.corpus,
     lockedFacts: [], lockedAssets: [], provider: ctx.provider, modelId: ctx.modelId,
+    analysisPipelineMode: 'legacy_deep_analysis',
     checkpoints: { ...ctx.checkpoints, '04-step4-repair-pending': recoveryPayload },
     reasoner: async (messages) => {
       calls += 1;

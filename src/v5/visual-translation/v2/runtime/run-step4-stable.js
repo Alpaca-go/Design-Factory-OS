@@ -116,6 +116,36 @@ const FIELD_RULES = Object.freeze({
     required: 'specific template risks; every array item must be a string',
     example: '["供应链节点网络容易滑向通用科技视觉。"]',
     forbidden: 'object items, number, boolean, null, empty array'
+  },
+  selection_dimensions: {
+    expected: 'non-empty string[]',
+    required: '2–4 concrete selection dimensions for this direction',
+    example: '["证据可验证性","机构决策价值","跨触点复用性"]',
+    forbidden: 'empty array, placeholder, object items, or changing another selection_mechanism field'
+  },
+  visual_mapping_rule: {
+    expected: 'non-empty string',
+    required: 'state how each selection dimension maps to an observable graphic, image, layout, or information rule',
+    example: '将证据状态映射为可验证窗口，将流程节点映射为分层轨迹切片。',
+    forbidden: 'empty string, abstract style label, invented fact, or changes to another field'
+  },
+  multi_category_rule: {
+    expected: 'non-empty string',
+    required: 'state the invariant visual grammar that unifies multiple products, services, or roles',
+    example: '所有品类沿用同一证据分层、编号区和状态标签结构，仅替换真实业务对象。',
+    forbidden: 'empty string, a generic style adjective, or an invented category'
+  },
+  comparison_behavior: {
+    expected: 'non-empty string',
+    required: 'state the observable comparison behavior used to distinguish choices or states',
+    example: '以并列证据卡比较交付状态，不使用虚构评分、排名或百分比。',
+    forbidden: 'empty string, fabricated score, ranking, metric, or certification'
+  },
+  platform_signature: {
+    expected: 'non-empty string',
+    required: 'state the project-brand-specific platform signature without using an unauthorized parent/group VI',
+    example: '以项目品牌名称、平台验证区块和服务编排规则形成签名。',
+    forbidden: 'empty string, another brand, or unauthorized group logo/VI'
   }
 });
 
