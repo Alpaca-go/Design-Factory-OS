@@ -1,3 +1,5 @@
+import { groundEvidenceQuote } from '../../v1/schemas/visual-evidence-map-v1.js';
+
 const BUSINESS_TYPES = new Set([
   'consumer_product_brand', 'professional_product_brand', 'service_brand', 'retail_brand',
   'institution', 'platform', 'supply_chain_platform', 'b2b2c_ecosystem', 'manufacturer',
@@ -50,15 +52,17 @@ function validateEvidenceRef(value, path, prepared) {
   const sourceFile = string(item.source_file, `${path}.source_file`, { allowUnknown: true });
   const sourceLocation = string(item.source_location, `${path}.source_location`, { allowUnknown: true });
   const excerpt = string(item.excerpt, `${path}.excerpt`, { allowUnknown: true });
+  let grounded = { sourceId: sourceFile, chunkId: sourceLocation, shortestQuote: excerpt, repaired: false };
   if (prepared) {
     const source = prepared.sourceDocuments.find((candidate) => candidate.sourceId === sourceFile || candidate.originalFileName === sourceFile);
-    const chunk = prepared.chunks.find((candidate) => candidate.chunkId === sourceLocation || (candidate.sourceId === source?.sourceId && candidate.text.includes(excerpt)));
-    if (!source || !chunk || !chunk.text.includes(excerpt)) fail('excerpt is not grounded in the named source', path);
+    if (!source) fail('references an unknown source', path);
+    grounded = groundEvidenceQuote({ requestedQuote: excerpt, statement: excerpt, sourceId: source.sourceId, chunkId: sourceLocation }, prepared);
   }
   return {
     evidence_id: item.evidence_id ? string(item.evidence_id, `${path}.evidence_id`, { allowUnknown: true }) : null,
-    source_file: sourceFile, source_location: sourceLocation, excerpt,
-    confidence: number(item.confidence, `${path}.confidence`)
+    source_file: grounded.sourceId, source_location: grounded.chunkId, excerpt: grounded.shortestQuote,
+    confidence: grounded.repaired ? Math.min(number(item.confidence, `${path}.confidence`), 0.85) : number(item.confidence, `${path}.confidence`),
+    evidence_repaired: grounded.repaired
   };
 }
 

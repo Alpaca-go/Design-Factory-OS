@@ -9,6 +9,7 @@ import { buildVisualFactsPrompt } from '../../src/v5/visual-translation/v2/visua
 import { runVisualFactFirstUpstream } from '../../src/v5/visual-translation/v2/visual-fact-first/run-upstream.js';
 import { prepareDocumentSet } from '../../src/v5/shared/analysis/document-preparation.js';
 import { runVisualTranslationV2 } from '../../src/v5/visual-translation/v2/runtime/run-visual-translation-v2.js';
+import { DEFAULT_ANALYSIS_PIPELINE_MODE, normalizeAnalysisPipelineMode } from '../../src/v5/visual-translation/v2/config/analysis-pipeline-mode.js';
 
 const sourceText = '九州美学是医美产业服务品牌，定位为B2B2C医美全链生态平台，服务上游品牌与医美机构，最终受益者为消费者。核心能力包括物流、仓储、GSP、温控与上下游协同。目标气质是专业、稳定、安全、可信、有温度。';
 const prepared = {
@@ -45,6 +46,13 @@ test('Visual Facts prompt rejects broad business analysis and requires grounded 
   assert.match(text, /不是品牌策划分析器/u);
   assert.match(text, /不要总结市场规模/u);
   assert.match(text, /excerpt 必须是对应 Chunk 的逐字子串/u);
+});
+
+test('the core keeps Legacy compatibility while Desktop can explicitly select Visual Fact First', () => {
+  assert.equal(DEFAULT_ANALYSIS_PIPELINE_MODE, 'legacy_deep_analysis');
+  assert.equal(normalizeAnalysisPipelineMode(), 'legacy_deep_analysis');
+  assert.equal(normalizeAnalysisPipelineMode('visual_fact_first'), 'visual_fact_first');
+  assert.equal(normalizeAnalysisPipelineMode('legacy_deep_analysis'), 'legacy_deep_analysis');
 });
 
 test('query compiler creates five query families and propagates exclusions', () => {

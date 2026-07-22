@@ -3,6 +3,8 @@ export const ANALYSIS_PIPELINE_MODES = Object.freeze({
   VISUAL_FACT_FIRST: 'visual_fact_first'
 });
 
+// Core API calls remain backward compatible. The experiment Desktop selects
+// Visual Fact First through its persisted default setting.
 export const DEFAULT_ANALYSIS_PIPELINE_MODE = ANALYSIS_PIPELINE_MODES.LEGACY_DEEP_ANALYSIS;
 
 export function normalizeAnalysisPipelineMode(value) {
