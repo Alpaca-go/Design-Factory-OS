@@ -43,8 +43,9 @@ import { evaluateAssetAuthorizationSet } from './asset-authorization-evaluator.j
 import { evaluateSpatialDrift } from './spatial-drift-evaluator.js';
 import { validateGlobalAssetIds } from './asset-id-validator.js';
 import { evaluateConsumerWeightConsistency } from './consumer-weight-consistency.js';
-import { evaluateExecutionExampleCompleteness } from './execution-example-completeness-evaluator.js';
+import { evaluateExecutionExampleCompleteness, hasMeaningfulValue } from './execution-example-completeness-evaluator.js';
 import { evaluateExecutionExampleSpecificity } from './execution-example-specificity-evaluator.js';
+import { aggregateGateIssues } from './gate-issue-aggregator.js';
 
 // v2.1.4 — unified execution example quality computation (doc §三).
 // Computes the single source of truth for touchpoint coverage scoring.
@@ -82,12 +83,167 @@ function resolveReportState({ blockingIssues, rewriteIssues, conditionalIssues, 
     return { permission: 'blocked', status: 'blocked' };
   }
   if (rewriteIssues.length) {
-    return { permission: 'blocked', status: 'rewrite_required' };
+    return { permission: 'conditional', status: 'rewrite_required' };
   }
   if (conditionalIssues.length) {
     return { permission: 'conditional', status: 'ready_with_warnings' };
   }
   return { permission: 'allowed', status: 'ready', info_count: infoIssues.length };
+}
+
+function issueMessage(code) {
+  const labels = {
+    schema_validation_failed: '存在未通过结构校验的方向。',
+    UNEXPECTED_BRAND_IDENTITY: '检测到非项目品牌身份。',
+    brand_name_not_preserved: '项目品牌名称未被完整保留。',
+    forgery_detected: '检测到未授权数据或资质仿制风险。',
+    duplicate_asset_id: '检测到跨方向重复的资产 ID。',
+    set_missing_consumer_value: '方向集合未满足消费者价值覆盖要求。',
+    business_model_undercoverage: '方向集合的业务模型覆盖不足。',
+    direction_family_difference: '方向家族差异不足。',
+    compliance_weight: '方向权重分布不满足约束。',
+    industry_recognition: '行业识别覆盖不足。',
+    spatial_drift: '方向存在空间或地产视觉漂移。',
+    consumer_weight_consistency: '消费者角色与权重不一致。'
+  };
+  return labels[code] || `Gate 触发：${code}`;
+}
+
+function buildStructuredGateIssues({
+  blockingIssues,
+  rewriteIssues,
+  conditionalIssues,
+  infoIssues,
+  validDirections,
+  blockedEntries,
+  brandIdentity,
+  assetAuthorizationSet,
+  spatialDrift,
+  e02Aesthetic,
+  consumerWeightConsistency,
+  executionExampleCompleteness
+}) {
+  const issues = [];
+  const directionSpecificCode = (code) => code === 'schema_validation_failed'
+    || code === 'UNEXPECTED_BRAND_IDENTITY' || code === 'brand_name_not_preserved'
+    || code === 'forgery_detected' || code === 'spatial_drift'
+    || code === 'consumer_weight_consistency' || code.startsWith('e02_')
+    || code.startsWith('brand_') || code.startsWith('strategic_') || code.startsWith('industry_identity_')
+    || code.startsWith('execution_example_');
+  for (const [severity, codes] of [
+    ['blocking', blockingIssues],
+    ['rewrite', rewriteIssues],
+    ['warning', conditionalIssues],
+    ['info', infoIssues]
+  ]) {
+    for (const code of codes) {
+      if (directionSpecificCode(code)) continue;
+      issues.push({
+        code,
+        severity,
+        scope: 'collection',
+        issue_scope: 'collection',
+        source_direction_ids: [],
+        collection_effect: true,
+        affected_execution_scope: code === 'duplicate_asset_id' ? 'global_execution' : 'direction_set',
+        affected_direction_ids: [],
+        matched_rule: code,
+        message: issueMessage(code),
+        recommendation: '查看对应 Gate 明细和方向级证据后修正。'
+      });
+    }
+  }
+
+  for (const entry of blockedEntries) {
+    issues.push({
+      code: 'SCHEMA_VALIDATION_FAILED', severity: 'blocking', scope: 'direction',
+      direction_id: entry.direction.direction_id,
+      field_path: entry.validation_error?.path || 'visualDirectionV2',
+      detected_value: entry.validation_error?.code,
+      matched_rule: 'direction_contract_v2',
+      evidence_excerpt: entry.validation_error?.message,
+      confidence: 1, message: '方向未通过 V2 Contract 校验。',
+      recommendation: '按字段路径修复结构后重新编译。'
+    });
+  }
+
+  issues.push(...(brandIdentity.issues || []));
+
+  for (const item of assetAuthorizationSet.per_direction || []) {
+    for (const detection of item.detections || []) {
+      issues.push({
+        code: detection.risk_level === 'blocked' ? 'FORGERY_DETECTED' : 'ASSET_AUTHORIZATION_WARNING',
+        severity: detection.risk_level === 'blocked' ? 'blocking' : 'warning',
+        scope: 'direction', direction_id: item.direction_id,
+        field_path: detection.field_path || 'visualDirectionV2',
+        detected_value: detection.detected_text,
+        matched_rule: detection.rule_id || detection.detection_type,
+        evidence_excerpt: detection.reason || detection.detected_text,
+        confidence: detection.confidence,
+        value_source: detection.value_source || 'provider',
+        message: detection.reason || '检测到资产授权或数据真实性风险。',
+        recommendation: detection.suggested_rewrite || '仅使用有证据支持、已授权或结构化脱敏的内容。'
+      });
+    }
+  }
+
+  if (spatialDrift.warning || spatialDrift.rewrite_required) {
+    for (const evidence of spatialDrift.evidence || []) {
+      issues.push({
+        code: 'SPATIAL_DRIFT',
+        severity: spatialDrift.rewrite_required ? 'rewrite' : 'warning',
+        scope: 'direction',
+        ...evidence,
+        message: '检测到空间、展陈或地产视觉语言。',
+        recommendation: '空间对象只能作为局部证据，主视觉应回到平面图形与信息系统。'
+      });
+    }
+  }
+
+  if (e02Aesthetic?.evaluated_direction_id && (e02Aesthetic.rewrite_required || e02Aesthetic.positive_quality_status === 'conditional')) {
+    issues.push({
+      code: 'E02_POSITIVE_QUALITY',
+      severity: e02Aesthetic.rewrite_required ? 'rewrite' : 'warning',
+      scope: 'direction', direction_id: e02Aesthetic.evaluated_direction_id,
+      issue_scope: 'direction', source_direction_ids: [e02Aesthetic.evaluated_direction_id],
+      collection_effect: true, affected_execution_scope: 'local_direction',
+      field_path: 'visualDirectionV2', matched_rule: 'e02_positive_quality',
+      detected_value: (e02Aesthetic.positive_quality_failing_dimensions || []).join(',') || 'conditional',
+      message: '产品材料方向的正向质量需要重写或补强。',
+      recommendation: '保留平台角色，以产品对象、平台选择标准和品牌专属呈现机制重写。'
+    });
+  }
+
+  for (const item of consumerWeightConsistency?.per_direction || []) {
+    if (item.consistent && !item.present_none_conflict) continue;
+    issues.push({
+      code: 'CONSUMER_WEIGHT_CONSISTENCY', severity: 'rewrite', scope: 'direction',
+      direction_id: item.direction_id, issue_scope: 'direction', source_direction_ids: [item.direction_id],
+      collection_effect: true, affected_execution_scope: 'local_direction',
+      field_path: 'visualDirectionV2.compliance_weights.consumer_value_weight',
+      detected_value: `${item.consumer_value_role}=${item.consumer_value_weight}`,
+      matched_rule: item.present_none_conflict ? 'present_true_role_none' : 'consumer_role_weight_mismatch',
+      message: '消费者角色与权重不一致。', recommendation: '对齐消费者角色、显式价值闭环和消费者权重。'
+    });
+  }
+
+  for (const item of executionExampleCompleteness?.per_direction || []) {
+    for (const example of item.examples || []) {
+      const missing = [...example.critical_missing, ...example.required_missing];
+      if (!missing.length) continue;
+      issues.push({
+        code: 'EXECUTION_EXAMPLE_MISSING', severity: 'rewrite', scope: 'direction',
+        direction_id: item.direction_id, issue_scope: 'direction', source_direction_ids: [item.direction_id],
+        collection_effect: true, affected_execution_scope: 'local_direction',
+        field_path: `visualDirectionV2.execution_examples[${example.touchpoint}]`,
+        detected_value: missing.join(','), matched_rule: 'meaningful_execution_example_fields',
+        message: `执行示例存在无意义空值或缺失字段：${missing.join('、')}。`,
+        recommendation: '补充可直接执行的真实字段值，破折号和占位词不计为完整。'
+      });
+    }
+  }
+
+  return aggregateGateIssues(issues);
 }
 
 // v2.1 — required fields that make an Execution Example "complete" (doc section 六).
@@ -103,7 +259,7 @@ const REQUIRED_EXAMPLE_FIELDS = [
 ];
 
 function isFull(value) {
-  return typeof value === 'string' && value.trim().length > 0;
+  return hasMeaningfulValue(value);
 }
 
 // True when the direction outputs exactly 3 complete, touchpoint-distinct
@@ -124,6 +280,55 @@ export function hasCompleteExecutionExamples(direction) {
 
 function toIdSet(list, key) {
   return new Set((list || []).map((item) => (typeof item === 'string' ? item : (item[key] || item.asset_id || item.assetId || item.id || item.evidence_id || item.evidenceId))));
+}
+
+function resolveLocalDirectionState(directionId, entry, gates) {
+  const hard = [];
+  const rewrite = [];
+  const warnings = [];
+  const brandIssues = (gates.brandIdentity.issues || []).filter((issue) => issue.direction_id === directionId);
+  hard.push(...brandIssues.filter((issue) => issue.severity === 'blocking').map((issue) => issue.code));
+  rewrite.push(...brandIssues.filter((issue) => issue.severity === 'rewrite').map((issue) => issue.code));
+  warnings.push(...brandIssues.filter((issue) => issue.severity === 'warning').map((issue) => issue.code));
+
+  if (!entry.assetAuthorization.ok) hard.push('FORGERY_DETECTED');
+  if ((entry.assetAuthorization.detections || []).some((item) => item.risk_level === 'warning')) warnings.push('ASSET_AUTHORIZATION_WARNING');
+
+  const completeness = gates.executionExampleCompleteness.per_direction.find((item) => item.direction_id === directionId);
+  if (completeness?.blocked || completeness?.conditional) rewrite.push('EXECUTION_EXAMPLE_MISSING');
+  else if (completeness?.warning) warnings.push('EXECUTION_EXAMPLE_WARNING');
+
+  const consumer = gates.consumerWeightConsistency.per_direction.find((item) => item.direction_id === directionId);
+  if (consumer && (!consumer.consistent || consumer.present_none_conflict)) rewrite.push('CONSUMER_WEIGHT_CONSISTENCY');
+
+  const business = gates.businessModelCoverage.per_direction.find((item) => item.direction_id === directionId);
+  if (business && !business.meets_minimum) rewrite.push('BUSINESS_MODEL_UNDERCOVERAGE');
+  const industry = gates.industryRecognition.per_direction.find((item) => item.direction_id === directionId);
+  if (industry && !industry.meets_minimum) rewrite.push('INDUSTRY_RECOGNITION');
+
+  if (gates.e02Aesthetic.evaluated_direction_id === directionId) {
+    if (gates.e02Aesthetic.rewrite_required) rewrite.push('E02_POSITIVE_QUALITY');
+    else if (gates.e02Aesthetic.positive_quality_status === 'conditional' || gates.e02Aesthetic.positive_quality_pass_with_warning) warnings.push('E02_QUALITY_WARNING');
+  }
+
+  const spatialEvidence = (gates.spatialDrift.evidence || []).some((item) => item.direction_id === directionId);
+  if (spatialEvidence && gates.spatialDrift.rewrite_required) rewrite.push('SPATIAL_DRIFT');
+  else if (spatialEvidence && gates.spatialDrift.warning) warnings.push('SPATIAL_DRIFT_WARNING');
+
+  const specificity = gates.executionExampleSpecificity.per_direction.find((item) => item.direction_id === directionId);
+  if (specificity?.within_direction_template_overlap > 0.7) rewrite.push('EXECUTION_TEMPLATE_OVERLAP');
+  else if (specificity?.within_direction_template_overlap >= 0.5) warnings.push('EXECUTION_TEMPLATE_WARNING');
+
+  if (entry.readiness.execution_status === 'rewrite_required') rewrite.push('READINESS_REWRITE_REQUIRED');
+  else if (entry.readiness.execution_status === 'ready_with_warnings') warnings.push('READINESS_WARNING');
+
+  const uniqueHard = [...new Set(hard)];
+  const uniqueRewrite = [...new Set(rewrite)];
+  const uniqueWarnings = [...new Set(warnings)];
+  if (uniqueHard.length) return { status: 'blocked', permission: 'blocked', hard: uniqueHard, rewrite: uniqueRewrite, warnings: uniqueWarnings };
+  if (uniqueRewrite.length) return { status: 'rewrite_required', permission: 'conditional', hard: uniqueHard, rewrite: uniqueRewrite, warnings: uniqueWarnings };
+  if (uniqueWarnings.length) return { status: 'ready_with_warnings', permission: 'conditional', hard: uniqueHard, rewrite: uniqueRewrite, warnings: uniqueWarnings };
+  return { status: 'ready', permission: 'allowed', hard: [], rewrite: [], warnings: [] };
 }
 
 // Build a self-contained "blocked" entry for a direction that failed schema
@@ -282,7 +487,8 @@ export function compileExecutionDirectionV2({
     brandRole,
     strategicThesis,
     knownExampleBrandNames,
-    knownAliases
+    knownAliases,
+    sourceEvidenceText: JSON.stringify({ brandFacts, evidenceIndex })
   });
   const businessModelCoverage = evaluateBusinessModelCoverage(validDirections);
   const consumerValueCoverage = evaluateConsumerValueCoverage(validDirections);
@@ -329,6 +535,7 @@ export function compileExecutionDirectionV2({
   // Rewrite-level issues.
   if (consumerValueCoverage.set_missing_consumer_value) rewriteIssues.push('set_missing_consumer_value');
   if (executionExampleCompleteness.any_blocked) rewriteIssues.push('execution_example_critical_missing');
+  else if (executionExampleCompleteness.any_conditional) rewriteIssues.push('execution_example_required_missing');
   if (businessModelCoverage.business_model_undercoverage) rewriteIssues.push('business_model_undercoverage');
   if (directionFamilyDifference.rewrite_required) rewriteIssues.push('direction_family_difference');
   if (complianceWeight.rewrite_required) rewriteIssues.push('compliance_weight');
@@ -342,7 +549,6 @@ export function compileExecutionDirectionV2({
   // Conditional issues (warnings that affect execution permission).
   if (e02Aesthetic.positive_quality_status === 'conditional') conditionalIssues.push('e02_positive_quality_conditional');
   if (spatialDrift.spatial_drift_status === 'warning') conditionalIssues.push('spatial_drift_warning');
-  if (executionExampleCompleteness.conditional) conditionalIssues.push('execution_example_required_missing');
   if (executionExampleCompleteness.touchpoint_coverage_score > 0 && executionExampleCompleteness.touchpoint_coverage_score <= 0.6) {
     conditionalIssues.push('touchpoint_coverage_low');
   }
@@ -361,7 +567,14 @@ export function compileExecutionDirectionV2({
   // the direction itself is not permitted (doc section 三).
   // v2.1.4.1 — also update content_readiness_explanation with permission cap (doc §3.3).
   const compiledFinal = compiledEntries.map((item) => {
-    const blocked = executionPermissionStatus === 'blocked' || item.execution_permission_status === 'blocked';
+    const localGateState = resolveLocalDirectionState(item.direction.direction_id, item, {
+      brandIdentity, businessModelCoverage, consumerWeightConsistency,
+      executionExampleCompleteness, industryRecognition, e02Aesthetic,
+      spatialDrift, executionExampleSpecificity
+    });
+    const localExecutionPermissionStatus = localGateState.permission;
+    const localStatus = localGateState.status;
+    const blocked = executionPermissionStatus === 'blocked' || localExecutionPermissionStatus === 'blocked';
     const capAt = blocked && item.readiness.content_readiness_score > 59 ? 59 : item.readiness.content_readiness_score;
     // Build updated content_readiness_explanation with set-level permission cap.
     const explanation = item.readiness.content_readiness_explanation || {};
@@ -379,6 +592,16 @@ export function compileExecutionDirectionV2({
       : { ...explanation, final_score: explanation.quality_cap || capAt };
     return {
       ...item,
+      local_execution_permission_status: localExecutionPermissionStatus,
+      local_status: localStatus,
+      local_gate_reasons: {
+        hard_blocks: localGateState.hard,
+        rewrite_required: localGateState.rewrite,
+        warnings: localGateState.warnings
+      },
+      collection_status: overallStatus,
+      collection_execution_permission_status: executionPermissionStatus,
+      structural_completeness_score: explanation.quality_cap ?? explanation.raw_score ?? item.readiness.content_readiness_score,
       content_readiness_score: capAt,
       readiness: {
         ...item.readiness,
@@ -393,7 +616,7 @@ export function compileExecutionDirectionV2({
 
   const guardsOk = directionsFinal.every((item) =>
     item.assetAuthorization.ok && item.evidencePreservation.ok && item.audienceBoundaryGuard.ok);
-  const allReady = directionsFinal.every((item) => item.readiness.execution_status === 'ready');
+  const allReady = directionsFinal.every((item) => item.local_status === 'ready');
 
   const gates = {
     brand_identity_preservation: brandIdentity,
@@ -413,11 +636,26 @@ export function compileExecutionDirectionV2({
   };
 
   // v2.1.4 — blocking reasons use the resolved issue lists.
-  const allBlockingReasons = [
+  const allBlockingReasons = [...new Set([
     ...blockingIssues,
     ...rewriteIssues,
     ...conditionalIssues
-  ];
+  ])];
+
+  const gateIssues = buildStructuredGateIssues({
+    blockingIssues,
+    rewriteIssues,
+    conditionalIssues,
+    infoIssues,
+    validDirections,
+    blockedEntries,
+    brandIdentity,
+    assetAuthorizationSet,
+    spatialDrift,
+    e02Aesthetic,
+    consumerWeightConsistency,
+    executionExampleCompleteness
+  });
 
   return {
     contract_version: 'visual-direction-v2-execution',
@@ -435,7 +673,10 @@ export function compileExecutionDirectionV2({
     directions: directionsFinal,
     gates,
     execution_permission_status: executionPermissionStatus,
+    anchor_readiness: overallStatus === 'ready' && directionsFinal.filter((item) => ['ready', 'ready_with_warnings'].includes(item.local_status)).length >= 2 ? 'ready' : 'blocked',
     blocking_reasons: allBlockingReasons,
+    gate_issues: gateIssues,
+    gate_issue_schema_version: 'gate-issue-v1.1',
     overall_status: overallStatus,
     info_issues: infoIssues
   };

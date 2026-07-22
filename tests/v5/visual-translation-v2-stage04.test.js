@@ -28,13 +28,14 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const V2_FIX = join(HERE, '..', 'fixtures', 'visual-direction-v2', 'jiuzhou-meixue', 'v2-directions.json');
 
 // ---- P0 §3.1/§3.2: Stage profiles ----
-test('v2 Stage 04 profile exists with 20000/2500/420000 and v1 profile is unchanged', () => {
+test('v2 Stage 04 profile uses the centralized 420s/1000 thinking budget with retries disabled', () => {
   const v2 = getStageProfile('04-execution-oriented-directions-v2');
   assert.equal(v2.thinking, true);
-  assert.equal(v2.thinkingBudget, 2500);
+  assert.equal(v2.thinkingBudget, 1000);
   assert.equal(v2.maxOutputTokens, 20000);
   assert.equal(v2.requestTimeoutMs, 420000);
-  assert.equal(v2.truncationRetry.enabled, true);
+  assert.equal(v2.truncationRetry.enabled, false);
+  assert.equal(v2.truncationRetry.maxAttempts, 0);
 
   const v1 = getStageProfile('04-three-creative-directions');
   assert.equal(v1.thinking, true);
@@ -237,28 +238,81 @@ test('v2 runner selects the 20k Stage 04 profile and completes without truncatio
   assert.equal(result.protocolVersion, 'visual-translation-v2-execution');
   assert.equal(result.rawDirections.length, 3);
   assert.equal(mock.calls(), 1);
-  const diag = result.metrics.find((m) => m.kind === 'token-diagnostic' && m.attemptLabel === 'initial');
-  assert.ok(diag, 'expected an initial token-diagnostic');
-  assert.equal(diag.profileId, '04-execution-oriented-directions-v2');
-  assert.equal(diag.requestedMaxOutputTokens, 20000);
-  assert.equal(diag.providerMaxOutputTokens, 32768);
-  assert.ok(diag.completionTokens > 0);
+  assert.ok(result.metrics.some((m) => m.event === 'STEP4_PROVIDER_START'));
+  assert.ok(result.metrics.some((m) => m.event === 'STEP4_COMPLETED'));
+  assert.equal(result.modelCallCount, 1);
 });
 
-test('v2 runner recovers from one truncation by escalating the output budget once', async () => {
-  const { result, mock } = await runStage04({ failureMode: 'first' });
-  assert.equal(mock.calls(), 2, 'should retry once after truncation');
-  const escalated = result.metrics.find((m) => m.kind === 'token-diagnostic' && m.attemptLabel === 'escalated');
-  assert.ok(escalated, 'expected an escalated token-diagnostic');
-  assert.equal(escalated.requestedMaxOutputTokens, 30000);
-  assert.equal(result.rawDirections.length, 3);
+test('v2 runner does not regenerate after a truncated primary response', async () => {
+  const mock = makeMockReasoner({ failureMode: 'first' });
+  const ctx = buildPipelineContext();
+  await assert.rejects(() => runVisualTranslationV2({
+    projectId: ctx.projectId, analysisRunId: ctx.analysisRunId, corpus: ctx.corpus,
+    lockedFacts: [], lockedAssets: [], provider: ctx.provider, modelId: ctx.modelId,
+    reasoner: mock.reasoner, checkpoints: ctx.checkpoints,
+    onProgress: () => {}, onModelResponse: () => {}, onCheckpoint: () => {}
+  }), (error) => error.code === 'OUTPUT_TRUNCATED');
+  assert.equal(mock.calls(), 1);
 });
 
-test('v2 runner throws OUTPUT_TRUNCATED_AFTER_RETRY when truncation persists after escalation', async () => {
+test('v2 runner returns the original truncation error without an escalation layer', async () => {
   await assert.rejects(
     () => runStage04({ failureMode: 'always' }).then((r) => r.result),
-    (e) => e.code === 'OUTPUT_TRUNCATED_AFTER_RETRY'
+    (e) => e.code === 'OUTPUT_TRUNCATED'
   );
+});
+
+test('v2 runner checkpoints a valid primary response and resumes with Repair only', async () => {
+  const ctx = buildPipelineContext();
+  const valid = JSON.parse(validV2DirectionsPayload());
+  const invalid = structuredClone(valid);
+  const targetAssets = invalid.visualDirectionV2Set.directions[1].core_reusable_assets;
+  const originalGraphic = structuredClone(valid.visualDirectionV2Set.directions[1].core_reusable_assets.find((asset) => asset.asset_type === 'graphic_asset'));
+  const graphic = targetAssets.find((asset) => asset.asset_type === 'graphic_asset');
+  graphic.asset_type = 'material_asset';
+  let calls = 0;
+  let recoveryPayload;
+  await assert.rejects(() => runVisualTranslationV2({
+    projectId: ctx.projectId, analysisRunId: ctx.analysisRunId, corpus: ctx.corpus,
+    lockedFacts: [], lockedAssets: [], provider: ctx.provider, modelId: ctx.modelId,
+    checkpoints: ctx.checkpoints,
+    reasoner: async (messages) => {
+      calls += 1;
+      if (messages[0]?.content?.includes('04-execution-oriented-directions-v2')) {
+        return { text: JSON.stringify(invalid), finishReason: 'stop' };
+      }
+      return { text: '{"corrections":[{"path":"visualDirectionV2Set.directions[1].core_reusable_assets","value":"unfinished' };
+    },
+    onProgress: () => {}, onModelResponse: () => {},
+    onCheckpoint(stageId, payload) {
+      if (stageId === '04-step4-repair-pending') recoveryPayload = payload;
+    }
+  }), (error) => error.code === 'STEP4_JSON_PARSE_FAILED');
+  assert.equal(calls, 2);
+  assert.ok(recoveryPayload);
+
+  calls = 0;
+  let removed = false;
+  const resumed = await runVisualTranslationV2({
+    projectId: ctx.projectId, analysisRunId: ctx.analysisRunId, corpus: ctx.corpus,
+    lockedFacts: [], lockedAssets: [], provider: ctx.provider, modelId: ctx.modelId,
+    checkpoints: { ...ctx.checkpoints, '04-step4-repair-pending': recoveryPayload },
+    reasoner: async (messages) => {
+      calls += 1;
+      assert.match(messages[0].content, /bounded correction patch/u);
+      return { text: JSON.stringify({ corrections: [{
+        path: 'visualDirectionV2Set.directions[1].core_reusable_assets',
+        operation: 'append_missing_asset_types',
+        value: [{ ...originalGraphic, asset_id: `${originalGraphic.asset_id}-repair` }]
+      }] }), finishReason: 'stop' };
+    },
+    onProgress: () => {}, onModelResponse: () => {}, onCheckpoint: () => {},
+    onCheckpointRemoved(stageId) { if (stageId === '04-step4-repair-pending') removed = true; }
+  });
+  assert.equal(calls, 1);
+  assert.equal(resumed.rawDirections.length, 3);
+  assert.ok(resumed.metrics.some((metric) => metric.event === 'STEP4_REPAIR_RESUME'));
+  assert.equal(removed, true);
 });
 
 test('getModelCapabilities returns the assumed qwen3.6-plus ceiling used for the cap check', () => {

@@ -16,18 +16,24 @@
 
 import { collectDirectionText } from './direction-text-util.js';
 
-export const DIRECTION_FAMILY_DIFFERENCE_EVALUATOR_VERSION = 'direction-family-difference-evaluator-v1.1';
+export const DIRECTION_FAMILY_DIFFERENCE_EVALUATOR_VERSION = 'direction-family-difference-evaluator-v1.2';
 
 export const SIMILARITY_WEIGHTS = Object.freeze({
-  declared_family_similarity: 0.10,
-  strategic_entry_similarity: 0.20,
-  industry_object_similarity: 0.15,
-  reusable_asset_similarity: 0.15,
-  photography_subject_similarity: 0.10,
-  layout_similarity: 0.10,
-  touchpoint_similarity: 0.10,
-  audience_similarity: 0.05,
-  semantic_similarity: 0.05
+  declared_family_similarity: 0.05,
+  strategic_entry_similarity: 0.10,
+  industry_object_similarity: 0.08,
+  reusable_asset_similarity: 0.08,
+  photography_subject_similarity: 0.05,
+  layout_similarity: 0.04,
+  touchpoint_similarity: 0.04,
+  audience_similarity: 0.03,
+  semantic_similarity: 0.05,
+  composition_template_similarity: 0.10,
+  subject_position_similarity: 0.08,
+  image_graphic_ratio_similarity: 0.08,
+  overlay_behavior_similarity: 0.07,
+  information_hierarchy_similarity: 0.08,
+  responsive_pattern_similarity: 0.07
 });
 
 const OVERLAP_THRESHOLD = 0.72;
@@ -51,6 +57,26 @@ function jaccard(a, b) {
   for (const t of a) if (b.has(t)) inter += 1;
   const union = a.size + b.size - inter;
   return union === 0 ? 0 : inter / union;
+}
+
+function optionalJaccard(a, b) {
+  if (a.size === 0 && b.size === 0) return 0;
+  return jaccard(a, b);
+}
+
+function templateSignature(direction) {
+  const examples = direction.execution_examples || [];
+  const templates = direction.composition_templates || [];
+  const composition = setOf([
+    ...templates.map((item) => `${item.subject_position || ''}|${item.information_position || ''}|${item.image_object_rule || ''}`),
+    ...examples.map((item) => `${item.layout_structure || ''}|${item.visual_structure || ''}`)
+  ]);
+  const subjectPosition = setOf([...templates.map((item) => item.subject_position), ...examples.map((item) => item.hero_subject_position)]);
+  const ratios = setOf(examples.map((item) => `${item.photography_ratio ?? ''}:${item.graphic_ratio ?? ''}:${item.information_ratio ?? ''}`));
+  const overlay = setOf([direction.photography_object_system?.graphic_overlay, ...examples.map((item) => item.graphic_overlay)]);
+  const hierarchy = setOf([...(direction.information_system?.information_hierarchy || []), ...examples.map((item) => item.information_hierarchy)]);
+  const responsive = setOf([direction.layout_behavior?.multi_size_adaptation, ...examples.map((item) => item.responsive_adaptation)]);
+  return { composition, subjectPosition, ratios, overlay, hierarchy, responsive };
 }
 
 function concreteTerms(direction) {
@@ -106,6 +132,8 @@ function audienceTerms(direction) {
 
 function pairDimensions(a, b) {
   const declared = (a.direction_family || '').toString() === (b.direction_family || '').toString() && Boolean(a.direction_family) ? 1 : 0;
+  const aTemplate = templateSignature(a);
+  const bTemplate = templateSignature(b);
   return {
     declared_family_similarity: declared,
     strategic_entry_similarity: jaccard(bigrams(a.strategic_idea), bigrams(b.strategic_idea)),
@@ -115,7 +143,13 @@ function pairDimensions(a, b) {
     layout_similarity: jaccard(layoutTerms(a), layoutTerms(b)),
     touchpoint_similarity: jaccard(touchpointTerms(a), touchpointTerms(b)),
     audience_similarity: jaccard(audienceTerms(a), audienceTerms(b)),
-    semantic_similarity: jaccard(bigrams(collectDirectionText(a)), bigrams(collectDirectionText(b)))
+    semantic_similarity: jaccard(bigrams(collectDirectionText(a)), bigrams(collectDirectionText(b))),
+    composition_template_similarity: optionalJaccard(aTemplate.composition, bTemplate.composition),
+    subject_position_similarity: optionalJaccard(aTemplate.subjectPosition, bTemplate.subjectPosition),
+    image_graphic_ratio_similarity: optionalJaccard(aTemplate.ratios, bTemplate.ratios),
+    overlay_behavior_similarity: optionalJaccard(aTemplate.overlay, bTemplate.overlay),
+    information_hierarchy_similarity: optionalJaccard(aTemplate.hierarchy, bTemplate.hierarchy),
+    responsive_pattern_similarity: optionalJaccard(aTemplate.responsive, bTemplate.responsive)
   };
 }
 
@@ -141,9 +175,15 @@ export function evaluateDirectionFamilyDifference(directions = []) {
       const b = directions[j];
       const dims = pairDimensions(a, b);
       const score = composite(dims);
+      const executionTemplateSimilarity = Math.round(([
+        dims.composition_template_similarity, dims.subject_position_similarity,
+        dims.image_graphic_ratio_similarity, dims.overlay_behavior_similarity,
+        dims.information_hierarchy_similarity, dims.responsive_pattern_similarity
+      ].reduce((sum, value) => sum + value, 0) / 6) * 1000) / 1000;
+      const anchorMechanismSimilarity = Math.round(((dims.reusable_asset_similarity + dims.photography_subject_similarity + dims.composition_template_similarity) / 3) * 1000) / 1000;
       const key = `${a.direction_id}_${b.direction_id}`;
-      pairs.push({ pair: key, similarity: score, band: band(score) });
-      details[key] = { ...dims, composite: score, band: band(score) };
+      pairs.push({ pair: key, similarity: score, execution_template_similarity: executionTemplateSimilarity, anchor_mechanism_similarity: anchorMechanismSimilarity, band: band(score) });
+      details[key] = { ...dims, execution_template_similarity: executionTemplateSimilarity, anchor_mechanism_similarity: anchorMechanismSimilarity, composite: score, band: band(score) };
     }
   }
 
@@ -151,18 +191,22 @@ export function evaluateDirectionFamilyDifference(directions = []) {
   const familyDistinct = new Set(declaredFamilies).size === declaredFamilies.length;
 
   const highOverlapPairs = pairs.filter((p) => p.similarity > OVERLAP_THRESHOLD);
+  const templateOverlapPairs = pairs.filter((p) => p.execution_template_similarity > OVERLAP_THRESHOLD);
   const directionFamilyOverlap = pairs.length > 0 && highOverlapPairs.length === pairs.length;
-  const rewriteRequired = highOverlapPairs.length > 0 || (declaredFamilies.length === directions.length && !familyDistinct);
+  const rewriteRequired = highOverlapPairs.length > 0 || templateOverlapPairs.length > 0 || (declaredFamilies.length === directions.length && !familyDistinct);
 
   const blockingReasons = [];
   if (directionFamilyOverlap) blockingReasons.push('all_pairs_overlap');
   if (declaredFamilies.length === directions.length && !familyDistinct) blockingReasons.push('declared_families_not_distinct');
   for (const p of highOverlapPairs) blockingReasons.push(`pair_high_overlap(${p.pair}:${p.similarity})`);
+  for (const p of templateOverlapPairs) blockingReasons.push(`execution_template_overlap(${p.pair}:${p.execution_template_similarity})`);
 
   return {
     evaluator_version: DIRECTION_FAMILY_DIFFERENCE_EVALUATOR_VERSION,
     pairwise_similarity: Object.fromEntries(pairs.map((p) => [p.pair, p.similarity])),
     pairwise_details: details,
+    execution_template_difference: pairs.every((pair) => pair.execution_template_similarity <= 0.55) ? 'clear' : pairs.some((pair) => pair.execution_template_similarity > 0.72) ? 'rewrite_required' : 'partial_overlap',
+    anchor_mechanism_difference: pairs.every((pair) => pair.anchor_mechanism_similarity <= 0.55) ? 'clear' : pairs.some((pair) => pair.anchor_mechanism_similarity > 0.72) ? 'rewrite_required' : 'partial_overlap',
     overlap_dimensions: highOverlapPairs.length,
     direction_family_overlap: directionFamilyOverlap,
     declared_families_distinct: familyDistinct,

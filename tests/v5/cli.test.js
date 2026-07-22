@@ -29,7 +29,13 @@ test('default analyze CLI runs v5 and publishes only the v5 official document', 
   const cli = path.resolve('bin', 'masterpiece-os.js');
   const { stdout } = await execFileAsync(process.execPath, [
     cli, 'analyze', input, '--config', config, '--output', output
-  ], { cwd: path.resolve('.'), encoding: 'utf8' });
+  ], {
+    cwd: path.resolve('.'),
+    encoding: 'utf8',
+    // This is a fixture-backed CLI test. Never let developer-machine Provider
+    // credentials turn it into a paid network smoke test.
+    env: { ...process.env, MASTERPIECE_PROVIDER: '', QWEN_API_KEY: '', QWEN_MODEL: '' }
+  });
 
   assert.match(stdout, /Masterpiece OS v5\.0 — Deep Creative Director Mode/);
   assert.match(stdout, /1 次完整推理/);

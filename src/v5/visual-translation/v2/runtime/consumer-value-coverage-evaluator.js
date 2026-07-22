@@ -13,44 +13,15 @@
 //   - at least one direction's consumer value must be Primary or Strong Secondary
 // Missing any of these => set_missing_consumer_value => blocked.
 
-import { collectDirectionText } from './direction-text-util.js';
-import { countKeywordHits } from './evaluator-keywords.js';
+import { normalizeConsumerValue } from './consumer-value-normalizer.js';
 
 export const CONSUMER_VALUE_COVERAGE_EVALUATOR_VERSION = 'consumer-value-coverage-evaluator-v1';
 
-const CONSUMER_KEYWORDS = ['消费者', '安心', '用户体验', '美学价值', '信任', '用户', '终端', '终端消费者', '消费者体验', '品质感', '精致'];
 const PRIMARY_SECONDARY_ROLES = ['primary', 'strong_secondary'];
-
-function detectPresent(text) {
-  return countKeywordHits(text, CONSUMER_KEYWORDS) > 0;
-}
-
-function inferRole(present, structured) {
-  if (structured && structured.consumer_value_role) return structured.consumer_value_role;
-  if (!present) return 'none';
-  // Without an explicit role we treat a detected (text-derived) presence as at
-  // least secondary; the specialized-fix doc keeps E01 allowed to be secondary.
-  return 'strong_secondary';
-}
 
 export function evaluateConsumerValueCoverage(directions = []) {
   const perDirection = directions.map((direction) => {
-    const text = collectDirectionText(direction);
-    const structured = direction.downstream_consumer_value;
-    const present = structured && typeof structured.present === 'boolean'
-      ? structured.present
-      : detectPresent(text);
-    const role = inferRole(present, structured);
-    return {
-      direction_id: direction.direction_id,
-      present,
-      consumer_value_role: role,
-      value_statement: structured?.value_statement || '',
-      visual_expression: structured?.visual_expression || '',
-      touchpoints: structured?.touchpoints || [],
-      evidence_ids: structured?.evidence_ids || [],
-      explicit: Boolean(structured && typeof structured.present === 'boolean' ? structured.present : present)
-    };
+    return normalizeConsumerValue(direction);
   });
 
   const explicitCount = perDirection.filter((item) => item.present).length;

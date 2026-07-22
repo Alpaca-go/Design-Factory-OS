@@ -25,9 +25,11 @@ import { buildVisualTranslationCheckpoint, canResumeVisualTranslationCheckpoint 
 import { STAGE_PROFILES, VISUAL_TRANSLATION_V1, getStageProfile } from '../../v1/protocol/stage-registry.js';
 import { getModelCapabilities, resolveMaxOutputTokens, planTruncationRetry } from '../../../adapters/model-capabilities.js';
 import { outputUtilization } from './output-budget.js';
+import { conservativelyNormalizeDirectionSet, runStableStep4 } from './run-step4-stable.js';
+import { VISUAL_TRANSLATION_V2_RUNTIME_CONFIG } from '../config/visual-translation-v2-runtime-config.js';
 
 import { buildExecutionDirectionV2Prompt, VISUAL_DIRECTIONS_PROMPT_V2_VERSION } from '../prompts/direction-generation-prompt-v2.js';
-import { validateExecutionDirectionV2 } from '../schemas/direction-contract-v2.js';
+import { validateExecutionDirectionV2Set } from '../schemas/direction-contract-v2.js';
 import { compileExecutionDirectionV2 } from './compile-execution-direction-v2.js';
 import { compileExecutionDirectionsReportV2 } from '../report/compile-execution-directions-report-v2.js';
 
@@ -41,10 +43,13 @@ const DEFAULT_SELECTED_TOUCHPOINTS = Object.freeze([
   'poster', 'capability_deck', 'digital_hero', 'packaging_front', 'exhibition_backdrop'
 ]);
 
+const STEP4_REPAIR_CHECKPOINT_STAGE = '04-step4-repair-pending';
+const STEP4_REPAIR_CHECKPOINT_SCHEMA = 'visual-direction-v2-step4-repair-pending-r1';
+
 const VISUAL_TRANSLATION_V2 = Object.freeze({
   protocolVersion: 'visual-translation-v2-execution',
-  directionsReportVersion: 'visual-directions-report-v2-experimental',
-  pipelineBudgetMs: 18 * 60 * 1000
+  directionsReportVersion: 'visual-directions-report-v2.1.5-experimental',
+  pipelineBudgetMs: VISUAL_TRANSLATION_V2_RUNTIME_CONFIG.pipelineTimeoutMs
 });
 
 function abortError() { return new DOMException('User cancelled the analysis', 'AbortError'); }
@@ -82,7 +87,7 @@ export async function runVisualTranslationV2(input) {
   const checkpoints = input.checkpoints || {};
   const assertRuntime = () => {
     if (input.abortSignal?.aborted) throw abortError();
-    if (Date.now() - startedAt >= VISUAL_TRANSLATION_V2.pipelineBudgetMs) throw Object.assign(new Error('Visual Translation V2 exceeded its 18-minute budget'), { code: 'PIPELINE_TIME_BUDGET_EXCEEDED' });
+    if (Date.now() - startedAt >= VISUAL_TRANSLATION_V2.pipelineBudgetMs) throw Object.assign(new Error('Visual Translation V2 exceeded its 22-minute budget'), { code: 'PIPELINE_TIME_BUDGET_EXCEEDED' });
   };
   const local = async (stageId, action) => {
     assertRuntime(); input.onProgress?.(stageId); const started = Date.now();
@@ -269,7 +274,7 @@ export async function runVisualTranslationV2(input) {
     documentSetHash: prepared.documentSetHash,
     upstreamHash: directionsUpstream,
     promptVersion: VISUAL_DIRECTIONS_PROMPT_V2_VERSION,
-    schemaVersion: 'visual-direction-v2-execution'
+    schemaVersion: 'visual-direction-v2-execution-step4-r2'
   };
   const contractContext = {
     reportLanguage: evidenceMap.reportLanguage,
@@ -277,21 +282,84 @@ export async function runVisualTranslationV2(input) {
     allowedAssetIds: new Set(v2Context.assetBoundary.allowed_assets),
     restrictedAssetIds: new Set(v2Context.assetBoundary.restricted_assets)
   };
-  let rawDirections = resume('04-three-creative-directions', directionsExpected, (value) => Array.isArray(value) ? value : (value.rawDirections || []));
+  const step4Profile = getStageProfile('04-execution-oriented-directions-v2');
+  const repairCheckpointExpected = {
+    stageId: STEP4_REPAIR_CHECKPOINT_STAGE,
+    documentSetHash: prepared.documentSetHash,
+    upstreamHash: directionsUpstream,
+    promptVersion: VISUAL_DIRECTIONS_PROMPT_V2_VERSION,
+    schemaVersion: STEP4_REPAIR_CHECKPOINT_SCHEMA
+  };
+  const savedRepairCheckpoint = checkpoints[STEP4_REPAIR_CHECKPOINT_STAGE];
+  const repairCheckpoint = savedRepairCheckpoint
+    && canResumeVisualTranslationCheckpoint(
+      savedRepairCheckpoint.checkpoint,
+      repairCheckpointExpected,
+      savedRepairCheckpoint.output
+    )
+    && savedRepairCheckpoint.output?.kind === 'step4_repair_pending'
+    && savedRepairCheckpoint.output?.originalJson
+    ? structuredClone(savedRepairCheckpoint.output)
+    : null;
+  let rawDirections = resume('04-three-creative-directions', directionsExpected, (value) => {
+    const list = Array.isArray(value) ? value : (value.rawDirections || []);
+    const normalized = conservativelyNormalizeDirectionSet({ visualDirectionV2Set: { directions: list } });
+    return validateExecutionDirectionV2Set(normalized.visualDirectionV2Set.directions, contractContext);
+  });
   if (!rawDirections || !rawDirections.length) {
-    rawDirections = await model('04-three-creative-directions', buildExecutionDirectionV2Prompt(v2Context), (value) => {
-      const set = value?.visualDirectionV2Set || value;
-      const list = Array.isArray(set) ? set : (set?.directions || []);
-      if (!Array.isArray(list) || list.length < 1) throw Object.assign(new Error('v2 方向集合为空或结构不符'), { code: 'FAILED_SCHEMA' });
-      list.forEach((raw) => validateExecutionDirectionV2(raw, contractContext));
-      return list;
-    }, {
-      profile: getStageProfile('04-execution-oriented-directions-v2'),
-      profileId: '04-execution-oriented-directions-v2',
-      modelCapabilities: getModelCapabilities(input.provider, input.modelId)
+    assertRuntime();
+    input.onProgress?.('04-three-creative-directions');
+    const profile = step4Profile;
+    const maxOutputTokens = resolveMaxOutputTokens({
+      requestedMaxOutputTokens: profile.maxOutputTokens,
+      modelCapabilities: getModelCapabilities(input.provider, input.modelId),
+      context: { stageId: '04-three-creative-directions', modelId: input.modelId }
     });
+    const step4 = await runStableStep4({
+      projectId: input.projectId,
+      runId: input.step4RunId || analysisRunId,
+      abortSignal: input.abortSignal,
+      reasoner: input.reasoner,
+      messages: buildExecutionDirectionV2Prompt(v2Context),
+      repairCheckpoint,
+      profile,
+      maxOutputTokens,
+      onEvent(event) {
+        metrics.push({ stageId: '04-three-creative-directions', kind: 'step4-event', durationMs: event.elapsed_ms, resumed: false, ...event });
+        input.onStep4Event?.(event);
+      },
+      onStatus: input.onStep4Status,
+      async onRepairPending(state) {
+        const checkpoint = buildVisualTranslationCheckpoint({
+          projectId: input.projectId,
+          analysisRunId,
+          stageId: STEP4_REPAIR_CHECKPOINT_STAGE,
+          documentSetHash: prepared.documentSetHash,
+          upstreamHash: directionsUpstream,
+          promptVersion: VISUAL_DIRECTIONS_PROMPT_V2_VERSION,
+          schemaVersion: STEP4_REPAIR_CHECKPOINT_SCHEMA,
+          profile: { ...step4Profile, provider: input.provider, modelId: input.modelId },
+          outputFile: 'step4-repair-pending.json',
+          output: state
+        });
+        await input.onCheckpoint?.(STEP4_REPAIR_CHECKPOINT_STAGE, { checkpoint, output: state });
+      },
+      async onModelResponse(attempt, response) {
+        await input.onModelResponse?.('04-three-creative-directions', {
+          attempt, receivedAt: new Date().toISOString(), provider: response.provider || input.provider,
+          modelId: response.model || input.modelId, finishReason: response.finishReason || null,
+          usage: response.usage || null, text: response.text
+        });
+        metrics.push({ stageId: '04-three-creative-directions', kind: attempt === 1 ? 'model' : 'model-repair', attempt, durationMs: 0, resumed: false, usage: response.usage || null, modelId: response.model || input.modelId, provider: response.provider || input.provider, finishReason: response.finishReason || null, thinkingEnabled: profile.thinking });
+      },
+      validate(list) {
+        return validateExecutionDirectionV2Set(list, contractContext);
+      }
+    });
+    rawDirections = step4.directions;
     await save('04-three-creative-directions', rawDirections, { ...directionsExpected, profile: { ...getStageProfile('04-execution-oriented-directions-v2'), provider: input.provider, modelId: input.modelId }, outputFile: 'visual-direction-v2-set.json' });
   }
+  await input.onCheckpointRemoved?.(STEP4_REPAIR_CHECKPOINT_STAGE);
 
   // ── 04b: Compile v2 directions (readiness + regression guards) ───────────
   const compiled = await local('04b-compile-execution-directions', () => compileExecutionDirectionV2({
@@ -313,7 +381,7 @@ export async function runVisualTranslationV2(input) {
     ...partial,
     reportMarkdown,
     composition,
-    modelCallCount: metrics.filter((item) => item.kind === 'model' || item.kind === 'model-retry').length,
+    modelCallCount: metrics.filter((item) => item.kind === 'model' || item.kind === 'model-retry' || item.kind === 'model-repair').length,
     status: 'completed-directions',
     protocolVersion: VISUAL_TRANSLATION_V2.protocolVersion,
     reportBasename: 'visual-directions-report-v2-experimental.md'

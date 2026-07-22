@@ -244,7 +244,20 @@ export type VisualTranslationStage =
   | '05-direction-recommendation'
   | '10-local-report-compiler';
 
-export type VisualTranslationRunStatus = 'running' | 'completed' | 'failed' | 'cancelled';
+export type VisualTranslationRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'timed_out' | 'cancelled';
+export type VisualTranslationStep4Status = VisualTranslationRunStatus;
+export type VisualTranslationAnalysisStatus = 'pending' | 'running' | 'validated' | 'result_committed' | 'completed' | 'failed_before_completion';
+export type VisualTranslationPersistenceStatus = 'healthy' | 'degraded' | 'projection_sync_failed' | 'recovery_required';
+
+export interface VisualTranslationRuntimeIssue {
+  category: 'ANALYSIS_ERROR' | 'RESULT_COMMIT_ERROR' | 'PROJECTION_WRITE_ERROR' | 'EVENT_LOG_ERROR' | 'RECOVERY_ERROR';
+  code: string;
+  message: string;
+  severity: 'warning' | 'error';
+  recoverable: boolean;
+  analysisCompleted: boolean;
+  tempPath?: string;
+}
 
 export interface VisualTranslationDocumentSummary {
   path: string;
@@ -269,8 +282,17 @@ export interface VisualTranslationProgress {
 export interface VisualTranslationRunRecord {
   id: string;
   analysisRunId: string;
+  activeRunId?: string;
   projectName: string;
   status: VisualTranslationRunStatus;
+  analysisStatus?: VisualTranslationAnalysisStatus;
+  persistenceStatus?: VisualTranslationPersistenceStatus;
+  recoverable?: boolean;
+  revision?: number;
+  checkpointRefs?: string[];
+  artifactRefs?: string[];
+  runtimeIssue?: VisualTranslationRuntimeIssue | null;
+  uiMessage?: string | null;
   apiProfileId: string;
   provider: string;
   model: string;
@@ -281,6 +303,9 @@ export interface VisualTranslationRunRecord {
   completedAt?: string;
   durationMs?: number;
   currentStage?: VisualTranslationStage;
+  step4Status?: VisualTranslationStep4Status;
+  step4ErrorCode?: string | null;
+  step4UpdatedAt?: string;
   lastError?: string | null;
   userError?: VisualTranslationUserError | null;
   reportFilename?: string | null;

@@ -23,7 +23,14 @@ export {
   EXECUTION_EXAMPLE_CATEGORIES,
   ANTI_CONCEPT_ART_CONSTRAINTS,
   ANTI_CONCEPT_ART_CONSTRAINT_IDS,
+  DIRECTION_FAMILIES,
+  DIRECTION_FAMILY_TYPES,
+  CONSUMER_VALUE_ROLES,
+  ASSET_AUTHORIZATION_MODES,
+  PHOTOGRAPHY_REQUIREMENT_MODES,
+  collectExecutionDirectionV2ValidationErrors,
   validateExecutionDirectionV2,
+  validateExecutionDirectionV2Set,
   validateReusableAsset,
   validateCompositionTemplate
 } from './schemas/direction-contract-v2.js';
@@ -68,6 +75,16 @@ export {
   evaluateConsumerValueCoverage
 } from './runtime/consumer-value-coverage-evaluator.js';
 export {
+  normalizeConsumerValue,
+  normalizeConsumerValues,
+  CONSUMER_VALUE_NORMALIZER_VERSION
+} from './runtime/consumer-value-normalizer.js';
+export {
+  aggregateGateIssues,
+  gateIssueKey,
+  GATE_ISSUE_AGGREGATOR_VERSION
+} from './runtime/gate-issue-aggregator.js';
+export {
   evaluateDirectionFamilyDifference
 } from './runtime/direction-family-difference-evaluator.js';
 export {
@@ -108,4 +125,4 @@ export {
 export { buildExecutionDirectionV2Prompt, VISUAL_DIRECTIONS_PROMPT_V2_VERSION } from './prompts/direction-generation-prompt-v2.js';
 export { buildAnchorCandidateV2Prompt, ANCHOR_CANDIDATE_PROMPT_V2_VERSION } from './prompts/anchor-candidate-prompt-v2.js';
 
-export { compileExecutionDirectionsReportV2 } from './report/compile-execution-directions-report-v2.js';
+export { compileExecutionDirectionsReportV2, renderNestedField } from './report/compile-execution-directions-report-v2.js';

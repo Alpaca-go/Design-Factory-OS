@@ -36,6 +36,75 @@ const OVERALL_STATUS_LABEL = {
   blocked: 'Blocked'
 };
 
+const NESTED_FIELD_LABELS = Object.freeze({
+  position: '位置',
+  width_or_height: '尺寸',
+  alignment: '对齐方式',
+  hierarchy_behavior: '层级行为',
+  collision_avoidance: '碰撞规避',
+  logo_scale: 'Logo 尺度',
+  safe_area: '最小安全区',
+  relationship_to_hero: '与主体关系',
+  fixed_or_adaptive: '固定/自适应',
+  content: '内容',
+  background_relationship: '背景关系'
+});
+
+function scalarText(value, emptyText) {
+  if (value === null || value === undefined) return emptyText;
+  if (typeof value === 'boolean') return value ? '是' : '否';
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : emptyText;
+  const text = String(value).replace(/\s*\n\s*/g, ' ').trim();
+  if (!text || text === 'undefined' || text === 'null' || text === '[object Object]') return emptyText;
+  return text;
+}
+
+export function renderNestedField(label, value, options = {}) {
+  const indent = options.indent ?? 0;
+  const emptyText = options.emptyText ?? '—';
+  const keyLabelMap = options.keyLabelMap || NESTED_FIELD_LABELS;
+  const prefix = ' '.repeat(indent);
+
+  if (value === null || value === undefined || (typeof value === 'string' && !value.trim())) {
+    return [`${prefix}- ${label}：${emptyText}`];
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return [`${prefix}- ${label}：${emptyText}`];
+    const lines = [`${prefix}- ${label}：`];
+    value.forEach((item, index) => {
+      const itemLabel = typeof item === 'object' && item !== null ? `第 ${index + 1} 项` : '';
+      if (itemLabel) lines.push(...renderNestedField(itemLabel, item, { ...options, indent: indent + 2 }));
+      else lines.push(`${' '.repeat(indent + 2)}- ${scalarText(item, emptyText)}`);
+    });
+    return lines;
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value).filter(([, child]) => child !== null && child !== undefined && child !== '');
+    if (entries.length === 0) return [`${prefix}- ${label}：${emptyText}`];
+    const lines = [`${prefix}- ${label}：`];
+    for (const [key, child] of entries) {
+      lines.push(...renderNestedField(keyLabelMap[key] || key, child, { ...options, indent: indent + 2 }));
+    }
+    return lines;
+  }
+  return [`${prefix}- ${label}：${scalarText(value, emptyText)}`];
+}
+
+function issueScopeLabel(issue) {
+  const sourceIds = issue.source_direction_ids?.length ? issue.source_direction_ids : (issue.direction_id ? [issue.direction_id] : []);
+  return (issue.issue_scope || issue.scope) === 'direction' ? `问题发生方向 ${sourceIds.join('、') || '未知'}` : '集合问题';
+}
+
+function renderIssueLine(issue, quotePrefix = '> ') {
+  const evidence = issue.evidence_excerpt || issue.detected_value;
+  const affected = issue.collection_effect ? ' ｜ 集合影响：方向集合暂不可进入 Anchor' : '';
+  const location = issue.field_path ? ` ｜ 字段：${issue.field_path}` : '';
+  const rule = issue.matched_rule ? ` ｜ 规则：${issue.matched_rule}` : '';
+  const excerpt = evidence ? ` ｜ 证据：${evidence}` : '';
+  const occurrenceCount = issue.occurrences?.length > 1 ? ` ｜ 合并命中：${issue.occurrences.length} 条` : '';
+  return `${quotePrefix}- ${issueScopeLabel(issue)} ｜ ${issue.code}：${issue.message}${affected}${location}${rule}${excerpt}${occurrenceCount}`;
+}
+
 function metricLine(key, value) {
   const lowerIsBetter = key === 'concept_art_risk' || key === 'real_estate_drift_risk' || key === 'abstract_object_dependency';
   const flag = lowerIsBetter ? (value <= 2 ? '✅' : '⚠️') : (value >= 4 ? '✅' : '⚠️');
@@ -50,9 +119,9 @@ function familyLabel(direction) {
 
 export function compileExecutionDirectionsReportV2({ projectId = 'unknown', compiled, abComparison } = {}) {
   const lines = [];
-  lines.push(`# 执行向视觉方向 v2.1.4.1 实验报告（experimental）`);
+  lines.push(`# 执行向视觉方向 v2.1.5 实验报告（experimental）`);
   lines.push('');
-  lines.push(`> 报告版本：visual-directions-execution-report-v2.1.4.1-experimental`);
+  lines.push(`> 报告版本：visual-directions-execution-report-v2.1.5-experimental`);
   lines.push(`> 协议：visual-translation-v2-execution`);
   lines.push(`> 项目：${projectId}`);
   lines.push(`> 生成模式：${compiled?.direction_generation_mode || 'execution_oriented_v2'}`);
@@ -62,6 +131,7 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
   if (compiled?.execution_permission_status) {
     lines.push(`> 整体执行许可：**${PERMISSION_LABEL[compiled.execution_permission_status] || compiled.execution_permission_status}**`);
   }
+  lines.push(`> Anchor Readiness：**${compiled?.anchor_readiness === 'ready' ? 'Ready' : 'Blocked'}**`);
   lines.push('');
 
   if (!compiled || !compiled.directions?.length) {
@@ -77,28 +147,35 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
   lines.push('');
   lines.push(`> 整体执行许可：**${PERMISSION_LABEL[compiled.execution_permission_status] || compiled.execution_permission_status}**`);
   lines.push(`> 整体状态：**${OVERALL_STATUS_LABEL[compiled.overall_status] || compiled.overall_status}**`);
-  // v2.1.4.1 — graded issue display (doc §七).
-  const blockingReasons = compiled.blocking_reasons || [];
-  const rewriteReasons = blockingReasons.filter((r) => r.startsWith('e02_') || r.startsWith('execution_example_') || r.startsWith('compliance_') || r.startsWith('direction_family_') || r.startsWith('industry_') || r.startsWith('spatial_') || r.startsWith('consumer_') || r === 'set_missing_consumer_value' || r === 'business_model_undercoverage');
-  const blockReasons = blockingReasons.filter((r) => !rewriteReasons.includes(r));
-  if (blockReasons.length) {
-    lines.push('> **阻断原因：**');
-    for (const reason of blockReasons) lines.push(`> - 🔴 ${reason}`);
-  }
-  if (rewriteReasons.length) {
-    lines.push('> **重写原因：**');
-    for (const reason of rewriteReasons) lines.push(`> - 🟠 ${reason}`);
-  }
-  const conditionalIssues = [];
-  if (gates.e02_aesthetic_gate?.brand_exclusivity_status === 'conditional') conditionalIssues.push(`brand_exclusivity(E02=${gates.e02_aesthetic_gate.brand_exclusivity_score})`);
-  if (conditionalIssues.length) {
-    lines.push('> **条件问题：**');
-    for (const issue of conditionalIssues) lines.push(`> - 🟡 ${issue}`);
-  }
-  // v2.1.4 — info-level notes (non-blocking).
-  if (compiled.info_issues?.length) {
-    lines.push(`> ℹ️ 非阻断提示：`);
-    for (const issue of compiled.info_issues) lines.push(`> - ${issue}`);
+  // Structured issue overview: no prefix guessing, no duplicated flat reasons.
+  const structuredIssues = compiled.gate_issues || [];
+  const issueSections = [
+    ['blocking', '🔴 阻断'],
+    ['rewrite', '🟠 重写'],
+    ['warning', '🟡 Warning'],
+    ['info', 'ℹ️ Info']
+  ];
+  if (structuredIssues.length) {
+    for (const [severity, heading] of issueSections) {
+      const issues = structuredIssues.filter((issue) => issue.severity === severity);
+      if (!issues.length) continue;
+      lines.push(`> **${heading}（${issues.length}）**`);
+      const visible = [];
+      const counts = new Map();
+      for (const issue of issues) {
+        const count = counts.get(issue.code) || 0;
+        if (severity !== 'warning' || count < 3) visible.push(issue);
+        counts.set(issue.code, count + 1);
+      }
+      for (const issue of visible) lines.push(renderIssueLine(issue));
+      for (const [code, count] of counts) if (severity === 'warning' && count > 3) lines.push(`> - ${code}：另有 ${count - 3} 条 Warning 已折叠。`);
+    }
+  } else {
+    const reasons = [...new Set(compiled.blocking_reasons || [])];
+    if (reasons.length) {
+      lines.push('> **问题：**');
+      for (const reason of reasons) lines.push(`> - ${reason}`);
+    }
   }
   lines.push('');
 
@@ -172,9 +249,9 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
       if (ex.hero_subject_position || ex.hero_subject_scale) lines.push(`  - 主体位置与尺度：${ex.hero_subject_position || ''}${ex.hero_subject_scale ? ' / ' + ex.hero_subject_scale : ''}`);
       if (ex.supporting_subjects) lines.push(`  - 辅助对象：${ex.supporting_subjects}`);
       if (ex.graphic_overlay) lines.push(`  - 图形叠加：${ex.graphic_overlay}`);
-      if (ex.information_zone) lines.push(`  - 信息区域：${ex.information_zone}`);
+      if (ex.information_zone) lines.push(...renderNestedField('信息区域', ex.information_zone, { indent: 2 }));
       if (ex.information_hierarchy) lines.push(`  - 信息层级：${ex.information_hierarchy}`);
-      if (ex.brand_zone) lines.push(`  - 品牌区域：${ex.brand_zone}`);
+      if (ex.brand_zone) lines.push(...renderNestedField('品牌区域', ex.brand_zone, { indent: 2 }));
       if (ex.whitespace_behavior) lines.push(`  - 留白逻辑：${ex.whitespace_behavior}`);
       if (ex.canvas_ratio || ex.photography_ratio || ex.graphic_ratio || ex.information_ratio) {
         lines.push(`  - 比例：画布 ${ex.canvas_ratio || '—'} ｜ 摄影 ${ex.photography_ratio || '—'} ｜ 图形 ${ex.graphic_ratio || '—'} ｜ 信息 ${ex.information_ratio || '—'}`);
@@ -226,18 +303,20 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
     }
     lines.push('');
 
-    // 内容就绪度 + 执行许可（v2.1.4.1 — explicit cap explanation, doc §3.3）
+    // Structural completeness is local; collection permission is displayed
+    // separately so a set-level block no longer makes all directions look
+    // equally weak.
     const expl = item.readiness.content_readiness_explanation;
     if (expl) {
-      lines.push(`**内容就绪度：** ${expl.final_score}/100`);
-      lines.push(`- 原始内容分：${expl.raw_score}`);
+      lines.push(`**结构完整度（方向级）：** ${item.structural_completeness_score ?? expl.quality_cap ?? expl.raw_score}/100`);
+      lines.push(`- 原始结构分：${expl.raw_score}`);
       if (expl.quality_cap !== expl.raw_score) {
         lines.push(`- 质量上限：${expl.quality_cap}（${expl.quality_cap_reasons.join('；')}）`);
       }
       if (expl.permission_cap !== null && expl.permission_cap !== expl.quality_cap) {
-        lines.push(`- 执行许可上限：${expl.permission_cap}（${expl.permission_cap_reasons.join('；')}）`);
+        lines.push(`- 兼容分数的执行许可上限：${expl.permission_cap}（不改变方向级结构完整度）`);
       }
-      lines.push(`- 最终显示分：${expl.final_score}`);
+      lines.push(`- 兼容 Content Readiness：${expl.final_score}/100`);
     } else {
       lines.push(`**内容就绪度：** ${item.content_readiness_score}/100${item.execution_permission_status === 'blocked' ? '（已封顶 59，因执行许可为阻断）' : ''}`);
     }
@@ -247,7 +326,14 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
       lines.push(`**Content Readiness 明细：** raw=${br.raw} → 封顶 ${item.content_readiness_score}${br.caps.length ? `（${br.caps.join('，')}）` : ''}`);
       lines.push(`- 维度权重：行业识别 ${br.weights.industry_recognition} / 可直接执行 ${br.weights.direct_executability} / 可复用资产 ${br.weights.reusable_asset_quality} / 平面转化 ${br.weights.graphic_translation} / 触点覆盖 ${br.weights.touchpoint_coverage} / 品牌专属 ${br.weights.brand_exclusivity}`);
     }
-    lines.push(`**执行许可：** ${PERMISSION_LABEL[item.execution_permission_status] || item.execution_permission_status}`);
+    lines.push(`**方向本地状态：** ${OVERALL_STATUS_LABEL[item.local_status] || item.local_status || '未评估'}`);
+    lines.push(`**方向本地执行许可：** ${PERMISSION_LABEL[item.local_execution_permission_status] || item.local_execution_permission_status || '未评估'}`);
+    if (item.local_gate_reasons) {
+      const localReasons = [...item.local_gate_reasons.hard_blocks, ...item.local_gate_reasons.rewrite_required, ...item.local_gate_reasons.warnings];
+      if (localReasons.length) lines.push(`**方向本地 Gate：** ${localReasons.join('、')}`);
+    }
+    lines.push(`**集合状态影响：** ${OVERALL_STATUS_LABEL[item.collection_status] || item.collection_status || OVERALL_STATUS_LABEL[compiled.overall_status] || compiled.overall_status}`);
+    lines.push(`**最终执行许可：** ${PERMISSION_LABEL[item.execution_permission_status] || item.execution_permission_status}`);
     if (item.execution_permission_status !== 'allowed') {
       const reasons = compiled.blocking_reasons.filter((rc) => rc.includes(d.direction_id));
       if (reasons.length) lines.push(`**阻断原因：** ${reasons.join('、')}`);
@@ -272,22 +358,29 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
     if (aa) {
       const blocked = aa.detections?.filter((x) => x.risk_level === 'blocked') || [];
       const warnings = aa.detections?.filter((x) => x.risk_level === 'warning') || [];
-      // v2.1.2 — noise reduction: only show blocked + top-5 high-confidence warnings
-      // in the main report; remaining warnings are folded.
-      const topWarnings = warnings.filter((w) => w.confidence >= 0.7).slice(0, 5);
-      const folded = warnings.filter((w) => !topWarnings.includes(w));
-      if (blocked.length || topWarnings.length || folded.length) {
+      const warningGroups = new Map();
+      for (const warning of warnings) {
+        const key = `${warning.rule_id}::${warning.reason}`;
+        const group = warningGroups.get(key) || { ...warning, field_paths: [], count: 0 };
+        group.count += 1;
+        group.field_paths.push(warning.field_path);
+        warningGroups.set(key, group);
+      }
+      const visibleWarningGroups = [...warningGroups.values()].slice(0, 3);
+      const foldedWarningCount = [...warningGroups.values()].slice(3).reduce((sum, group) => sum + group.count, 0);
+      if (blocked.length || warnings.length) {
         lines.push('**资产权限与伪造风险**');
         for (const det of blocked) {
           lines.push(`- [阻断] 方向 ${det.direction_id} ｜ 字段 ${det.field_path} ｜ 检测「${det.detected_text}」｜ 风险类型 ${det.detection_type}（${det.rule_id}）`);
           lines.push(`  - 建议：${det.suggested_rewrite}`);
         }
-        for (const det of topWarnings) {
-          lines.push(`- [提示] 方向 ${det.direction_id} ｜ 字段 ${det.field_path} ｜ 检测「${det.detected_text}」｜ 风险类型 ${det.detection_type}（${det.rule_id}）`);
-          lines.push(`  - 建议：${det.suggested_rewrite}`);
+        for (const det of visibleWarningGroups) {
+          lines.push(`- [提示] ${det.direction_id} 有 ${det.count} 个字段命中 ${det.rule_id}，疑似通用占位提示污染。`);
+          lines.push(`  - 字段：${[...new Set(det.field_paths)].slice(0, 6).join('、')}${det.field_paths.length > 6 ? ` 等 ${det.field_paths.length} 项` : ''}`);
+          lines.push(`  - 原值：${det.detected_text} ｜ 来源：${det.value_source || 'provider'} ｜ 建议：${det.suggested_rewrite}`);
         }
-        if (folded.length) {
-          lines.push(`- （另有 ${folded.length} 条低置信/结构提示已折叠，可展开查看）`);
+        if (foldedWarningCount) {
+          lines.push(`- （另有 ${foldedWarningCount} 条 Warning 已折叠，可展开查看）`);
         }
         lines.push('');
       } else {
@@ -306,7 +399,16 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
   if (bip) {
     lines.push(`### 1. 品牌身份保护 ${bip.brand_identity_preserved ? '✅' : '❌'}`);
     lines.push(`- 品牌名保留：${bip.brand_name_preserved ? '是' : '否'} ｜ 角色保留：${bip.brand_role_preserved ? '是' : '否'} ｜ 核心命题保留：${bip.strategic_thesis_preserved ? '是' : '否'} ｜ 行业身份未被简化：${bip.industry_identity_preserved ? '是' : '否'}`);
-    if (bip.contamination_detected) {
+    if (bip.issues?.length) {
+      for (const issue of bip.issues) {
+        const icon = issue.severity === 'blocking' ? '❌' : issue.severity === 'rewrite' ? '🟠' : '⚠️';
+        const brand = issue.unexpected_brand_name ? ` ｜ 非项目品牌：${issue.unexpected_brand_name}` : '';
+        lines.push(`${renderIssueLine(issue, '').replace('- ', `- ${icon} `)}${brand}`);
+        if (issue.brand_reference_role && issue.brand_reference_role !== 'unauthorized_replacement') {
+          lines.push(`  - 品牌关系：${issue.brand_reference_role} ｜ 源文档支持：${issue.source_supported ? '是' : '否'} ｜ 品牌替代：否 ｜ 执行限制：不得直接继承其 Logo / VI`);
+        }
+      }
+    } else if (bip.contamination_detected) {
       // v2.1.2 — distinguish hard-block vs warning detections.
       const hardBlocks = bip.contamination_sources.filter((s) => !s.possible_false_positive);
       const warnings = bip.contamination_sources.filter((s) => s.possible_false_positive);
@@ -361,7 +463,11 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
     const details = dfd.pairwise_details || {};
     for (const [pair, det] of Object.entries(details)) {
       lines.push(`  - ${pair} 多维：战略 ${det.strategic_entry_similarity} | 行业对象 ${det.industry_object_similarity} | 资产 ${det.reusable_asset_similarity} | 摄影 ${det.photography_subject_similarity} | 版式 ${det.layout_similarity} | 触点 ${det.touchpoint_similarity} | 受众 ${det.audience_similarity} | 语义 ${det.semantic_similarity} | 家族声明 ${det.declared_family_similarity}`);
+      lines.push(`  - ${pair} 执行模板：构图 ${det.composition_template_similarity} | 主体位置 ${det.subject_position_similarity} | 图像/图形比例 ${det.image_graphic_ratio_similarity} | 叠加 ${det.overlay_behavior_similarity} | 信息层级 ${det.information_hierarchy_similarity} | 响应式 ${det.responsive_pattern_similarity}`);
     }
+    lines.push(`- Direction Family Difference：${dfd.rewrite_required ? 'Rewrite Required' : 'Pass'}`);
+    lines.push(`- Execution Template Difference：${dfd.execution_template_difference}`);
+    lines.push(`- Anchor Mechanism Difference：${dfd.anchor_mechanism_difference}`);
     if (dfd.declared_families_distinct === false) lines.push(`- ⚠️ 声明的 direction_family 未区分（需 A/B/C 不同）`);
     lines.push('');
   }
@@ -441,6 +547,13 @@ export function compileExecutionDirectionsReportV2({ projectId = 'unknown', comp
     lines.push(`- 空间漂移状态：${sd.spatial_drift_status === 'pass' ? '通过' : sd.spatial_drift_status === 'warning' ? '通过但有 Warning' : '阻断'}`);
     lines.push(`- 建筑作为视觉主体：${sd.architecture_as_primary_subject} ｜ 展厅空间依赖：${sd.exhibition_space_dependency} ｜ 地产视觉语言：${sd.real_estate_visual_language} ｜ 室内设计依赖：${sd.interior_design_dependency}`);
     lines.push(`- 平面设计可转化性：${sd.flat_design_translatability}/5 ｜ 信息设计存在：${sd.information_design_presence}`);
+    if (sd.evidence?.length) {
+      lines.push('- 触发证据：');
+      for (const evidence of sd.evidence.slice(0, 12)) {
+        lines.push(`  - ${evidence.direction_id} ｜ 字段 ${evidence.field_path} ｜ 命中「${evidence.detected_value}」｜ 规则 ${evidence.matched_rule} ｜ 证据：${evidence.evidence_excerpt}`);
+      }
+      if (sd.evidence.length > 12) lines.push(`  - 另有 ${sd.evidence.length - 12} 条证据已折叠。`);
+    }
     if (sd.spatial_drift_status === 'warning') {
       lines.push(`- ⚠️ 空间对象只能作为局部证据，不得成为主视觉主体，不得生成展厅、地产或门店世界观，协同关系必须通过平面图形与信息系统表达。`);
     }

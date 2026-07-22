@@ -27,6 +27,20 @@ import { assertInside, sanitizeFilenamePart } from './analysis-contract';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let mainWindow: BrowserWindow | null = null;
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  console.warn(JSON.stringify({ event: 'SECOND_INSTANCE_BLOCKED', timestamp: new Date().toISOString() }));
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    console.warn(JSON.stringify({ event: 'SECOND_INSTANCE_BLOCKED', timestamp: new Date().toISOString() }));
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+}
 
 const projects = createProjectStore(getSettings);
 const pipeline = createPipelineService(
@@ -195,7 +209,7 @@ function commandLineValue(name: string): string | undefined {
   return process.argv.find((argument) => argument.startsWith(prefix))?.slice(prefix.length);
 }
 
-app.whenReady().then(async () => {
+if (gotTheLock) app.whenReady().then(async () => {
   const smokeRunId = commandLineValue('visual-translation-smoke-run');
   const smokeDocumentPath = commandLineValue('visual-translation-smoke-document');
   const smokeProfileId = commandLineValue('visual-translation-smoke-profile');

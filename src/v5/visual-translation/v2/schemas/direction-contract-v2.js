@@ -110,6 +110,12 @@ export const ASSET_AUTHORIZATION_MODES = Object.freeze([
   'prohibited'
 ]);
 
+export const PHOTOGRAPHY_REQUIREMENT_MODES = Object.freeze([
+  'required',
+  'optional',
+  'none'
+]);
+
 function optionalString(value, fallback) {
   return value === undefined || value === null ? fallback : String(value);
 }
@@ -168,7 +174,7 @@ function validatePhotographyObjectSystem(value, path) {
   const info = numberValue(ratio.information_layout_ratio, `${path}.real_content_ratio.information_layout_ratio`, { min: 0, max: 1 });
   if (Math.abs(realIndustry + branded + info - 1) > 0.01) fail(`${path}.real_content_ratio components must sum to 1.0`, `${path}.real_content_ratio`);
   return {
-    needs_photography: enumValue(item.needs_photography, ['required', 'optional', 'none'], `${path}.needs_photography`),
+    needs_photography: enumValue(item.needs_photography, PHOTOGRAPHY_REQUIREMENT_MODES, `${path}.needs_photography`),
     real_industry_objects: stringArray(item.real_industry_objects, `${path}.real_industry_objects`, { min: 1 }),
     subject_and_background: stringValue(item.subject_and_background, `${path}.subject_and_background`, { maxLength: 300 }),
     people_product_packaging: stringValue(item.people_product_packaging, `${path}.people_product_packaging`, { maxLength: 300 }),
@@ -428,6 +434,134 @@ export function validateExecutionDirectionV2(value, context = {}) {
   }
 
   return deepFreeze(direction);
+}
+
+const ENUM_FIELD_SPECS = Object.freeze([
+  { path: 'direction_family', allowed: DIRECTION_FAMILIES, optional: true },
+  { path: 'family_type', allowed: DIRECTION_FAMILY_TYPES, optional: true },
+  { path: 'photography_object_system.needs_photography', allowed: PHOTOGRAPHY_REQUIREMENT_MODES },
+  { path: 'downstream_consumer_value.consumer_value_role', allowed: CONSUMER_VALUE_ROLES, optional: true }
+]);
+
+function readPath(value, path) {
+  const tokens = [...String(path).matchAll(/(?:^|\.)([^.[\]]+)|\[(\d+)\]/gu)]
+    .map((match) => match[1] ?? Number(match[2]));
+  return tokens.reduce((current, key) => current?.[key], value);
+}
+
+function collectEnumIssue(issues, direction, directionIndex, relativePath, allowed, optional = false) {
+  const received = readPath(direction, relativePath);
+  if (optional && (received === undefined || received === null)) return;
+  if (allowed.includes(received)) return;
+  const path = `visualDirectionV2Set.directions[${directionIndex}].${relativePath}`;
+  issues.push({
+    code: 'FAILED_SCHEMA',
+    path,
+    expected: [...allowed],
+    received,
+    message: `${path} must be one of: ${allowed.join(', ')}`
+  });
+}
+
+function collectRepeatedEnumIssues(issues, direction, directionIndex, collectionName, relativePath, allowed) {
+  const collection = direction?.[collectionName];
+  if (!Array.isArray(collection)) return;
+  collection.forEach((item, itemIndex) => collectEnumIssue(
+    issues,
+    direction,
+    directionIndex,
+    `${collectionName}[${itemIndex}].${relativePath}`,
+    allowed
+  ));
+}
+
+function collectConsumerValueContradiction(issues, direction, directionIndex, relativePath) {
+  const consumerValue = readPath(direction, relativePath);
+  if (consumerValue?.present !== true || consumerValue?.consumer_value_role !== 'none') return;
+  const path = `visualDirectionV2Set.directions[${directionIndex}].${relativePath}.consumer_value_role`;
+  issues.push({
+    code: 'FAILED_SCHEMA',
+    path,
+    expected: CONSUMER_VALUE_ROLES.filter((role) => role !== 'none'),
+    received: 'none',
+    message: `${path} cannot be none when present=true`
+  });
+}
+
+function indexedValidationPath(path, directionIndex) {
+  return String(path || 'visualDirectionV2')
+    .replace(/^visualDirectionV2(?=\.|$)/u, `visualDirectionV2Set.directions[${directionIndex}]`);
+}
+
+// Collect every enum violation across the set before falling back to one
+// non-enum schema error per direction. This keeps the single repair call
+// bounded while avoiding the old one-error/one-repair structural dead end.
+export function collectExecutionDirectionV2ValidationErrors(directions, context = {}) {
+  const list = Array.isArray(directions) ? directions : [];
+  const issues = [];
+  list.forEach((raw, directionIndex) => {
+    const direction = raw?.visualDirectionV2 || raw;
+    for (const spec of ENUM_FIELD_SPECS) {
+      collectEnumIssue(issues, direction, directionIndex, spec.path, spec.allowed, spec.optional);
+    }
+    collectConsumerValueContradiction(issues, direction, directionIndex, 'downstream_consumer_value');
+    collectRepeatedEnumIssues(issues, direction, directionIndex, 'core_reusable_assets', 'asset_type', REUSABLE_ASSET_TYPES);
+    collectRepeatedEnumIssues(issues, direction, directionIndex, 'composition_templates', 'touchpoint', COMPOSITION_TOUCHPOINTS);
+    collectRepeatedEnumIssues(issues, direction, directionIndex, 'execution_examples', 'touchpoint_category', EXECUTION_EXAMPLE_CATEGORIES);
+    const examples = Array.isArray(direction?.execution_examples) ? direction.execution_examples : [];
+    examples.forEach((example, exampleIndex) => {
+      const consumerValue = example?.downstream_consumer_value;
+      if (consumerValue?.consumer_value_role === undefined) return;
+      collectEnumIssue(
+        issues,
+        direction,
+        directionIndex,
+        `execution_examples[${exampleIndex}].downstream_consumer_value.consumer_value_role`,
+        CONSUMER_VALUE_ROLES
+      );
+      collectConsumerValueContradiction(
+        issues,
+        direction,
+        directionIndex,
+        `execution_examples[${exampleIndex}].downstream_consumer_value`
+      );
+    });
+
+    try {
+      validateExecutionDirectionV2(raw, context);
+    } catch (error) {
+      const path = indexedValidationPath(error?.path, directionIndex);
+      if (!issues.some((issue) => issue.path === path)) {
+        issues.push({
+          code: error?.code || 'FAILED_SCHEMA',
+          path,
+          expected: error?.expected,
+          received: readPath(direction, path.replace(/^visualDirectionV2Set\.directions\[\d+\]\.?/u, '')),
+          message: error?.message || 'Direction schema validation failed'
+        });
+      }
+    }
+  });
+  // When the formal validator reports a missing/invalid parent object, repairing
+  // that parent also resolves its speculative enum children. Keep only the
+  // shallowest path so patch application never depends on model-defined order.
+  return issues.filter((issue, index) => !issues.some((other, otherIndex) => (
+    otherIndex !== index
+    && other.path !== issue.path
+    && (issue.path.startsWith(`${other.path}.`) || issue.path.startsWith(`${other.path}[`))
+  )));
+}
+
+export function validateExecutionDirectionV2Set(directions, context = {}) {
+  const issues = collectExecutionDirectionV2ValidationErrors(directions, context);
+  if (issues.length) {
+    throw Object.assign(new Error(`Direction set contains ${issues.length} validation error(s)`), {
+      code: issues[0].code || 'FAILED_SCHEMA',
+      path: issues[0].path,
+      issues
+    });
+  }
+  return directions;
 }
 
 export { ANTI_CONCEPT_ART_CONSTRAINT_IDS };

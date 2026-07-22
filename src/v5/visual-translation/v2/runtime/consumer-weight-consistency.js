@@ -11,6 +11,8 @@
 
 export const CONSUMER_WEIGHT_CONSISTENCY_VERSION = 'consumer-weight-consistency-v1';
 
+import { normalizeConsumerValue } from './consumer-value-normalizer.js';
+
 const ROLE_WEIGHT_FLOOR = {
   primary: 0.15,
   strong_secondary: 0.08,
@@ -24,9 +26,9 @@ const ROLE_WEIGHT_CEILING = {
 
 export function evaluateConsumerWeightConsistency(directions = []) {
   const perDirection = directions.map((direction) => {
-    const dcv = direction.downstream_consumer_value;
-    const role = dcv?.consumer_value_role || 'none';
-    const present = dcv?.present === true;
+    const canonical = normalizeConsumerValue(direction);
+    const role = canonical.consumer_value_role;
+    const present = canonical.present;
     const weight = Number(direction.compliance_weights?.consumer_value_weight ?? 0);
 
     let consistent = true;
@@ -43,7 +45,9 @@ export function evaluateConsumerWeightConsistency(directions = []) {
       present,
       consumer_value_weight: weight,
       consistent,
-      present_none_conflict: presentNoneConflict
+      present_none_conflict: presentNoneConflict,
+      canonical_source: canonical.source,
+      source_paths: canonical.source_paths
     };
   });
 

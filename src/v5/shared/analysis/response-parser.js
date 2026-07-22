@@ -4,10 +4,42 @@ function extractJsonCandidate(value) {
     .replace(/\s*```$/i, '');
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
-  if (start < 0 || end <= start) throw Object.assign(new Error('模型输出中未找到 JSON 对象'), { code: 'FAILED_SCHEMA' });
-  return text.slice(start, end + 1)
+  if (start < 0) throw Object.assign(new Error('模型输出中未找到 JSON 对象'), { code: 'FAILED_SCHEMA' });
+  return text.slice(start, end > start ? end + 1 : undefined)
     .replace(/,\s*([}\]])/g, '$1')
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+}
+
+// Complete only unambiguous EOF truncation: all strings must already be
+// closed, every existing closer must match, the tail must contain a complete
+// JSON value, and no more than a small number of containers may be missing.
+// This repairs responses such as `...}]}` that merely omitted the outer `]}`
+// without inventing keys, values, strings, commas, or semantic content.
+function closeJsonContainersAtEof(text, maxClosers = 8) {
+  const stack = [];
+  let inString = false;
+  let escape = false;
+  for (const char of text) {
+    if (inString) {
+      if (escape) escape = false;
+      else if (char === '\\') escape = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === '{') stack.push('}');
+    else if (char === '[') stack.push(']');
+    else if (char === '}' || char === ']') {
+      if (stack.pop() !== char) return text;
+    }
+  }
+  if (inString || stack.length === 0 || stack.length > maxClosers) return text;
+  const tail = text.trimEnd();
+  if (!/(?:[}\]"\d]|true|false|null)$/u.test(tail)) return text;
+  return `${tail}${stack.reverse().join('')}`;
 }
 
 /**
@@ -84,8 +116,13 @@ export function parseStructuredResponse(value) {
     try {
       return JSON.parse(repaired);
     } catch {
-      // Repair did not help — preserve the original error message.
-      throw Object.assign(new Error(`结构化 JSON 解析失败：${error.message}`), { code: 'FAILED_SCHEMA', cause: error });
+      const closed = closeJsonContainersAtEof(repaired);
+      try {
+        return JSON.parse(closed);
+      } catch {
+        // Repair did not help — preserve the original error message.
+        throw Object.assign(new Error(`结构化 JSON 解析失败：${error.message}`), { code: 'FAILED_SCHEMA', cause: error });
+      }
     }
   }
 }

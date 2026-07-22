@@ -321,6 +321,8 @@ test('Asset Authorization detects fabricated credentials and passes clean direct
   forged.information_system.data_qualification_info = '注册证号 ABC123 合格率 99.2%';
   const forgedA = evaluateAssetAuthorizationSet([forged, good[1], good[2]]);
   assert.equal(forgedA.forgery_detected, true);
+  assert.equal(forgedA.per_direction[0].data_authorization_level, 'prohibited');
+  assert.equal(forgedA.per_direction[0].generated_data_policy, 'prohibited');
 });
 
 // ---- §11 Readiness Score cap ----

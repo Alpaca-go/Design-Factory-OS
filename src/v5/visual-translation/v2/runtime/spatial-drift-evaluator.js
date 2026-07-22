@@ -9,8 +9,7 @@
 // The prompt must steer the model toward "how the协同 enters flat 传播" rather
 // than "协同 happens in which 空间".
 
-import { collectDirectionText } from './direction-text-util.js';
-import { countKeywordHits } from './evaluator-keywords.js';
+import { classifyFieldSemanticRole, positiveKeywordMatches } from './field-semantic-role.js';
 
 export const SPATIAL_DRIFT_EVALUATOR_VERSION = 'spatial-drift-evaluator-v1';
 
@@ -20,28 +19,6 @@ const REAL_ESTATE_LANGUAGE = ['楼盘', '售楼', '样板间', '地产', '户型
 const INTERIOR_DESIGN = ['室内设计', '软装', '家居', '室内场景', '空间软装', '室内'];
 const FLAT_DESIGN_POSITIVE = ['海报', '画册', '包装', '页面', '母版', '信息图', '信息层级', '品牌专属', 'composition_template', '平面', '字号', '网格'];
 
-const NEGATION_MARKERS = [
-  '不得', '禁止', '不以', '避免', '不可', '严禁', '不要', '拒绝',
-  '不生成', '不采用', '不依赖', '不制造', '不输出', '不默认', '不只有',
-  '不成为', '不退化', '不替换', '不脱离', '不堆砌', '不制造高级感'
-];
-
-// Drop prohibition / negation clauses so a direction that FORBIDS architecture
-// ("不得用建筑作为主体") is NOT counted as one that USES architecture as its
-// primary subject. The gate must catch directions that SLIDE INTO exhibition /
-// real-estate / interior language, not directions that merely prohibit it
-// (doc section 十一).
-function stripProhibitions(text) {
-  if (!text) return '';
-  // Only split on SENTENCE / line boundaries — NOT on 、 or ，. A list-style
-  // prohibition like "不得以建筑、展馆、雕塑或地产空间为视觉主体" must be
-  // dropped as one unit; splitting on 、 would leak "展馆" as a bare (unguarded)
-  // architecture keyword.
-  const clauses = String(text).split(/[。；；\n]/);
-  const kept = clauses.filter((c) => !NEGATION_MARKERS.some((m) => c.includes(m)));
-  return kept.join(' ');
-}
-
 // Per-direction worst-case keyword count (doc §十一: a single direction whose
 // primary subject is architecture is the drift risk — NOT the sum of weak
 // mentions across all three directions, which previously inflated the score to
@@ -49,11 +26,60 @@ function stripProhibitions(text) {
 function perDirectionMaxKeywordHits(directions, keywords) {
   let max = 0;
   for (const d of directions) {
-    const clean = stripProhibitions(collectDirectionText(d));
-    const hits = countKeywordHits(clean, keywords);
+    const leaves = [];
+    walkStringLeaves(d, 'visualDirectionV2', leaves);
+    const hits = leaves.reduce((sum, leaf) => {
+      if (classifyFieldSemanticRole(leaf.path) === 'negative_constraint') return sum;
+      return sum + positiveKeywordMatches(leaf.text, keywords).length;
+    }, 0);
     if (hits > max) max = hits;
   }
   return max;
+}
+
+function walkStringLeaves(value, path, out) {
+  if (typeof value === 'string') {
+    if (value.trim()) out.push({ path, text: value.trim() });
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => walkStringLeaves(item, `${path}[${index}]`, out));
+    return;
+  }
+  if (value && typeof value === 'object') {
+    for (const [key, child] of Object.entries(value)) {
+      walkStringLeaves(child, path ? `${path}.${key}` : key, out);
+    }
+  }
+}
+
+function collectSpatialEvidence(directions, keywordGroups) {
+  const evidence = [];
+  for (const direction of directions) {
+    const leaves = [];
+    walkStringLeaves(direction, 'visualDirectionV2', leaves);
+    for (const leaf of leaves) {
+      if (classifyFieldSemanticRole(leaf.path) === 'negative_constraint') continue;
+      for (const [category, keywords] of Object.entries(keywordGroups)) {
+        for (const { keyword } of positiveKeywordMatches(leaf.text, keywords)) {
+          evidence.push({
+            direction_id: direction.direction_id,
+            field_path: leaf.path,
+            detected_value: keyword,
+            matched_rule: `spatial_drift_${category}`,
+            evidence_excerpt: leaf.text.slice(0, 240),
+            confidence: 0.9,
+            category
+          });
+        }
+      }
+    }
+  }
+  return evidence.filter((item, index, all) => all.findIndex((candidate) =>
+    candidate.direction_id === item.direction_id &&
+    candidate.field_path === item.field_path &&
+    candidate.matched_rule === item.matched_rule &&
+    candidate.detected_value === item.detected_value) === index);
 }
 
 export function evaluateSpatialDrift(directions = []) {
@@ -89,6 +115,13 @@ export function evaluateSpatialDrift(directions = []) {
   if (flat <= 2) blockingReasons.push(`spatial_drift_flat_design_low(${flat})`);
   if (warning && !rewriteRequired) blockingReasons.push(`spatial_drift_warning(arch=${architecture},exhibition=${exhibition},realEstate=${realEstate},flat=${flat})`);
 
+  const evidence = collectSpatialEvidence(directions, {
+    architecture_primary: ARCHITECTURE_PRIMARY,
+    exhibition_space: EXHIBITION_SPACE,
+    real_estate_language: REAL_ESTATE_LANGUAGE,
+    interior_design: INTERIOR_DESIGN
+  });
+
   return {
     evaluator_version: SPATIAL_DRIFT_EVALUATOR_VERSION,
     spatial_drift_status: spatialDriftStatus,
@@ -100,6 +133,7 @@ export function evaluateSpatialDrift(directions = []) {
     information_design_presence: Boolean(informationDesign),
     warning,
     rewrite_required: rewriteRequired,
-    blocking_reasons: blockingReasons
+    blocking_reasons: blockingReasons,
+    evidence
   };
 }

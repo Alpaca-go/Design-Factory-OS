@@ -16,7 +16,7 @@ function StatusBadge({ status }: { status: ProjectRecord['status'] }) {
 }
 
 function TranslationStatusBadge({ status }: { status: VisualTranslationRunRecord['status'] }) {
-  const labels: Record<VisualTranslationRunRecord['status'], string> = { running: '运行中', completed: '已完成', failed: '失败', cancelled: '已取消' };
+  const labels: Record<VisualTranslationRunRecord['status'], string> = { pending: '等待中', running: '运行中', completed: '已完成', failed: '失败', timed_out: '已超时', cancelled: '已取消' };
   return <span className={`badge ${status}`}>{labels[status]}</span>;
 }
 

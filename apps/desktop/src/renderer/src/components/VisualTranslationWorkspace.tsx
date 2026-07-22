@@ -31,11 +31,20 @@ const STAGES: Array<[VisualTranslationStage, string]> = [
 ];
 
 const STATUS_LABELS: Record<VisualTranslationRunRecord['status'], string> = {
+  pending: '等待中',
   running: '运行中',
   completed: '已完成',
   failed: '失败',
+  timed_out: '已超时',
   cancelled: '已取消'
 };
+
+function runStatusLabel(run: VisualTranslationRunRecord): string {
+  if (run.analysisStatus === 'completed' && run.persistenceStatus !== 'healthy') return '分析已完成，可恢复';
+  if (run.analysisStatus === 'result_committed' && run.persistenceStatus !== 'healthy') return '结果已保存，可恢复';
+  if (run.analysisStatus === 'result_committed') return '方向结果已保存';
+  return STATUS_LABELS[run.status];
+}
 
 function TruncationErrorNotice({ userError, fallback }: { userError: VisualTranslationUserError | null; fallback: string }) {
   if (!userError) return <div className="notice error">{fallback}</div>;
@@ -163,6 +172,7 @@ export function VisualTranslationWorkspace({ settings, selectedApiProfileId, ini
   async function resume(run: VisualTranslationRunRecord) {
     setBusy(true);
     setError('');
+    setUserError(null);
     setNotice('');
     setSelectedRun(null);
     setReportMarkdown('');
@@ -174,6 +184,7 @@ export function VisualTranslationWorkspace({ settings, selectedApiProfileId, ini
       setNotice(`已恢复任务；复用了 ${result.run.resumedStageCount || 0} 个有效 Checkpoint。`);
     } catch (reason) {
       setError(cleanError(reason));
+      setUserError((reason as { userError?: VisualTranslationUserError })?.userError || null);
     } finally {
       setBusy(false);
       await refreshRuns().catch(() => {});
@@ -255,8 +266,12 @@ export function VisualTranslationWorkspace({ settings, selectedApiProfileId, ini
       </section>
 
       <aside className="panel visual-translation-history">
-        <div className="section-heading"><span>02</span><div><h2>分析记录</h2><p>失败或取消的任务可以从有效 Checkpoint 恢复</p></div></div>
-        {runs.length ? <div className="visual-run-list">{runs.map((run) => <div key={run.id} className={`visual-run-card ${run.status}`}><div><strong>{run.projectName}</strong><span>{STATUS_LABELS[run.status]}</span></div><small>{run.documentCount} 份文档 · {run.model}</small><small>{new Date(run.createdAt).toLocaleString('zh-CN')}{run.durationMs ? ` · ${formatDurationHuman(run.durationMs)}` : ''}</small>{run.lastError && <em>{run.lastError}</em>}<div className="button-row">{run.status === 'completed' && <button className="button secondary" onClick={() => void openReport(run)}>查看报告</button>}{run.status !== 'running' && <button className="button ghost" disabled={busy} onClick={() => void resume(run)}>{run.status === 'completed' ? '验证 Checkpoint' : '继续分析'}</button>}</div></div>)}</div> : <div className="visual-document-empty">还没有 Visual Translation 任务。</div>}
+        <div className="section-heading"><span>02</span><div><h2>分析记录</h2><p>未完成任务可继续分析；已保存结果只执行恢复，不会重复调用模型</p></div></div>
+        {runs.length ? <div className="visual-run-list">{runs.map((run) => {
+          const resultSaved = run.analysisStatus === 'result_committed' || run.analysisStatus === 'completed';
+          const needsRecovery = resultSaved && run.persistenceStatus !== 'healthy';
+          return <div key={run.id} className={`visual-run-card ${resultSaved ? 'completed' : run.status}`}><div><strong>{run.projectName}</strong><span>{runStatusLabel(run)}</span></div><small>{run.documentCount} 份文档 · {run.model}</small><small>{new Date(run.createdAt).toLocaleString('zh-CN')}{run.durationMs ? ` · ${formatDurationHuman(run.durationMs)}` : ''}</small>{(run.uiMessage || run.userError?.message || run.lastError) && <em>{run.uiMessage || run.userError?.message || run.lastError}</em>}<div className="button-row">{run.status === 'completed' && run.reportFilename && <button className="button secondary" onClick={() => void openReport(run)}>查看报告</button>}{run.status !== 'running' && <button className="button ghost" disabled={busy} onClick={() => void resume(run)}>{needsRecovery ? '恢复结果' : resultSaved ? '查看已保存结果' : '继续分析'}</button>}</div></div>;
+        })}</div> : <div className="visual-document-empty">还没有 Visual Translation 任务。</div>}
       </aside>
     </div>
 

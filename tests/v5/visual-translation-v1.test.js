@@ -89,6 +89,20 @@ test('structured response parser does NOT repair inside string literals', () => 
   assert.deepEqual(parseStructuredResponse(raw), { msg: 'a}  {b' });
 });
 
+test('structured response parser safely closes complete containers truncated at EOF', () => {
+  const parsed = parseStructuredResponse('{"corrections":[{"path":"x","value":[{"asset_type":"graphic_asset"}]}');
+  assert.deepEqual(parsed, {
+    corrections: [{ path: 'x', value: [{ asset_type: 'graphic_asset' }] }]
+  });
+});
+
+test('structured response parser does not invent an unterminated string value', () => {
+  assert.throws(
+    () => parseStructuredResponse('{"corrections":[{"path":"x","value":"unfinished'),
+    (error) => error.code === 'FAILED_SCHEMA'
+  );
+});
+
 test('evidence quote grounding recovers punctuation and spacing but rejects paraphrases', () => {
   const chunk = 'Jiuzhou Aesthetics — a B2B industry platform.';
   assert.equal(resolveGroundedQuote('Jiuzhou Aesthetics', chunk), 'Jiuzhou Aesthetics');

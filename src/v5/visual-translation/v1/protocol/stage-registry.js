@@ -1,3 +1,5 @@
+import { VISUAL_TRANSLATION_V2_RUNTIME_CONFIG } from '../../v2/config/visual-translation-v2-runtime-config.js';
+
 export const VISUAL_TRANSLATION_V1 = Object.freeze({
   protocolVersion: 'visual-translation-v1',
   checkpointVersion: 'visual-translation-v1-checkpoint-1.3',
@@ -26,10 +28,10 @@ export const STAGE_PROFILES = Object.freeze({
   // v1.3.4 frozen behaviour is preserved by keeping the entry above unchanged.
   '04-execution-oriented-directions-v2': {
     thinking: true,
-    thinkingBudget: 2500,
-    maxOutputTokens: 20000,
-    requestTimeoutMs: 420000,
-    truncationRetry: { enabled: true, maxAttempts: 1, multiplier: 1.5 }
+    thinkingBudget: VISUAL_TRANSLATION_V2_RUNTIME_CONFIG.step4.thinkingBudget,
+    maxOutputTokens: VISUAL_TRANSLATION_V2_RUNTIME_CONFIG.step4.maxOutputTokens,
+    requestTimeoutMs: VISUAL_TRANSLATION_V2_RUNTIME_CONFIG.step4.mainHardTimeoutMs,
+    truncationRetry: { enabled: false, maxAttempts: 0, multiplier: 1.5 }
   }
 });
 
