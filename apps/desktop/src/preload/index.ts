@@ -57,6 +57,17 @@ const api: DesktopApi = {
       return () => ipcRenderer.removeListener('visual-translation:progress', listener);
     }
   },
+  referenceTranslation: {
+    chooseInput: () => ipcRenderer.invoke('reference-translation:choose-input'),
+    chooseReferenceAssets: () => ipcRenderer.invoke('reference-translation:choose-reference-assets'),
+    chooseProjectSources: () => ipcRenderer.invoke('reference-translation:choose-project-sources'),
+    runUserInput: (input) => ipcRenderer.invoke('reference-translation:run-user-input', input),
+    run: (input) => ipcRenderer.invoke('reference-translation:run', input),
+    listRuns: () => ipcRenderer.invoke('reference-translation:list-runs'),
+    getProfile: (runId) => ipcRenderer.invoke('reference-translation:get-profile', runId),
+    remove: (runId) => ipcRenderer.invoke('reference-translation:remove', runId),
+    openFolder: (runId) => ipcRenderer.invoke('reference-translation:open-folder', runId)
+  },
   files: {
     getPathForFile: (file) => webUtils.getPathForFile(file)
   }

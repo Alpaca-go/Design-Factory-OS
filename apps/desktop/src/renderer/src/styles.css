@@ -123,3 +123,45 @@ label { display: grid; gap: 7px; margin: 16px 0; color: #49444c; font-size: 11px
 .report-filename-editor { display: flex; gap: 10px; align-items: end; max-width: 760px; margin: 0 0 16px; }
 .report-filename-editor label { flex: 1; margin: 0; }
 .field-help { color: #817a85; font-size: 10px; font-weight: 400; line-height: 1.5; }
+
+/* Reference-Led Visual Direction（参考转译）工作台 */
+.reference-input-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0; padding: 12px 14px; border: 1px solid #ddd8e0; border-radius: 9px; background: #fff; }
+.reference-input-row strong { display: block; font-size: 12px; }
+.reference-input-row small { display: block; margin-top: 4px; color: #847d87; font-size: 10px; word-break: break-all; }
+.reference-input-row.compact { margin-bottom: 0; background: #faf9fb; }
+.reference-project-field { display: grid; gap: 8px; margin: 16px 0; }
+.reference-project-field > strong { font-size: 12px; }
+.reference-project-field > small { color: #847d87; font-size: 10px; }
+.reference-project-field select { width: 100%; }
+.reference-advanced { margin: 16px 0; padding: 11px 14px; border: 1px solid #ddd8e0; border-radius: 9px; background: #faf9fb; }
+.reference-advanced summary { cursor: pointer; color: #554e5a; font-size: 11px; font-weight: 600; }
+.reference-developer-toggle { display: flex; flex-direction: row; gap: 8px; align-items: center; margin: 13px 0 0; font-size: 11px; }
+.reference-developer-toggle input { width: auto; margin: 0; }
+.reference-developer-inputs { margin-top: 12px; padding-top: 2px; border-top: 1px solid #e5e1e7; }
+.reference-developer-inputs > p { color: #817a85; font-size: 10px; line-height: 1.5; }
+.reference-transfer-groups { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.reference-transfer-group { padding: 13px 14px; border: 1px solid #ddd8e0; border-left: 4px solid #aaa3ad; border-radius: 9px; background: #fff; }
+.reference-transfer-group.directlyTransferable { border-left-color: #3f916d; }
+.reference-transfer-group.requiresReinterpretation { border-left-color: #b68a46; }
+.reference-transfer-group.prohibitedToCopy { border-left-color: #b84f4f; }
+.reference-transfer-group strong { font-size: 12px; }
+.reference-transfer-group ul { margin: 9px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.reference-transfer-group li span { display: block; font-size: 11px; }
+.reference-transfer-group li small { display: block; margin-top: 2px; color: #847d87; font-size: 10px; line-height: 1.45; }
+.reference-transfer-group .muted { margin: 8px 0 0; color: #9a939d; font-size: 11px; }
+.reference-matrix-list { display: grid; gap: 12px; }
+.reference-matrix-card { padding: 14px 16px; border: 1px solid #ddd8e0; border-radius: 9px; background: #fff; }
+.reference-matrix-head { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.reference-matrix-head span { font-size: 11px; font-weight: 600; color: #6c42d8; }
+.reference-matrix-head small { color: #847d87; font-size: 10px; }
+.reference-matrix-card p { margin: 6px 0; font-size: 11px; line-height: 1.55; color: #4d4752; }
+.reference-matrix-card p strong { display: inline-block; margin-right: 8px; min-width: 62px; color: #2f2a33; }
+.reference-matrix-card p.prohibited { color: #a44343; }
+.reference-matrix-card p.prohibited strong { color: #a44343; }
+.reference-dna-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.reference-dna-group { padding: 13px 14px; border: 1px solid #ddd8e0; border-radius: 9px; background: #fff; }
+.reference-dna-group strong { font-size: 12px; }
+.reference-dna-group ul { margin: 9px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.reference-dna-group li span { display: block; font-size: 11px; }
+.reference-dna-group li small { display: block; margin-top: 2px; color: #847d87; font-size: 10px; line-height: 1.45; }
+.reference-translation-report .panel { margin-bottom: 16px; }

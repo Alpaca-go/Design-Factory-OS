@@ -359,6 +359,104 @@ export interface VisualTranslationResult {
   reportMarkdown: string;
 }
 
+// ── Reference-Led Visual Direction（Reference Translation Profile）──
+// 离线确定性引擎：从参考项目视觉分析中提取可迁移机制，
+// 在不复制签名资产的前提下映射到当前项目。零模型调用。
+
+export interface ReferenceTranslationRule {
+  name: string;
+  evidence: string[];
+  mechanism: string;
+  function: string;
+  confidence: number;
+}
+
+export interface ReferenceTransferabilityItem {
+  item_id: string;
+  name: string;
+  source_rule: string;
+  reason: string;
+  evidence: string[];
+  confidence: number;
+}
+
+export interface ReferenceTranslationMatrixItem {
+  translation_id: string;
+  referenceMechanism: string;
+  referenceFunction: string;
+  projectCondition: string;
+  translatedMechanism: string;
+  retainedProperties: string[];
+  changedProperties: string[];
+  prohibitedElements: string[];
+  confidence: number;
+}
+
+export interface ReferenceTranslationProfile {
+  schema_version: string;
+  source_role: string;
+  referenceIdentity: {
+    detectedIndustry?: string;
+    touchpoints: string[];
+    assetCount: number;
+    completeness: 'low' | 'medium' | 'high';
+    consistency: 'low' | 'medium' | 'high';
+    missingEvidence: string[];
+  };
+  referenceVisualDNA: Record<string, ReferenceTranslationRule[]>;
+  transferability: {
+    directlyTransferable: ReferenceTransferabilityItem[];
+    requiresReinterpretation: ReferenceTransferabilityItem[];
+    prohibitedToCopy: ReferenceTransferabilityItem[];
+  };
+  sourceRisks: {
+    signatureAssets: string[];
+    recognizableCombinations: string[];
+    similarityWarnings: string[];
+  };
+  projectTranslationMatrix: ReferenceTranslationMatrixItem[];
+}
+
+export type ReferenceTranslationRunStatus = 'completed' | 'failed';
+
+export interface ReferenceTranslationRunRecord {
+  id: string;
+  status: ReferenceTranslationRunStatus;
+  createdAt: string;
+  completedAt?: string;
+  durationMs?: number;
+  cacheHit: boolean;
+  visualAnalysisFilename: string;
+  projectContextFilename: string;
+  preference: string;
+  completeness?: string;
+  consistency?: string;
+  matrixCount?: number;
+  prohibitedCount?: number;
+  lastError?: string | null;
+}
+
+export interface StartReferenceTranslationInput {
+  visualAnalysisPath: string;
+  projectContextPath: string;
+  preference?: string;
+  force?: boolean;
+}
+
+export interface StartReferenceTranslationUserInput {
+  referenceAssetPaths: string[];
+  currentProjectId?: string;
+  currentProjectSourcePaths?: string[];
+  apiProfileId?: string;
+  preference?: string;
+  force?: boolean;
+}
+
+export interface ReferenceTranslationResult {
+  run: ReferenceTranslationRunRecord;
+  profile: ReferenceTranslationProfile;
+}
+
 export interface DesktopApi {
   settings: {
     get(): Promise<PublicSettings>;
@@ -406,6 +504,17 @@ export interface DesktopApi {
     exportReport(runId: string): Promise<string | null>;
     openFolder(runId: string): Promise<void>;
     onProgress(callback: (progress: VisualTranslationProgress) => void): () => void;
+  };
+  referenceTranslation: {
+    chooseInput(): Promise<string[]>;
+    chooseReferenceAssets(): Promise<string[]>;
+    chooseProjectSources(): Promise<string[]>;
+    runUserInput(input: StartReferenceTranslationUserInput): Promise<ReferenceTranslationResult>;
+    run(input: StartReferenceTranslationInput): Promise<ReferenceTranslationResult>;
+    listRuns(): Promise<ReferenceTranslationRunRecord[]>;
+    getProfile(runId: string): Promise<ReferenceTranslationProfile>;
+    remove(runId: string): Promise<void>;
+    openFolder(runId: string): Promise<void>;
   };
   files: {
     getPathForFile(file: File): string;

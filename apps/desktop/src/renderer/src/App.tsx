@@ -6,6 +6,7 @@ import { ProjectWizard } from './components/ProjectWizard';
 import { ReportView } from './components/ReportView';
 import { SettingsPanel } from './components/SettingsPanel';
 import { VisualTranslationWorkspace } from './components/VisualTranslationWorkspace';
+import { ReferenceTranslationWorkspace } from './components/ReferenceTranslationWorkspace';
 import { cleanError, formatBytes, formatDuration } from './utils';
 
 type Screen = 'home' | 'settings' | 'create' | 'project' | 'analysis' | 'report';
@@ -223,6 +224,7 @@ export function App() {
       void run(project, true, profileId);
     }} /></div>
     <div hidden={analysisMode !== 'visual-translation'}><VisualTranslationWorkspace settings={settings} selectedApiProfileId={selectedApiProfileId} initialRunId={requestedTranslationRunId} onApiProfileChange={setSelectedApiProfileId} onBack={() => { setScreen('home'); void refresh(); }} onOpenSettings={() => { setSettingsReturnScreen('create'); setScreen('settings'); }} /></div>
+    <div hidden={analysisMode !== 'reference-translation'}><ReferenceTranslationWorkspace onBack={() => { setScreen('home'); void refresh(); }} /></div>
   </div>;
   if (screen === 'analysis' && selected) return <AnalysisView
     project={selected}
