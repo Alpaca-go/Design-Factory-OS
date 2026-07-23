@@ -1,7 +1,8 @@
 # Repository consolidation report
 
-Current status: Phase B completed through the pre-deletion checkpoint. No
-remote branch deletion has been performed.
+Current status: repository consolidation completed on 2026-07-23. The nine
+explicitly confirmed historical remote branches were deleted after their
+archive tags were reverified.
 
 ## Core consolidation
 
@@ -23,8 +24,7 @@ remote branch deletion has been performed.
 ## Pull-request cleanup
 
 - PRs #2, #3, #4 and #5 were documented and closed without merging.
-- The historical branch tips remain available both as remote branches and
-  verified annotated archive tags.
+- PR #7 remains open from the Reference-led feature branch to `develop`.
 
 ## Active Reference-led work
 
@@ -38,12 +38,17 @@ remote branch deletion has been performed.
 - PR: https://github.com/Alpaca-go/Masterpiece-OS/pull/7
 - Target: `develop`; status: open for review.
 
-## Rollback and deletion policy
+## Historical branch cleanup
+
+- Nine confirmed historical remote branches were deleted.
+- Their nine annotated `archive/*-20260723` tags remain available.
+- The remaining remote branches are `main`, `develop`,
+  `feature/reference-led-visual-direction`, and
+  `feature/retrieval-first-single-pipeline`.
+
+## Rollback and retention policy
 
 - Restore an archived line from its `archive/*-20260723` annotated tag.
-- Do not rewrite `main`; use a revert PR if the Retrieval-First merge must be
-  reversed.
-- Delete historical branches only after a second explicit confirmation of the
-  exact list in `branch-deletion-plan.md`.
-- Retain `feature/retrieval-first-single-pipeline` for 3–7 days after merge and
+- Do not rewrite `main`; use a revert PR if PR #6 must be reversed.
+- Retain `feature/retrieval-first-single-pipeline` for 3-7 days after merge and
   handle it in a separate later confirmation.

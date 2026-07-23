@@ -1,15 +1,15 @@
-# Repository branch audit after Phase B
+# Repository branch audit after cleanup
 
-Audit timestamp: 2026-07-23 (Asia/Shanghai).
+Audit date: 2026-07-23 (Asia/Shanghai).
 
-## Protected active lines
+## Remaining remote branches
 
-| Branch | Remote head | Status |
-| --- | --- | --- |
-| `main` | `5f9ac06d1e25aa4b091461e4b4437f9b7d3f82af` | Retrieval-First core baseline |
-| `develop` | `5f9ac06d1e25aa4b091461e4b4437f9b7d3f82af` | Long-lived integration branch |
-| `feature/reference-led-visual-direction` | PR #7 head | Active; PR #7 targets `develop` |
-| `feature/retrieval-first-single-pipeline` | `509e92b5fd3eb159a9b4cb80123609de15c5fbb3` | Merged by PR #6; retain for 3–7 days |
+| Branch | Status |
+| --- | --- |
+| `main` | Retrieval-First core baseline |
+| `develop` | Long-lived integration branch |
+| `feature/reference-led-visual-direction` | Active; PR #7 targets `develop` |
+| `feature/retrieval-first-single-pipeline` | Merged by PR #6; retain for 3-7 days |
 
 ## Pull requests
 
@@ -19,10 +19,9 @@ Audit timestamp: 2026-07-23 (Asia/Shanghai).
 - PRs #2, #3, #4 and #5 were closed without merging after an archive-tag
   explanation was added to each PR.
 
-## Archived historical lines
+## Deleted archived remote branches
 
-The following remote branches still exist and have verified archive tags. They
-remain untouched until the user explicitly confirms the exact deletion list:
+After explicit user confirmation, the following remote branches were deleted:
 
 - `v5-deep-creative-director`
 - `v5-desktop`
@@ -34,4 +33,5 @@ remain untouched until the user explicitly confirms the exact deletion list:
 - `experiment/execution-oriented-directions-v2`
 - `experiment/visual-fact-first-pipeline`
 
-No remote branch was deleted during Phase A or Phase B.
+All nine annotated `archive/*-20260723` tags remain on the remote and retain
+the exact deleted branch tips.

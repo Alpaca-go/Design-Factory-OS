@@ -1,22 +1,21 @@
-# Remote branch deletion plan
+# Remote branch deletion record
 
-Status: **awaiting the user's second explicit confirmation; do not execute**.
+Status: **completed on 2026-07-23 after explicit user confirmation**.
 
-## Must retain
+## Retained remote branches
 
 - `main`
 - `develop`
 - `feature/reference-led-visual-direction`
+- `feature/retrieval-first-single-pipeline`
 
-## Retain temporarily
+The Retrieval-First feature branch is retained for 3-7 days after PR #6 and
+requires a separate later deletion confirmation.
 
-- `feature/retrieval-first-single-pipeline`: merged by PR #6. Keep for 3–7
-  days, then request a separate deletion confirmation.
+## Deleted remote branches
 
-## Exact proposed deletion list
-
-Each branch below has a verified remote annotated archive tag whose peeled
-commit equals the branch head:
+Each branch was reverified against its remote annotated archive tag immediately
+before deletion:
 
 - `v5-deep-creative-director`
 - `v5-desktop`
@@ -28,16 +27,9 @@ commit equals the branch head:
 - `experiment/execution-oriented-directions-v2`
 - `experiment/visual-fact-first-pipeline`
 
-## Preconditions completed
+## Completion verification
 
-1. Retrieval-First was validated and merged into `main` by PR #6.
-2. `retrieval-first-core-beta-0.5` was pushed.
-3. `develop` was created from the merged `main`.
-4. PRs #2, #3, #4 and #5 were documented and closed.
-5. Reference-led work was synchronized with `develop`, validated, pushed and
-   opened as PR #7.
-
-## Remaining gate
-
-The user must explicitly confirm this exact nine-branch list before any
-deletion command is run. Archive tags are retained after branch deletion.
+- All nine remote branches are absent.
+- All nine annotated archive tags remain on the remote.
+- The four retained remote branches remain present.
+- Deleted branches can be restored from their corresponding archive tags.
