@@ -1,0 +1,8 @@
+{
+  "status": "failed",
+  "runId": "9cb78377-0f3c-43f4-b6f8-540b50726c6f",
+  "error": {
+    "name": "Error",
+    "message": "Primary report language ratio is below 90%: 0.7485"
+  }
+}

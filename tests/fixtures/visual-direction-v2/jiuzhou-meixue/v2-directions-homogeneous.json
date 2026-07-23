@@ -1,0 +1,902 @@
+[
+  {
+    "direction_id": "E01",
+    "direction_name": "九州美学方向1",
+    "strategic_idea": "九州美学是医美产业链 B2B 协同平台；以医美机构门头与诊疗空间与资质审核流程建立可落地视觉",
+    "industry_recognition_layer": {
+      "industry_visual_objects": [
+        "医美机构门头与诊疗空间",
+        "冷链温控运输箱",
+        "GSP 仓储货架"
+      ],
+      "industry_data_objects": [
+        "月度机构入驻数",
+        "GSP 温控曲线"
+      ],
+      "industry_process_objects": [
+        "资质审核流程",
+        "冷链配送链路"
+      ],
+      "industry_space_and_real_scenes": [
+        "机构合作洽谈室",
+        "仓储分拣实景"
+      ],
+      "usable_business_objects": [
+        "合作机构铭牌",
+        "温控标签"
+      ],
+      "prohibited_misleading_templates": [
+        "纯女性脸特写堆砌",
+        "玻璃球科技感",
+        "奢华地产大片"
+      ],
+      "minimum_industry_recognition_strength": 4
+    },
+    "core_reusable_assets": [
+      {
+        "asset_id": "A011",
+        "asset_name": "供应链节点图",
+        "asset_type": "graphic_asset",
+        "visual_description": "由机构与温控节点构成",
+        "business_evidence": "对应 B2B 协同事实",
+        "execution_role": "主体识别图形，贯穿所有触点",
+        "reusable_touchpoints": [
+          "poster",
+          "capability_deck",
+          "digital_hero"
+        ],
+        "prohibited_use": "不得作为唯一装饰，不得脱离行业对象"
+      },
+      {
+        "asset_id": "A012",
+        "asset_name": "资质数据卡",
+        "asset_type": "information_asset",
+        "visual_description": "GSP 与入驻数据",
+        "business_evidence": "来自 Evidence",
+        "execution_role": "资质/数据信息模块",
+        "reusable_touchpoints": [
+          "capability_deck",
+          "packaging_front"
+        ],
+        "prohibited_use": "不得伪造数据与资质"
+      },
+      {
+        "asset_id": "A013",
+        "asset_name": "冷链运输实景",
+        "asset_type": "photography_asset",
+        "visual_description": "真实温控箱摄影",
+        "business_evidence": "行业对象",
+        "execution_role": "真实行业对象摄影",
+        "reusable_touchpoints": [
+          "poster",
+          "exhibition_backdrop"
+        ],
+        "prohibited_use": "不得替换为素材库概念图"
+      },
+      {
+        "asset_id": "A014",
+        "asset_name": "左图右信息栅格",
+        "asset_type": "layout_asset",
+        "visual_description": "栅格版式",
+        "business_evidence": "全触点复用",
+        "execution_role": "左图右信息栅格版式",
+        "reusable_touchpoints": [
+          "poster",
+          "digital_hero",
+          "capability_deck"
+        ],
+        "prohibited_use": "不得退化为纯中心对称"
+      }
+    ],
+    "graphic_system": {
+      "how_graphics_form": "由医美机构门头与诊疗空间抽象为节点化图形",
+      "brand_fact_mapping": "图形对应九州美学是医美产业链 B2B 协同平台",
+      "scale_crop_repeat": "可按 1:1 / 16:9 裁切，栅格内重复",
+      "enter_touchpoints": "海报主体、手册页眉、页面 hero 共用",
+      "must_not_become": "不得退化为玻璃球或发光节点"
+    },
+    "photography_object_system": {
+      "needs_photography": "required",
+      "real_industry_objects": [
+        "医美机构门头与诊疗空间",
+        "冷链温控运输箱"
+      ],
+      "subject_and_background": "医美机构门头与诊疗空间为前景，实景仓储为背景",
+      "people_product_packaging": "机构运营人员与产品同框",
+      "graphic_overlay": "图形叠加于画面角落，保留真实占比",
+      "real_content_ratio": {
+        "real_industry_content_ratio": 0.4,
+        "branded_graphic_ratio": 0.35,
+        "information_layout_ratio": 0.25
+      }
+    },
+    "information_system": {
+      "core_brand_info": "九州美学是医美产业链 B2B 协同平台",
+      "capability_product_info": "资质审核流程",
+      "data_qualification_info": "月度机构入驻数",
+      "cta_info": "预约平台 Demo",
+      "information_hierarchy": [
+        "品牌主张",
+        "能力/产品",
+        "数据资质",
+        "行动召唤"
+      ],
+      "fabricated_info_prohibited": [
+        "未披露的产能数字",
+        "未获资质"
+      ]
+    },
+    "layout_behavior": {
+      "subject_area": "左侧 45% 真实行业对象",
+      "info_area": "右侧 35% 信息模块",
+      "brand_area": "左上角品牌标识",
+      "whitespace_area": "中部 20% 留白",
+      "data_note_area": "右下角数据脚注",
+      "multi_size_adaptation": "竖版保持左图右信息，横版改为上图下文"
+    },
+    "composition_templates": [
+      {
+        "template_id": "T01",
+        "touchpoint": "poster",
+        "subject_position": "左侧真实行业对象",
+        "information_position": "右侧信息模块",
+        "reusable_assets": [
+          "A011",
+          "A011"
+        ],
+        "image_object_rule": "实景占比 40%",
+        "negative_constraints": [
+          "不得用建筑作为主体"
+        ]
+      },
+      {
+        "template_id": "T02",
+        "touchpoint": "capability_deck",
+        "subject_position": "页眉品牌图形",
+        "information_position": "中部能力说明",
+        "reusable_assets": [
+          "A011",
+          "A012"
+        ],
+        "image_object_rule": "图形+数据卡",
+        "negative_constraints": [
+          "不得伪造数据"
+        ]
+      }
+    ],
+    "material_and_light_support": {
+      "material_support": "哑光质感与实景自然光",
+      "light_support": "均匀柔光，不制造高级感假象"
+    },
+    "execution_examples": [
+      {
+        "example_id": "X011",
+        "touchpoint_category": "core_brand",
+        "subject": "医美机构门头与诊疗空间",
+        "visual_structure": "左图右信息栅格",
+        "information_position": "品牌主张+数据",
+        "reused_assets": [
+          "A011"
+        ],
+        "industry_recognition_source": "来自医美机构门头与诊疗空间",
+        "anti_concept_art_note": "以真实行业对象避免概念稿化"
+      },
+      {
+        "example_id": "X012",
+        "touchpoint_category": "capability_product",
+        "subject": "资质审核流程",
+        "visual_structure": "能力说明页",
+        "information_position": "流程+资质",
+        "reused_assets": [
+          "A012"
+        ],
+        "industry_recognition_source": "来自资质审核流程",
+        "anti_concept_art_note": "以真实行业对象避免概念稿化"
+      },
+      {
+        "example_id": "X013",
+        "touchpoint_category": "digital_event",
+        "subject": "机构合作洽谈室",
+        "visual_structure": "页面 hero",
+        "information_position": "行动召唤",
+        "reused_assets": [
+          "A013"
+        ],
+        "industry_recognition_source": "来自机构合作洽谈室",
+        "anti_concept_art_note": "以真实行业对象避免概念稿化"
+      }
+    ],
+    "brand_evidence": "九州美学是医美产业链 B2B 协同平台",
+    "execution_constraints": [
+      "不使用建筑/展馆为视觉主体",
+      "不伪造数据与资质"
+    ],
+    "anti_concept_art_constraints": [
+      {
+        "constraint_id": "no_giant_space_installation_as_primary",
+        "rule": "不得以巨型空间装置作为主要画面"
+      },
+      {
+        "constraint_id": "no_architecture_pavilion_sculpture_realestate_as_subject",
+        "rule": "不得以建筑、展馆、雕塑或地产空间为视觉主体"
+      },
+      {
+        "constraint_id": "no_material_light_only_premium",
+        "rule": "不得只依赖材质与光影形成高级感"
+      },
+      {
+        "constraint_id": "no_abstract_without_industry_content",
+        "rule": "不得只有抽象物体而没有行业内容"
+      },
+      {
+        "constraint_id": "must_convert_to_flat_design",
+        "rule": "不得生成无法转化为平面设计的画面"
+      },
+      {
+        "constraint_id": "no_distant_grand_space_replacing_info",
+        "rule": "不得用远景宏大空间替代品牌信息"
+      },
+      {
+        "constraint_id": "no_default_glass_stone_glowing",
+        "rule": "不得默认使用玻璃曲面、石材和发光结构"
+      },
+      {
+        "constraint_id": "no_cinematic_concept_art_only",
+        "rule": "不得只输出电影概念图语言"
+      },
+      {
+        "constraint_id": "must_generate_poster_booklet_packaging_page_template",
+        "rule": "必须能直接生成海报、画册、包装或页面母版"
+      }
+    ],
+    "template_risks": [
+      "过度依赖单一行业对象",
+      "信息层级被压缩"
+    ],
+    "evidence_ids": [
+      "VE-JZ-01",
+      "VE-JZ-02"
+    ],
+    "asset_references": [
+      "AS-JZ-LOGO",
+      "AS-JZ-VI"
+    ],
+    "direction_family": "A",
+    "family_type": "supply_chain_trust",
+    "compliance_weights": {
+      "compliance_weight": 0.3,
+      "supply_chain_weight": 0.4,
+      "product_material_weight": 0.1,
+      "ecosystem_weight": 0.1,
+      "brand_aesthetic_weight": 0.05,
+      "consumer_value_weight": 0.05
+    },
+    "downstream_consumer_value": {
+      "present": false,
+      "consumer_value_role": "none",
+      "value_statement": "",
+      "visual_expression": "",
+      "touchpoints": [],
+      "evidence_ids": []
+    },
+    "industry_recognition_classification": {
+      "regulatory_objects": [
+        "资质审核流程"
+      ],
+      "supply_chain_objects": [
+        "GSP 仓储",
+        "冷链配送"
+      ],
+      "product_material_objects": [],
+      "institution_service_objects": [],
+      "consumer_value_objects": [],
+      "aesthetic_culture_objects": []
+    },
+    "asset_authorization": {
+      "data_authorization_level": "abstracted",
+      "document_visualization_mode": "structure_only",
+      "credential_usage_mode": "redacted",
+      "generated_data_policy": "abstracted"
+    }
+  },
+  {
+    "direction_id": "E02",
+    "direction_name": "九州美学方向2",
+    "strategic_idea": "九州美学是医美产业链 B2B 协同平台；以医美机构门头与诊疗空间与资质审核流程建立可落地视觉",
+    "industry_recognition_layer": {
+      "industry_visual_objects": [
+        "医美机构门头与诊疗空间",
+        "冷链温控运输箱",
+        "GSP 仓储货架"
+      ],
+      "industry_data_objects": [
+        "月度机构入驻数",
+        "GSP 温控曲线"
+      ],
+      "industry_process_objects": [
+        "资质审核流程",
+        "冷链配送链路"
+      ],
+      "industry_space_and_real_scenes": [
+        "机构合作洽谈室",
+        "仓储分拣实景"
+      ],
+      "usable_business_objects": [
+        "合作机构铭牌",
+        "温控标签"
+      ],
+      "prohibited_misleading_templates": [
+        "纯女性脸特写堆砌",
+        "玻璃球科技感",
+        "奢华地产大片"
+      ],
+      "minimum_industry_recognition_strength": 4
+    },
+    "core_reusable_assets": [
+      {
+        "asset_id": "A021",
+        "asset_name": "供应链节点图",
+        "asset_type": "graphic_asset",
+        "visual_description": "由机构与温控节点构成",
+        "business_evidence": "对应 B2B 协同事实",
+        "execution_role": "主体识别图形，贯穿所有触点",
+        "reusable_touchpoints": [
+          "poster",
+          "capability_deck",
+          "digital_hero"
+        ],
+        "prohibited_use": "不得作为唯一装饰，不得脱离行业对象"
+      },
+      {
+        "asset_id": "A022",
+        "asset_name": "资质数据卡",
+        "asset_type": "information_asset",
+        "visual_description": "GSP 与入驻数据",
+        "business_evidence": "来自 Evidence",
+        "execution_role": "资质/数据信息模块",
+        "reusable_touchpoints": [
+          "capability_deck",
+          "packaging_front"
+        ],
+        "prohibited_use": "不得伪造数据与资质"
+      },
+      {
+        "asset_id": "A023",
+        "asset_name": "冷链运输实景",
+        "asset_type": "photography_asset",
+        "visual_description": "真实温控箱摄影",
+        "business_evidence": "行业对象",
+        "execution_role": "真实行业对象摄影",
+        "reusable_touchpoints": [
+          "poster",
+          "exhibition_backdrop"
+        ],
+        "prohibited_use": "不得替换为素材库概念图"
+      },
+      {
+        "asset_id": "A024",
+        "asset_name": "左图右信息栅格",
+        "asset_type": "layout_asset",
+        "visual_description": "栅格版式",
+        "business_evidence": "全触点复用",
+        "execution_role": "左图右信息栅格版式",
+        "reusable_touchpoints": [
+          "poster",
+          "digital_hero",
+          "capability_deck"
+        ],
+        "prohibited_use": "不得退化为纯中心对称"
+      }
+    ],
+    "graphic_system": {
+      "how_graphics_form": "由医美机构门头与诊疗空间抽象为节点化图形",
+      "brand_fact_mapping": "图形对应九州美学是医美产业链 B2B 协同平台",
+      "scale_crop_repeat": "可按 1:1 / 16:9 裁切，栅格内重复",
+      "enter_touchpoints": "海报主体、手册页眉、页面 hero 共用",
+      "must_not_become": "不得退化为玻璃球或发光节点"
+    },
+    "photography_object_system": {
+      "needs_photography": "required",
+      "real_industry_objects": [
+        "医美机构门头与诊疗空间",
+        "冷链温控运输箱"
+      ],
+      "subject_and_background": "医美机构门头与诊疗空间为前景，实景仓储为背景",
+      "people_product_packaging": "机构运营人员与产品同框",
+      "graphic_overlay": "图形叠加于画面角落，保留真实占比",
+      "real_content_ratio": {
+        "real_industry_content_ratio": 0.4,
+        "branded_graphic_ratio": 0.35,
+        "information_layout_ratio": 0.25
+      }
+    },
+    "information_system": {
+      "core_brand_info": "九州美学是医美产业链 B2B 协同平台",
+      "capability_product_info": "资质审核流程",
+      "data_qualification_info": "月度机构入驻数",
+      "cta_info": "预约平台 Demo",
+      "information_hierarchy": [
+        "品牌主张",
+        "能力/产品",
+        "数据资质",
+        "行动召唤"
+      ],
+      "fabricated_info_prohibited": [
+        "未披露的产能数字",
+        "未获资质"
+      ]
+    },
+    "layout_behavior": {
+      "subject_area": "左侧 45% 真实行业对象",
+      "info_area": "右侧 35% 信息模块",
+      "brand_area": "左上角品牌标识",
+      "whitespace_area": "中部 20% 留白",
+      "data_note_area": "右下角数据脚注",
+      "multi_size_adaptation": "竖版保持左图右信息，横版改为上图下文"
+    },
+    "composition_templates": [
+      {
+        "template_id": "T01",
+        "touchpoint": "packaging_front",
+        "subject_position": "包装主视觉",
+        "information_position": "背面信息层级",
+        "reusable_assets": [
+          "A022",
+          "A022"
+        ],
+        "image_object_rule": "真实产品摄影",
+        "negative_constraints": [
+          "不得透明悬浮装置"
+        ]
+      },
+      {
+        "template_id": "T02",
+        "touchpoint": "digital_hero",
+        "subject_position": "hero 左侧对象",
+        "information_position": "右侧主张",
+        "reusable_assets": [
+          "A022",
+          "A024"
+        ],
+        "image_object_rule": "左图右信息",
+        "negative_constraints": [
+          "不得退化为中心对称"
+        ]
+      }
+    ],
+    "material_and_light_support": {
+      "material_support": "哑光质感与实景自然光",
+      "light_support": "均匀柔光，不制造高级感假象"
+    },
+    "execution_examples": [
+      {
+        "example_id": "X021",
+        "touchpoint_category": "core_brand",
+        "subject": "医美机构门头与诊疗空间",
+        "visual_structure": "左图右信息栅格",
+        "information_position": "品牌主张+数据",
+        "reused_assets": [
+          "A021"
+        ],
+        "industry_recognition_source": "来自医美机构门头与诊疗空间",
+        "anti_concept_art_note": "以真实行业对象避免概念稿化"
+      },
+      {
+        "example_id": "X022",
+        "touchpoint_category": "capability_product",
+        "subject": "资质审核流程",
+        "visual_structure": "能力说明页",
+        "information_position": "流程+资质",
+        "reused_assets": [
+          "A022"
+        ],
+        "industry_recognition_source": "来自资质审核流程",
+        "anti_concept_art_note": "以真实行业对象避免概念稿化"
+      },
+      {
+        "example_id": "X023",
+        "touchpoint_category": "digital_event",
+        "subject": "机构合作洽谈室",
+        "visual_structure": "页面 hero",
+        "information_position": "行动召唤",
+        "reused_assets": [
+          "A023"
+        ],
+        "industry_recognition_source": "来自机构合作洽谈室",
+        "anti_concept_art_note": "以真实行业对象避免概念稿化"
+      }
+    ],
+    "brand_evidence": "九州美学是医美产业链 B2B 协同平台",
+    "execution_constraints": [
+      "不使用建筑/展馆为视觉主体",
+      "不伪造数据与资质"
+    ],
+    "anti_concept_art_constraints": [
+      {
+        "constraint_id": "no_giant_space_installation_as_primary",
+        "rule": "不得以巨型空间装置作为主要画面"
+      },
+      {
+        "constraint_id": "no_architecture_pavilion_sculpture_realestate_as_subject",
+        "rule": "不得以建筑、展馆、雕塑或地产空间为视觉主体"
+      },
+      {
+        "constraint_id": "no_material_light_only_premium",
+        "rule": "不得只依赖材质与光影形成高级感"
+      },
+      {
+        "constraint_id": "no_abstract_without_industry_content",
+        "rule": "不得只有抽象物体而没有行业内容"
+      },
+      {
+        "constraint_id": "must_convert_to_flat_design",
+        "rule": "不得生成无法转化为平面设计的画面"
+      },
+      {
+        "constraint_id": "no_distant_grand_space_replacing_info",
+        "rule": "不得用远景宏大空间替代品牌信息"
+      },
+      {
+        "constraint_id": "no_default_glass_stone_glowing",
+        "rule": "不得默认使用玻璃曲面、石材和发光结构"
+      },
+      {
+        "constraint_id": "no_cinematic_concept_art_only",
+        "rule": "不得只输出电影概念图语言"
+      },
+      {
+        "constraint_id": "must_generate_poster_booklet_packaging_page_template",
+        "rule": "必须能直接生成海报、画册、包装或页面母版"
+      }
+    ],
+    "template_risks": [
+      "过度依赖单一行业对象",
+      "信息层级被压缩"
+    ],
+    "evidence_ids": [
+      "VE-JZ-01",
+      "VE-JZ-02"
+    ],
+    "asset_references": [
+      "AS-JZ-LOGO",
+      "AS-JZ-VI"
+    ],
+    "direction_family": "A",
+    "family_type": "supply_chain_trust",
+    "compliance_weights": {
+      "compliance_weight": 0.3,
+      "supply_chain_weight": 0.4,
+      "product_material_weight": 0.1,
+      "ecosystem_weight": 0.1,
+      "brand_aesthetic_weight": 0.05,
+      "consumer_value_weight": 0.05
+    },
+    "downstream_consumer_value": {
+      "present": false,
+      "consumer_value_role": "none",
+      "value_statement": "",
+      "visual_expression": "",
+      "touchpoints": [],
+      "evidence_ids": []
+    },
+    "industry_recognition_classification": {
+      "regulatory_objects": [
+        "资质审核流程"
+      ],
+      "supply_chain_objects": [
+        "GSP 仓储",
+        "冷链配送"
+      ],
+      "product_material_objects": [],
+      "institution_service_objects": [],
+      "consumer_value_objects": [],
+      "aesthetic_culture_objects": []
+    },
+    "asset_authorization": {
+      "data_authorization_level": "abstracted",
+      "document_visualization_mode": "structure_only",
+      "credential_usage_mode": "redacted",
+      "generated_data_policy": "abstracted"
+    }
+  },
+  {
+    "direction_id": "E03",
+    "direction_name": "九州美学方向3",
+    "strategic_idea": "九州美学是医美产业链 B2B 协同平台；以医美机构门头与诊疗空间与资质审核流程建立可落地视觉",
+    "industry_recognition_layer": {
+      "industry_visual_objects": [
+        "医美机构门头与诊疗空间",
+        "冷链温控运输箱",
+        "GSP 仓储货架"
+      ],
+      "industry_data_objects": [
+        "月度机构入驻数",
+        "GSP 温控曲线"
+      ],
+      "industry_process_objects": [
+        "资质审核流程",
+        "冷链配送链路"
+      ],
+      "industry_space_and_real_scenes": [
+        "机构合作洽谈室",
+        "仓储分拣实景"
+      ],
+      "usable_business_objects": [
+        "合作机构铭牌",
+        "温控标签"
+      ],
+      "prohibited_misleading_templates": [
+        "纯女性脸特写堆砌",
+        "玻璃球科技感",
+        "奢华地产大片"
+      ],
+      "minimum_industry_recognition_strength": 4
+    },
+    "core_reusable_assets": [
+      {
+        "asset_id": "A031",
+        "asset_name": "供应链节点图",
+        "asset_type": "graphic_asset",
+        "visual_description": "由机构与温控节点构成",
+        "business_evidence": "对应 B2B 协同事实",
+        "execution_role": "主体识别图形，贯穿所有触点",
+        "reusable_touchpoints": [
+          "poster",
+          "capability_deck",
+          "digital_hero"
+        ],
+        "prohibited_use": "不得作为唯一装饰，不得脱离行业对象"
+      },
+      {
+        "asset_id": "A032",
+        "asset_name": "资质数据卡",
+        "asset_type": "information_asset",
+        "visual_description": "GSP 与入驻数据",
+        "business_evidence": "来自 Evidence",
+        "execution_role": "资质/数据信息模块",
+        "reusable_touchpoints": [
+          "capability_deck",
+          "packaging_front"
+        ],
+        "prohibited_use": "不得伪造数据与资质"
+      },
+      {
+        "asset_id": "A033",
+        "asset_name": "冷链运输实景",
+        "asset_type": "photography_asset",
+        "visual_description": "真实温控箱摄影",
+        "business_evidence": "行业对象",
+        "execution_role": "真实行业对象摄影",
+        "reusable_touchpoints": [
+          "poster",
+          "exhibition_backdrop"
+        ],
+        "prohibited_use": "不得替换为素材库概念图"
+      },
+      {
+        "asset_id": "A034",
+        "asset_name": "左图右信息栅格",
+        "asset_type": "layout_asset",
+        "visual_description": "栅格版式",
+        "business_evidence": "全触点复用",
+        "execution_role": "左图右信息栅格版式",
+        "reusable_touchpoints": [
+          "poster",
+          "digital_hero",
+          "capability_deck"
+        ],
+        "prohibited_use": "不得退化为纯中心对称"
+      }
+    ],
+    "graphic_system": {
+      "how_graphics_form": "由医美机构门头与诊疗空间抽象为节点化图形",
+      "brand_fact_mapping": "图形对应九州美学是医美产业链 B2B 协同平台",
+      "scale_crop_repeat": "可按 1:1 / 16:9 裁切，栅格内重复",
+      "enter_touchpoints": "海报主体、手册页眉、页面 hero 共用",
+      "must_not_become": "不得退化为玻璃球或发光节点"
+    },
+    "photography_object_system": {
+      "needs_photography": "required",
+      "real_industry_objects": [
+        "医美机构门头与诊疗空间",
+        "冷链温控运输箱"
+      ],
+      "subject_and_background": "医美机构门头与诊疗空间为前景，实景仓储为背景",
+      "people_product_packaging": "机构运营人员与产品同框",
+      "graphic_overlay": "图形叠加于画面角落，保留真实占比",
+      "real_content_ratio": {
+        "real_industry_content_ratio": 0.4,
+        "branded_graphic_ratio": 0.35,
+        "information_layout_ratio": 0.25
+      }
+    },
+    "information_system": {
+      "core_brand_info": "九州美学是医美产业链 B2B 协同平台",
+      "capability_product_info": "资质审核流程",
+      "data_qualification_info": "月度机构入驻数",
+      "cta_info": "预约平台 Demo",
+      "information_hierarchy": [
+        "品牌主张",
+        "能力/产品",
+        "数据资质",
+        "行动召唤"
+      ],
+      "fabricated_info_prohibited": [
+        "未披露的产能数字",
+        "未获资质"
+      ]
+    },
+    "layout_behavior": {
+      "subject_area": "左侧 45% 真实行业对象",
+      "info_area": "右侧 35% 信息模块",
+      "brand_area": "左上角品牌标识",
+      "whitespace_area": "中部 20% 留白",
+      "data_note_area": "右下角数据脚注",
+      "multi_size_adaptation": "竖版保持左图右信息，横版改为上图下文"
+    },
+    "composition_templates": [
+      {
+        "template_id": "T01",
+        "touchpoint": "exhibition_backdrop",
+        "subject_position": "背景实景",
+        "information_position": "前景信息",
+        "reusable_assets": [
+          "A033",
+          "A033"
+        ],
+        "image_object_rule": "栅格叠加",
+        "negative_constraints": [
+          "不得空镜建筑"
+        ]
+      },
+      {
+        "template_id": "T02",
+        "touchpoint": "poster",
+        "subject_position": "左侧人物",
+        "information_position": "右侧服务信息",
+        "reusable_assets": [
+          "A033",
+          "A034"
+        ],
+        "image_object_rule": "真实人物实景",
+        "negative_constraints": [
+          "不得远景宏大空间"
+        ]
+      }
+    ],
+    "material_and_light_support": {
+      "material_support": "哑光质感与实景自然光",
+      "light_support": "均匀柔光，不制造高级感假象"
+    },
+    "execution_examples": [
+      {
+        "example_id": "X031",
+        "touchpoint_category": "core_brand",
+        "subject": "医美机构门头与诊疗空间",
+        "visual_structure": "左图右信息栅格",
+        "information_position": "品牌主张+数据",
+        "reused_assets": [
+          "A031"
+        ],
+        "industry_recognition_source": "来自医美机构门头与诊疗空间",
+        "anti_concept_art_note": "以真实行业对象避免概念稿化"
+      },
+      {
+        "example_id": "X032",
+        "touchpoint_category": "capability_product",
+        "subject": "资质审核流程",
+        "visual_structure": "能力说明页",
+        "information_position": "流程+资质",
+        "reused_assets": [
+          "A032"
+        ],
+        "industry_recognition_source": "来自资质审核流程",
+        "anti_concept_art_note": "以真实行业对象避免概念稿化"
+      },
+      {
+        "example_id": "X033",
+        "touchpoint_category": "digital_event",
+        "subject": "机构合作洽谈室",
+        "visual_structure": "页面 hero",
+        "information_position": "行动召唤",
+        "reused_assets": [
+          "A033"
+        ],
+        "industry_recognition_source": "来自机构合作洽谈室",
+        "anti_concept_art_note": "以真实行业对象避免概念稿化"
+      }
+    ],
+    "brand_evidence": "九州美学是医美产业链 B2B 协同平台",
+    "execution_constraints": [
+      "不使用建筑/展馆为视觉主体",
+      "不伪造数据与资质"
+    ],
+    "anti_concept_art_constraints": [
+      {
+        "constraint_id": "no_giant_space_installation_as_primary",
+        "rule": "不得以巨型空间装置作为主要画面"
+      },
+      {
+        "constraint_id": "no_architecture_pavilion_sculpture_realestate_as_subject",
+        "rule": "不得以建筑、展馆、雕塑或地产空间为视觉主体"
+      },
+      {
+        "constraint_id": "no_material_light_only_premium",
+        "rule": "不得只依赖材质与光影形成高级感"
+      },
+      {
+        "constraint_id": "no_abstract_without_industry_content",
+        "rule": "不得只有抽象物体而没有行业内容"
+      },
+      {
+        "constraint_id": "must_convert_to_flat_design",
+        "rule": "不得生成无法转化为平面设计的画面"
+      },
+      {
+        "constraint_id": "no_distant_grand_space_replacing_info",
+        "rule": "不得用远景宏大空间替代品牌信息"
+      },
+      {
+        "constraint_id": "no_default_glass_stone_glowing",
+        "rule": "不得默认使用玻璃曲面、石材和发光结构"
+      },
+      {
+        "constraint_id": "no_cinematic_concept_art_only",
+        "rule": "不得只输出电影概念图语言"
+      },
+      {
+        "constraint_id": "must_generate_poster_booklet_packaging_page_template",
+        "rule": "必须能直接生成海报、画册、包装或页面母版"
+      }
+    ],
+    "template_risks": [
+      "过度依赖单一行业对象",
+      "信息层级被压缩"
+    ],
+    "evidence_ids": [
+      "VE-JZ-01",
+      "VE-JZ-02"
+    ],
+    "asset_references": [
+      "AS-JZ-LOGO",
+      "AS-JZ-VI"
+    ],
+    "direction_family": "A",
+    "family_type": "supply_chain_trust",
+    "compliance_weights": {
+      "compliance_weight": 0.3,
+      "supply_chain_weight": 0.4,
+      "product_material_weight": 0.1,
+      "ecosystem_weight": 0.1,
+      "brand_aesthetic_weight": 0.05,
+      "consumer_value_weight": 0.05
+    },
+    "downstream_consumer_value": {
+      "present": false,
+      "consumer_value_role": "none",
+      "value_statement": "",
+      "visual_expression": "",
+      "touchpoints": [],
+      "evidence_ids": []
+    },
+    "industry_recognition_classification": {
+      "regulatory_objects": [
+        "资质审核流程"
+      ],
+      "supply_chain_objects": [
+        "GSP 仓储",
+        "冷链配送"
+      ],
+      "product_material_objects": [],
+      "institution_service_objects": [],
+      "consumer_value_objects": [],
+      "aesthetic_culture_objects": []
+    },
+    "asset_authorization": {
+      "data_authorization_level": "abstracted",
+      "document_visualization_mode": "structure_only",
+      "credential_usage_mode": "redacted",
+      "generated_data_policy": "abstracted"
+    }
+  }
+]

@@ -1,0 +1,8 @@
+{
+  "status": "failed",
+  "runId": null,
+  "error": {
+    "name": "Error",
+    "message": "04-three-creative-directions: visualCreativeDirections.differenceMatrix.pairs[0] total, max or status does not match semantic dimension scores"
+  }
+}

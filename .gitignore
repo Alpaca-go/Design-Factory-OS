@@ -5,9 +5,16 @@ coverage/
 .runtime/
 .DS_Store
 *.log
+.env
+.env.*
+!.env.example
+apps/desktop/out/
+apps/desktop/release/
+apps/desktop/.vite/
 
 # 项目数据永远保留在本地
 Masterpiece-OS-Projects/
+cross-industry-freeze-test/
 
 # 保留 projects 目录本身，忽略其中所有真实项目
 projects/*

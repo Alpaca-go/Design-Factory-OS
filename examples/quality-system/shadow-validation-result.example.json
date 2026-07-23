@@ -1,0 +1,48 @@
+{
+  "mode": "shadow",
+  "module": "anchor_direction",
+  "status": "repair",
+  "schema_validation": {
+    "valid": true,
+    "errors": []
+  },
+  "hard_fails": [],
+  "anti_patterns": [
+    {
+      "anti_pattern_id": "AP-ANC-001",
+      "detected": true,
+      "severity": "S3",
+      "rule_type": "hybrid",
+      "evaluated": true,
+      "evaluation_mode": "deterministic",
+      "confidence": 1,
+      "location": {
+        "module": "anchor_direction",
+        "path": "/anchor_type"
+      },
+      "evidence": [
+        "anchor_type 明确标记为 slogan，无法作为视觉约束机制"
+      ],
+      "exception_applied": false,
+      "occurrence_count": 1,
+      "penalty": 12,
+      "repair": [
+        "将口号转化为可观察的图形关系、构图逻辑、材质行为和排除边界。"
+      ]
+    }
+  ],
+  "penalty_summary": {
+    "total": 12,
+    "uncapped_total": 12,
+    "cap": 40,
+    "cap_applied": false
+  },
+  "mqs_score": null,
+  "stage_results": [
+    { "stage": "schema_validation", "status": "completed" },
+    { "stage": "hard_fail_detection", "status": "completed" },
+    { "stage": "anti_pattern_detection", "status": "completed" },
+    { "stage": "mqs_scoring", "status": "skipped", "reason": "shadow_mode_no_mqs_scoring" },
+    { "stage": "status_resolution", "status": "completed" }
+  ]
+}

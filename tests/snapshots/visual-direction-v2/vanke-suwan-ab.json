@@ -1,0 +1,41 @@
+{
+  "project_id": "vanke-suwan",
+  "v2_direction_count": 3,
+  "v1_direction_count": 3,
+  "v2_all_ready": false,
+  "v2_guards_ok": true,
+  "v2_average_metrics": {
+    "industry_recognition_strength": 4,
+    "directly_executable_degree": 5,
+    "reusable_visual_asset_count": 4,
+    "flat_design_conversion_ability": 5,
+    "real_touchpoint_coverage": 3,
+    "brand_exclusivity": 3,
+    "concept_art_risk": 1,
+    "real_estate_drift_risk": 1,
+    "abstract_object_dependency": 1
+  },
+  "v1_average_metrics": {
+    "industry_recognition_strength": 1,
+    "directly_executable_degree": 1,
+    "reusable_visual_asset_count": 1,
+    "flat_design_conversion_ability": 1,
+    "real_touchpoint_coverage": 1,
+    "brand_exclusivity": 1,
+    "concept_art_risk": 5,
+    "real_estate_drift_risk": 5,
+    "abstract_object_dependency": 3
+  },
+  "measurable_criteria": {
+    "industry_recognition_improved": true,
+    "executability_improved": true,
+    "at_least_3_assets": true,
+    "poster_packaging_page_imaginable": true,
+    "concept_vibe_down": true,
+    "realestate_vibe_down": true,
+    "evidence_asset_intact": true
+  },
+  "measurable_criteria_met": true,
+  "human_preference": "v2",
+  "project_verdict": "pass"
+}

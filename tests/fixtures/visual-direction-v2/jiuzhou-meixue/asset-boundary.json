@@ -1,0 +1,15 @@
+{
+  "allowed_assets": [
+    {
+      "asset_id": "AS-JZ-LOGO"
+    },
+    {
+      "asset_id": "AS-JZ-VI"
+    }
+  ],
+  "restricted_assets": [
+    {
+      "asset_id": "AS-JZ-PARENT"
+    }
+  ]
+}

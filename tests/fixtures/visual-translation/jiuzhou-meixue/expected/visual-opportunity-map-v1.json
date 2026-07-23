@@ -1,0 +1,52 @@
+{
+  "visualizableFacts": [
+    {
+      "opportunityId": "VF01",
+      "statement": "供应链节点逐层验证后才连接",
+      "rationale": "合规能力可通过状态变化被看见",
+      "evidenceIds": [
+        "VE003"
+      ],
+      "brandability": "high"
+    }
+  ],
+  "metaphors": [
+    {
+      "opportunityId": "VM01",
+      "statement": "安心轨迹",
+      "rationale": "把履约节点转译为持续抵达的关系轨迹",
+      "evidenceIds": [
+        "VE003",
+        "VE005"
+      ],
+      "brandability": "high"
+    }
+  ],
+  "aestheticTensions": [
+    {
+      "opportunityId": "VT01",
+      "statement": "精密网格与柔性半透明层共存",
+      "rationale": "对应严谨与温度的双重要求",
+      "evidenceIds": [
+        "VE006"
+      ],
+      "brandability": "high"
+    }
+  ],
+  "categoryCliches": [
+    {
+      "clicheId": "VC01",
+      "pattern": "医疗蓝渐变",
+      "risk": "容易与行业模板混同",
+      "allowedWhen": "只作为有证据的功能状态辅助色",
+      "prohibitedWhen": "用作无差别全局科技背景"
+    },
+    {
+      "clicheId": "VC02",
+      "pattern": "装饰性科技流线",
+      "risk": "缺乏品牌因果逻辑",
+      "allowedWhen": "流线明确表示已验证的履约关系",
+      "prohibitedWhen": "仅用于制造速度感"
+    }
+  ]
+}

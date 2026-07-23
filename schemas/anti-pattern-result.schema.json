@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://masterpiece-os.local/schemas/anti-pattern-result.schema.json",
+  "title": "Anti-pattern Detection Result V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "anti_pattern_id",
+    "detected",
+    "severity",
+    "rule_type",
+    "evaluated",
+    "evaluation_mode",
+    "confidence",
+    "location",
+    "evidence",
+    "exception_applied",
+    "occurrence_count",
+    "penalty",
+    "repair"
+  ],
+  "properties": {
+    "anti_pattern_id": { "type": "string", "pattern": "^AP-[A-Z]+-[0-9]{3}$" },
+    "detected": { "type": "boolean" },
+    "severity": { "enum": ["S1", "S2", "S3", "S4"] },
+    "rule_type": { "enum": ["deterministic", "semantic", "hybrid"] },
+    "evaluated": { "type": "boolean" },
+    "evaluation_mode": { "enum": ["deterministic", "semantic", "not_evaluated"] },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module"],
+      "properties": {
+        "module": { "type": "string", "minLength": 1 },
+        "section": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "exception_applied": { "type": "boolean" },
+    "exception_reason": { "type": "string", "minLength": 1 },
+    "occurrence_count": { "type": "integer", "minimum": 0 },
+    "penalty": { "type": "number", "minimum": 0, "maximum": 40 },
+    "repair": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "detected": { "const": true } }, "required": ["detected"] },
+      "then": {
+        "properties": {
+          "evidence": { "minItems": 1 },
+          "repair": { "minItems": 1 },
+          "occurrence_count": { "minimum": 1 }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "evaluated": { "const": false } }, "required": ["evaluated"] },
+      "then": {
+        "properties": {
+          "detected": { "const": false },
+          "evaluation_mode": { "const": "not_evaluated" },
+          "confidence": { "const": 0 },
+          "occurrence_count": { "const": 0 },
+          "penalty": { "const": 0 }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "severity": { "const": "S4" } }, "required": ["severity"] },
+      "then": { "properties": { "penalty": { "const": 0 } } }
+    },
+    {
+      "if": { "properties": { "exception_applied": { "const": true } }, "required": ["exception_applied"] },
+      "then": { "required": ["exception_reason"] }
+    }
+  ]
+}

@@ -1,0 +1,2787 @@
+{
+  "contract_version": "visual-direction-v2-execution",
+  "direction_generation_mode": "execution_oriented_v2",
+  "execution_mode_active": true,
+  "brandFacts": {
+    "reportLanguage": "zh-CN",
+    "identity": {
+      "brandName": "九州美学",
+      "brandRole": "医美全链生态平台"
+    }
+  },
+  "audienceBoundary": {
+    "businessModel": "b2b",
+    "consumerVisualPolicy": "auxiliary_only",
+    "primaryAudience": [
+      {
+        "label": "医美机构"
+      }
+    ],
+    "excludedAudience": []
+  },
+  "assetBoundary": {
+    "allowed_asset_count": 2,
+    "restricted_asset_count": 1
+  },
+  "selectedTouchpoints": [
+    "poster",
+    "capability_deck",
+    "digital_hero"
+  ],
+  "evidence_index_count": 2,
+  "expected_brand_name": "九州美学",
+  "directions": [
+    {
+      "status": "compiled",
+      "direction": {
+        "contract_version": "visual-direction-v2-execution",
+        "direction_id": "E01",
+        "direction_name": "九州美学方向1",
+        "strategic_idea": "九州美学是医美产业链 B2B 协同平台；以医美机构门头与诊疗空间与资质审核流程建立可落地视觉",
+        "industry_recognition_layer": {
+          "industry_visual_objects": [
+            "医美机构门头与诊疗空间",
+            "冷链温控运输箱",
+            "GSP 仓储货架"
+          ],
+          "industry_data_objects": [
+            "月度机构入驻数",
+            "GSP 温控曲线"
+          ],
+          "industry_process_objects": [
+            "资质审核流程",
+            "冷链配送链路"
+          ],
+          "industry_space_and_real_scenes": [
+            "机构合作洽谈室",
+            "仓储分拣实景"
+          ],
+          "usable_business_objects": [
+            "合作机构铭牌",
+            "温控标签"
+          ],
+          "prohibited_misleading_templates": [
+            "纯女性脸特写堆砌",
+            "玻璃球科技感",
+            "奢华地产大片"
+          ],
+          "minimum_industry_recognition_strength": 4
+        },
+        "core_reusable_assets": [
+          {
+            "asset_id": "A011",
+            "asset_name": "供应链节点图",
+            "asset_type": "graphic_asset",
+            "visual_description": "由机构与温控节点构成",
+            "business_evidence": "对应 B2B 协同事实",
+            "execution_role": "主体识别图形，贯穿所有触点",
+            "reusable_touchpoints": [
+              "poster",
+              "capability_deck",
+              "digital_hero"
+            ],
+            "prohibited_use": "不得作为唯一装饰，不得脱离行业对象"
+          },
+          {
+            "asset_id": "A012",
+            "asset_name": "资质数据卡",
+            "asset_type": "information_asset",
+            "visual_description": "GSP 与入驻数据",
+            "business_evidence": "来自 Evidence",
+            "execution_role": "资质/数据信息模块",
+            "reusable_touchpoints": [
+              "capability_deck",
+              "packaging_front"
+            ],
+            "prohibited_use": "不得伪造数据与资质"
+          },
+          {
+            "asset_id": "A013",
+            "asset_name": "冷链运输实景",
+            "asset_type": "photography_asset",
+            "visual_description": "真实温控箱摄影",
+            "business_evidence": "行业对象",
+            "execution_role": "真实行业对象摄影",
+            "reusable_touchpoints": [
+              "poster",
+              "exhibition_backdrop"
+            ],
+            "prohibited_use": "不得替换为素材库概念图"
+          },
+          {
+            "asset_id": "A014",
+            "asset_name": "左图右信息栅格",
+            "asset_type": "layout_asset",
+            "visual_description": "栅格版式",
+            "business_evidence": "全触点复用",
+            "execution_role": "左图右信息栅格版式",
+            "reusable_touchpoints": [
+              "poster",
+              "digital_hero",
+              "capability_deck"
+            ],
+            "prohibited_use": "不得退化为纯中心对称"
+          }
+        ],
+        "graphic_system": {
+          "how_graphics_form": "由医美机构门头与诊疗空间抽象为节点化图形",
+          "brand_fact_mapping": "图形对应九州美学是医美产业链 B2B 协同平台",
+          "scale_crop_repeat": "可按 1:1 / 16:9 裁切，栅格内重复",
+          "enter_touchpoints": "海报主体、手册页眉、页面 hero 共用",
+          "must_not_become": "不得退化为玻璃球或发光节点"
+        },
+        "photography_object_system": {
+          "needs_photography": "required",
+          "real_industry_objects": [
+            "医美机构门头与诊疗空间",
+            "冷链温控运输箱"
+          ],
+          "subject_and_background": "医美机构门头与诊疗空间为前景，实景仓储为背景",
+          "people_product_packaging": "机构运营人员与产品同框",
+          "graphic_overlay": "图形叠加于画面角落，保留真实占比",
+          "real_content_ratio": {
+            "real_industry_content_ratio": 0.4,
+            "branded_graphic_ratio": 0.35,
+            "information_layout_ratio": 0.25
+          }
+        },
+        "information_system": {
+          "core_brand_info": "九州美学是医美产业链 B2B 协同平台",
+          "capability_product_info": "资质审核流程",
+          "data_qualification_info": "月度机构入驻数",
+          "cta_info": "预约平台 Demo",
+          "information_hierarchy": [
+            "品牌主张",
+            "能力/产品",
+            "数据资质",
+            "行动召唤"
+          ],
+          "fabricated_info_prohibited": [
+            "未披露的产能数字",
+            "未获资质"
+          ]
+        },
+        "layout_behavior": {
+          "subject_area": "左侧 45% 真实行业对象",
+          "info_area": "右侧 35% 信息模块",
+          "brand_area": "左上角品牌标识",
+          "whitespace_area": "中部 20% 留白",
+          "data_note_area": "右下角数据脚注",
+          "multi_size_adaptation": "竖版保持左图右信息，横版改为上图下文"
+        },
+        "composition_templates": [
+          {
+            "template_id": "T01",
+            "touchpoint": "poster",
+            "subject_position": "左侧真实行业对象",
+            "information_position": "右侧信息模块",
+            "reusable_assets": [
+              "A011",
+              "A011"
+            ],
+            "image_object_rule": "实景占比 40%",
+            "negative_constraints": [
+              "不得用建筑作为主体"
+            ]
+          },
+          {
+            "template_id": "T02",
+            "touchpoint": "capability_deck",
+            "subject_position": "页眉品牌图形",
+            "information_position": "中部能力说明",
+            "reusable_assets": [
+              "A011",
+              "A012"
+            ],
+            "image_object_rule": "图形+数据卡",
+            "negative_constraints": [
+              "不得伪造数据"
+            ]
+          }
+        ],
+        "material_and_light_support": {
+          "material_support": "哑光质感与实景自然光",
+          "light_support": "均匀柔光，不制造高级感假象"
+        },
+        "execution_examples": [
+          {
+            "example_id": "X011",
+            "touchpoint_category": "core_brand",
+            "subject": "医美机构门头与诊疗空间",
+            "visual_structure": "左图右信息栅格",
+            "information_position": "品牌主张+数据",
+            "reused_assets": [
+              "A011"
+            ],
+            "industry_recognition_source": "来自医美机构门头与诊疗空间",
+            "anti_concept_art_note": "以真实行业对象避免概念稿化"
+          },
+          {
+            "example_id": "X012",
+            "touchpoint_category": "capability_product",
+            "subject": "资质审核流程",
+            "visual_structure": "能力说明页",
+            "information_position": "流程+资质",
+            "reused_assets": [
+              "A012"
+            ],
+            "industry_recognition_source": "来自资质审核流程",
+            "anti_concept_art_note": "以真实行业对象避免概念稿化"
+          },
+          {
+            "example_id": "X013",
+            "touchpoint_category": "digital_event",
+            "subject": "机构合作洽谈室",
+            "visual_structure": "页面 hero",
+            "information_position": "行动召唤",
+            "reused_assets": [
+              "A013"
+            ],
+            "industry_recognition_source": "来自机构合作洽谈室",
+            "anti_concept_art_note": "以真实行业对象避免概念稿化"
+          }
+        ],
+        "brand_evidence": "九州美学是医美产业链 B2B 协同平台",
+        "execution_constraints": [
+          "不使用建筑/展馆为视觉主体",
+          "不伪造数据与资质"
+        ],
+        "anti_concept_art_constraints": [
+          {
+            "constraint_id": "no_giant_space_installation_as_primary",
+            "rule": "不得以巨型空间装置作为主要画面"
+          },
+          {
+            "constraint_id": "no_architecture_pavilion_sculpture_realestate_as_subject",
+            "rule": "不得以建筑、展馆、雕塑或地产空间为视觉主体"
+          },
+          {
+            "constraint_id": "no_material_light_only_premium",
+            "rule": "不得只依赖材质与光影形成高级感"
+          },
+          {
+            "constraint_id": "no_abstract_without_industry_content",
+            "rule": "不得只有抽象物体而没有行业内容"
+          },
+          {
+            "constraint_id": "must_convert_to_flat_design",
+            "rule": "不得生成无法转化为平面设计的画面"
+          },
+          {
+            "constraint_id": "no_distant_grand_space_replacing_info",
+            "rule": "不得用远景宏大空间替代品牌信息"
+          },
+          {
+            "constraint_id": "no_default_glass_stone_glowing",
+            "rule": "不得默认使用玻璃曲面、石材和发光结构"
+          },
+          {
+            "constraint_id": "no_cinematic_concept_art_only",
+            "rule": "不得只输出电影概念图语言"
+          },
+          {
+            "constraint_id": "must_generate_poster_booklet_packaging_page_template",
+            "rule": "必须能直接生成海报、画册、包装或页面母版"
+          }
+        ],
+        "template_risks": [
+          "过度依赖单一行业对象",
+          "信息层级被压缩"
+        ],
+        "readiness_score": 0,
+        "direction_family": "A",
+        "family_type": "supply_chain_trust",
+        "compliance_weights": {
+          "compliance_weight": 0.3,
+          "supply_chain_weight": 0.4,
+          "product_material_weight": 0.1,
+          "ecosystem_weight": 0.1,
+          "brand_aesthetic_weight": 0.05,
+          "consumer_value_weight": 0.05
+        },
+        "industry_recognition_classification": {
+          "regulatory_objects": [
+            "资质审核流程"
+          ],
+          "supply_chain_objects": [
+            "GSP 仓储",
+            "冷链配送"
+          ],
+          "product_material_objects": [],
+          "institution_service_objects": [],
+          "consumer_value_objects": [],
+          "aesthetic_culture_objects": []
+        },
+        "asset_authorization": {
+          "data_authorization_level": "abstracted",
+          "document_visualization_mode": "structure_only",
+          "credential_usage_mode": "redacted",
+          "generated_data_policy": "abstracted"
+        },
+        "downstream_consumer_value": {
+          "present": false,
+          "value_statement": "",
+          "visual_expression": "",
+          "touchpoints": [],
+          "evidence_ids": [],
+          "consumer_value_role": "none"
+        },
+        "evidence_ids": [
+          "VE-JZ-01",
+          "VE-JZ-02"
+        ],
+        "asset_references": [
+          "AS-JZ-LOGO",
+          "AS-JZ-VI"
+        ],
+        "execution_example_quality": {
+          "count_coverage_ratio": 0,
+          "field_completeness_ratio": 0.5,
+          "specificity_ratio": 1,
+          "diversity_ratio": 1,
+          "final_touchpoint_score_5": 2.9
+        }
+      },
+      "readiness": {
+        "evaluator_version": "execution-readiness-evaluator-v1",
+        "direction_id": "E01",
+        "direction_name": "九州美学方向1",
+        "metrics": {
+          "industry_recognition_strength": 4,
+          "directly_executable_degree": 5,
+          "reusable_visual_asset_count": 4,
+          "flat_design_conversion_ability": 5,
+          "real_touchpoint_coverage": 3,
+          "brand_exclusivity": 4,
+          "concept_art_risk": 1,
+          "real_estate_drift_risk": 1,
+          "abstract_object_dependency": 1
+        },
+        "readiness_score": 59,
+        "content_readiness_score": 59,
+        "content_readiness_breakdown": {
+          "weights": {
+            "industry_recognition": 0.15,
+            "direct_executability": 0.2,
+            "reusable_asset_quality": 0.15,
+            "graphic_translation": 0.15,
+            "touchpoint_coverage": 0.2,
+            "brand_exclusivity": 0.15
+          },
+          "dimensions": {
+            "industry_recognition_strength": 4,
+            "directly_executable_degree": 5,
+            "reusable_visual_asset_count": 4,
+            "flat_design_conversion_ability": 5,
+            "real_touchpoint_coverage": 3,
+            "brand_exclusivity": 4
+          },
+          "raw": 83,
+          "caps": []
+        },
+        "score_capped": false,
+        "execution_status": "ready",
+        "failed_criteria": [],
+        "concept_art_violations": [],
+        "real_estate_drift_signals": []
+      },
+      "assetAuthorization": {
+        "direction_id": "E01",
+        "ok": true,
+        "forgery_violations": [],
+        "detections": [
+          {
+            "direction_id": "E01",
+            "field_path": "visualDirectionV2.industry_recognition_layer.industry_data_objects[0]",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E01",
+            "field_path": "visualDirectionV2.core_reusable_assets[1].asset_name",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E01",
+            "field_path": "visualDirectionV2.core_reusable_assets[1].visual_description",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E01",
+            "field_path": "visualDirectionV2.core_reusable_assets[1].execution_role",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E01",
+            "field_path": "visualDirectionV2.core_reusable_assets[1].prohibited_use",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E01",
+            "field_path": "visualDirectionV2.information_system.data_qualification_info",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E01",
+            "field_path": "visualDirectionV2.information_system.information_hierarchy[2]",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E01",
+            "field_path": "visualDirectionV2.information_system.fabricated_info_prohibited[0]",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E01",
+            "field_path": "visualDirectionV2.layout_behavior.data_note_area",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E01",
+            "field_path": "visualDirectionV2.composition_templates[1].image_object_rule",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E01",
+            "field_path": "visualDirectionV2.composition_templates[1].negative_constraints[0]",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E01",
+            "field_path": "visualDirectionV2.execution_examples[0].information_position",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E01",
+            "field_path": "visualDirectionV2.execution_constraints[1]",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          }
+        ],
+        "data_authorization_level": "abstracted",
+        "document_visualization_mode": "structure_only",
+        "credential_usage_mode": "redacted",
+        "generated_data_policy": "abstracted"
+      },
+      "evidencePreservation": {
+        "ok": true,
+        "violations": [],
+        "preservedEvidenceCount": 2,
+        "referencedEvidenceCount": 2
+      },
+      "audienceBoundaryGuard": {
+        "ok": true,
+        "violations": [],
+        "businessModel": "b2b"
+      },
+      "examples_complete": false,
+      "execution_permission_status": "blocked",
+      "validation_error": null,
+      "content_readiness_score": 59
+    },
+    {
+      "status": "compiled",
+      "direction": {
+        "contract_version": "visual-direction-v2-execution",
+        "direction_id": "E02",
+        "direction_name": "九州美学方向2",
+        "strategic_idea": "九州美学是医美产业链 B2B 协同平台；以医美机构门头与诊疗空间与资质审核流程建立可落地视觉",
+        "industry_recognition_layer": {
+          "industry_visual_objects": [
+            "医美机构门头与诊疗空间",
+            "冷链温控运输箱",
+            "GSP 仓储货架"
+          ],
+          "industry_data_objects": [
+            "月度机构入驻数",
+            "GSP 温控曲线"
+          ],
+          "industry_process_objects": [
+            "资质审核流程",
+            "冷链配送链路"
+          ],
+          "industry_space_and_real_scenes": [
+            "机构合作洽谈室",
+            "仓储分拣实景"
+          ],
+          "usable_business_objects": [
+            "合作机构铭牌",
+            "温控标签"
+          ],
+          "prohibited_misleading_templates": [
+            "纯女性脸特写堆砌",
+            "玻璃球科技感",
+            "奢华地产大片"
+          ],
+          "minimum_industry_recognition_strength": 4
+        },
+        "core_reusable_assets": [
+          {
+            "asset_id": "A021",
+            "asset_name": "供应链节点图",
+            "asset_type": "graphic_asset",
+            "visual_description": "由机构与温控节点构成",
+            "business_evidence": "对应 B2B 协同事实",
+            "execution_role": "主体识别图形，贯穿所有触点",
+            "reusable_touchpoints": [
+              "poster",
+              "capability_deck",
+              "digital_hero"
+            ],
+            "prohibited_use": "不得作为唯一装饰，不得脱离行业对象"
+          },
+          {
+            "asset_id": "A022",
+            "asset_name": "资质数据卡",
+            "asset_type": "information_asset",
+            "visual_description": "GSP 与入驻数据",
+            "business_evidence": "来自 Evidence",
+            "execution_role": "资质/数据信息模块",
+            "reusable_touchpoints": [
+              "capability_deck",
+              "packaging_front"
+            ],
+            "prohibited_use": "不得伪造数据与资质"
+          },
+          {
+            "asset_id": "A023",
+            "asset_name": "冷链运输实景",
+            "asset_type": "photography_asset",
+            "visual_description": "真实温控箱摄影",
+            "business_evidence": "行业对象",
+            "execution_role": "真实行业对象摄影",
+            "reusable_touchpoints": [
+              "poster",
+              "exhibition_backdrop"
+            ],
+            "prohibited_use": "不得替换为素材库概念图"
+          },
+          {
+            "asset_id": "A024",
+            "asset_name": "左图右信息栅格",
+            "asset_type": "layout_asset",
+            "visual_description": "栅格版式",
+            "business_evidence": "全触点复用",
+            "execution_role": "左图右信息栅格版式",
+            "reusable_touchpoints": [
+              "poster",
+              "digital_hero",
+              "capability_deck"
+            ],
+            "prohibited_use": "不得退化为纯中心对称"
+          }
+        ],
+        "graphic_system": {
+          "how_graphics_form": "由医美机构门头与诊疗空间抽象为节点化图形",
+          "brand_fact_mapping": "图形对应九州美学是医美产业链 B2B 协同平台",
+          "scale_crop_repeat": "可按 1:1 / 16:9 裁切，栅格内重复",
+          "enter_touchpoints": "海报主体、手册页眉、页面 hero 共用",
+          "must_not_become": "不得退化为玻璃球或发光节点"
+        },
+        "photography_object_system": {
+          "needs_photography": "required",
+          "real_industry_objects": [
+            "医美机构门头与诊疗空间",
+            "冷链温控运输箱"
+          ],
+          "subject_and_background": "医美机构门头与诊疗空间为前景，实景仓储为背景",
+          "people_product_packaging": "机构运营人员与产品同框",
+          "graphic_overlay": "图形叠加于画面角落，保留真实占比",
+          "real_content_ratio": {
+            "real_industry_content_ratio": 0.4,
+            "branded_graphic_ratio": 0.35,
+            "information_layout_ratio": 0.25
+          }
+        },
+        "information_system": {
+          "core_brand_info": "九州美学是医美产业链 B2B 协同平台",
+          "capability_product_info": "资质审核流程",
+          "data_qualification_info": "月度机构入驻数",
+          "cta_info": "预约平台 Demo",
+          "information_hierarchy": [
+            "品牌主张",
+            "能力/产品",
+            "数据资质",
+            "行动召唤"
+          ],
+          "fabricated_info_prohibited": [
+            "未披露的产能数字",
+            "未获资质"
+          ]
+        },
+        "layout_behavior": {
+          "subject_area": "左侧 45% 真实行业对象",
+          "info_area": "右侧 35% 信息模块",
+          "brand_area": "左上角品牌标识",
+          "whitespace_area": "中部 20% 留白",
+          "data_note_area": "右下角数据脚注",
+          "multi_size_adaptation": "竖版保持左图右信息，横版改为上图下文"
+        },
+        "composition_templates": [
+          {
+            "template_id": "T01",
+            "touchpoint": "packaging_front",
+            "subject_position": "包装主视觉",
+            "information_position": "背面信息层级",
+            "reusable_assets": [
+              "A022",
+              "A022"
+            ],
+            "image_object_rule": "真实产品摄影",
+            "negative_constraints": [
+              "不得透明悬浮装置"
+            ]
+          },
+          {
+            "template_id": "T02",
+            "touchpoint": "digital_hero",
+            "subject_position": "hero 左侧对象",
+            "information_position": "右侧主张",
+            "reusable_assets": [
+              "A022",
+              "A024"
+            ],
+            "image_object_rule": "左图右信息",
+            "negative_constraints": [
+              "不得退化为中心对称"
+            ]
+          }
+        ],
+        "material_and_light_support": {
+          "material_support": "哑光质感与实景自然光",
+          "light_support": "均匀柔光，不制造高级感假象"
+        },
+        "execution_examples": [
+          {
+            "example_id": "X021",
+            "touchpoint_category": "core_brand",
+            "subject": "医美机构门头与诊疗空间",
+            "visual_structure": "左图右信息栅格",
+            "information_position": "品牌主张+数据",
+            "reused_assets": [
+              "A021"
+            ],
+            "industry_recognition_source": "来自医美机构门头与诊疗空间",
+            "anti_concept_art_note": "以真实行业对象避免概念稿化"
+          },
+          {
+            "example_id": "X022",
+            "touchpoint_category": "capability_product",
+            "subject": "资质审核流程",
+            "visual_structure": "能力说明页",
+            "information_position": "流程+资质",
+            "reused_assets": [
+              "A022"
+            ],
+            "industry_recognition_source": "来自资质审核流程",
+            "anti_concept_art_note": "以真实行业对象避免概念稿化"
+          },
+          {
+            "example_id": "X023",
+            "touchpoint_category": "digital_event",
+            "subject": "机构合作洽谈室",
+            "visual_structure": "页面 hero",
+            "information_position": "行动召唤",
+            "reused_assets": [
+              "A023"
+            ],
+            "industry_recognition_source": "来自机构合作洽谈室",
+            "anti_concept_art_note": "以真实行业对象避免概念稿化"
+          }
+        ],
+        "brand_evidence": "九州美学是医美产业链 B2B 协同平台",
+        "execution_constraints": [
+          "不使用建筑/展馆为视觉主体",
+          "不伪造数据与资质"
+        ],
+        "anti_concept_art_constraints": [
+          {
+            "constraint_id": "no_giant_space_installation_as_primary",
+            "rule": "不得以巨型空间装置作为主要画面"
+          },
+          {
+            "constraint_id": "no_architecture_pavilion_sculpture_realestate_as_subject",
+            "rule": "不得以建筑、展馆、雕塑或地产空间为视觉主体"
+          },
+          {
+            "constraint_id": "no_material_light_only_premium",
+            "rule": "不得只依赖材质与光影形成高级感"
+          },
+          {
+            "constraint_id": "no_abstract_without_industry_content",
+            "rule": "不得只有抽象物体而没有行业内容"
+          },
+          {
+            "constraint_id": "must_convert_to_flat_design",
+            "rule": "不得生成无法转化为平面设计的画面"
+          },
+          {
+            "constraint_id": "no_distant_grand_space_replacing_info",
+            "rule": "不得用远景宏大空间替代品牌信息"
+          },
+          {
+            "constraint_id": "no_default_glass_stone_glowing",
+            "rule": "不得默认使用玻璃曲面、石材和发光结构"
+          },
+          {
+            "constraint_id": "no_cinematic_concept_art_only",
+            "rule": "不得只输出电影概念图语言"
+          },
+          {
+            "constraint_id": "must_generate_poster_booklet_packaging_page_template",
+            "rule": "必须能直接生成海报、画册、包装或页面母版"
+          }
+        ],
+        "template_risks": [
+          "过度依赖单一行业对象",
+          "信息层级被压缩"
+        ],
+        "readiness_score": 0,
+        "direction_family": "A",
+        "family_type": "supply_chain_trust",
+        "compliance_weights": {
+          "compliance_weight": 0.3,
+          "supply_chain_weight": 0.4,
+          "product_material_weight": 0.1,
+          "ecosystem_weight": 0.1,
+          "brand_aesthetic_weight": 0.05,
+          "consumer_value_weight": 0.05
+        },
+        "industry_recognition_classification": {
+          "regulatory_objects": [
+            "资质审核流程"
+          ],
+          "supply_chain_objects": [
+            "GSP 仓储",
+            "冷链配送"
+          ],
+          "product_material_objects": [],
+          "institution_service_objects": [],
+          "consumer_value_objects": [],
+          "aesthetic_culture_objects": []
+        },
+        "asset_authorization": {
+          "data_authorization_level": "abstracted",
+          "document_visualization_mode": "structure_only",
+          "credential_usage_mode": "redacted",
+          "generated_data_policy": "abstracted"
+        },
+        "downstream_consumer_value": {
+          "present": false,
+          "value_statement": "",
+          "visual_expression": "",
+          "touchpoints": [],
+          "evidence_ids": [],
+          "consumer_value_role": "none"
+        },
+        "evidence_ids": [
+          "VE-JZ-01",
+          "VE-JZ-02"
+        ],
+        "asset_references": [
+          "AS-JZ-LOGO",
+          "AS-JZ-VI"
+        ],
+        "execution_example_quality": {
+          "count_coverage_ratio": 0,
+          "field_completeness_ratio": 0.5,
+          "specificity_ratio": 1,
+          "diversity_ratio": 1,
+          "final_touchpoint_score_5": 2.9
+        }
+      },
+      "readiness": {
+        "evaluator_version": "execution-readiness-evaluator-v1",
+        "direction_id": "E02",
+        "direction_name": "九州美学方向2",
+        "metrics": {
+          "industry_recognition_strength": 4,
+          "directly_executable_degree": 5,
+          "reusable_visual_asset_count": 4,
+          "flat_design_conversion_ability": 5,
+          "real_touchpoint_coverage": 3,
+          "brand_exclusivity": 4,
+          "concept_art_risk": 1,
+          "real_estate_drift_risk": 1,
+          "abstract_object_dependency": 1
+        },
+        "readiness_score": 59,
+        "content_readiness_score": 59,
+        "content_readiness_breakdown": {
+          "weights": {
+            "industry_recognition": 0.15,
+            "direct_executability": 0.2,
+            "reusable_asset_quality": 0.15,
+            "graphic_translation": 0.15,
+            "touchpoint_coverage": 0.2,
+            "brand_exclusivity": 0.15
+          },
+          "dimensions": {
+            "industry_recognition_strength": 4,
+            "directly_executable_degree": 5,
+            "reusable_visual_asset_count": 4,
+            "flat_design_conversion_ability": 5,
+            "real_touchpoint_coverage": 3,
+            "brand_exclusivity": 4
+          },
+          "raw": 83,
+          "caps": []
+        },
+        "score_capped": false,
+        "execution_status": "ready",
+        "failed_criteria": [],
+        "concept_art_violations": [],
+        "real_estate_drift_signals": []
+      },
+      "assetAuthorization": {
+        "direction_id": "E02",
+        "ok": true,
+        "forgery_violations": [],
+        "detections": [
+          {
+            "direction_id": "E02",
+            "field_path": "visualDirectionV2.industry_recognition_layer.industry_data_objects[0]",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E02",
+            "field_path": "visualDirectionV2.core_reusable_assets[1].asset_name",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E02",
+            "field_path": "visualDirectionV2.core_reusable_assets[1].visual_description",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E02",
+            "field_path": "visualDirectionV2.core_reusable_assets[1].execution_role",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E02",
+            "field_path": "visualDirectionV2.core_reusable_assets[1].prohibited_use",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E02",
+            "field_path": "visualDirectionV2.information_system.data_qualification_info",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E02",
+            "field_path": "visualDirectionV2.information_system.information_hierarchy[2]",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E02",
+            "field_path": "visualDirectionV2.information_system.fabricated_info_prohibited[0]",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E02",
+            "field_path": "visualDirectionV2.layout_behavior.data_note_area",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E02",
+            "field_path": "visualDirectionV2.execution_examples[0].information_position",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E02",
+            "field_path": "visualDirectionV2.execution_constraints[1]",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          }
+        ],
+        "data_authorization_level": "abstracted",
+        "document_visualization_mode": "structure_only",
+        "credential_usage_mode": "redacted",
+        "generated_data_policy": "abstracted"
+      },
+      "evidencePreservation": {
+        "ok": true,
+        "violations": [],
+        "preservedEvidenceCount": 2,
+        "referencedEvidenceCount": 2
+      },
+      "audienceBoundaryGuard": {
+        "ok": true,
+        "violations": [],
+        "businessModel": "b2b"
+      },
+      "examples_complete": false,
+      "execution_permission_status": "blocked",
+      "validation_error": null,
+      "content_readiness_score": 59
+    },
+    {
+      "status": "compiled",
+      "direction": {
+        "contract_version": "visual-direction-v2-execution",
+        "direction_id": "E03",
+        "direction_name": "九州美学方向3",
+        "strategic_idea": "九州美学是医美产业链 B2B 协同平台；以医美机构门头与诊疗空间与资质审核流程建立可落地视觉",
+        "industry_recognition_layer": {
+          "industry_visual_objects": [
+            "医美机构门头与诊疗空间",
+            "冷链温控运输箱",
+            "GSP 仓储货架"
+          ],
+          "industry_data_objects": [
+            "月度机构入驻数",
+            "GSP 温控曲线"
+          ],
+          "industry_process_objects": [
+            "资质审核流程",
+            "冷链配送链路"
+          ],
+          "industry_space_and_real_scenes": [
+            "机构合作洽谈室",
+            "仓储分拣实景"
+          ],
+          "usable_business_objects": [
+            "合作机构铭牌",
+            "温控标签"
+          ],
+          "prohibited_misleading_templates": [
+            "纯女性脸特写堆砌",
+            "玻璃球科技感",
+            "奢华地产大片"
+          ],
+          "minimum_industry_recognition_strength": 4
+        },
+        "core_reusable_assets": [
+          {
+            "asset_id": "A031",
+            "asset_name": "供应链节点图",
+            "asset_type": "graphic_asset",
+            "visual_description": "由机构与温控节点构成",
+            "business_evidence": "对应 B2B 协同事实",
+            "execution_role": "主体识别图形，贯穿所有触点",
+            "reusable_touchpoints": [
+              "poster",
+              "capability_deck",
+              "digital_hero"
+            ],
+            "prohibited_use": "不得作为唯一装饰，不得脱离行业对象"
+          },
+          {
+            "asset_id": "A032",
+            "asset_name": "资质数据卡",
+            "asset_type": "information_asset",
+            "visual_description": "GSP 与入驻数据",
+            "business_evidence": "来自 Evidence",
+            "execution_role": "资质/数据信息模块",
+            "reusable_touchpoints": [
+              "capability_deck",
+              "packaging_front"
+            ],
+            "prohibited_use": "不得伪造数据与资质"
+          },
+          {
+            "asset_id": "A033",
+            "asset_name": "冷链运输实景",
+            "asset_type": "photography_asset",
+            "visual_description": "真实温控箱摄影",
+            "business_evidence": "行业对象",
+            "execution_role": "真实行业对象摄影",
+            "reusable_touchpoints": [
+              "poster",
+              "exhibition_backdrop"
+            ],
+            "prohibited_use": "不得替换为素材库概念图"
+          },
+          {
+            "asset_id": "A034",
+            "asset_name": "左图右信息栅格",
+            "asset_type": "layout_asset",
+            "visual_description": "栅格版式",
+            "business_evidence": "全触点复用",
+            "execution_role": "左图右信息栅格版式",
+            "reusable_touchpoints": [
+              "poster",
+              "digital_hero",
+              "capability_deck"
+            ],
+            "prohibited_use": "不得退化为纯中心对称"
+          }
+        ],
+        "graphic_system": {
+          "how_graphics_form": "由医美机构门头与诊疗空间抽象为节点化图形",
+          "brand_fact_mapping": "图形对应九州美学是医美产业链 B2B 协同平台",
+          "scale_crop_repeat": "可按 1:1 / 16:9 裁切，栅格内重复",
+          "enter_touchpoints": "海报主体、手册页眉、页面 hero 共用",
+          "must_not_become": "不得退化为玻璃球或发光节点"
+        },
+        "photography_object_system": {
+          "needs_photography": "required",
+          "real_industry_objects": [
+            "医美机构门头与诊疗空间",
+            "冷链温控运输箱"
+          ],
+          "subject_and_background": "医美机构门头与诊疗空间为前景，实景仓储为背景",
+          "people_product_packaging": "机构运营人员与产品同框",
+          "graphic_overlay": "图形叠加于画面角落，保留真实占比",
+          "real_content_ratio": {
+            "real_industry_content_ratio": 0.4,
+            "branded_graphic_ratio": 0.35,
+            "information_layout_ratio": 0.25
+          }
+        },
+        "information_system": {
+          "core_brand_info": "九州美学是医美产业链 B2B 协同平台",
+          "capability_product_info": "资质审核流程",
+          "data_qualification_info": "月度机构入驻数",
+          "cta_info": "预约平台 Demo",
+          "information_hierarchy": [
+            "品牌主张",
+            "能力/产品",
+            "数据资质",
+            "行动召唤"
+          ],
+          "fabricated_info_prohibited": [
+            "未披露的产能数字",
+            "未获资质"
+          ]
+        },
+        "layout_behavior": {
+          "subject_area": "左侧 45% 真实行业对象",
+          "info_area": "右侧 35% 信息模块",
+          "brand_area": "左上角品牌标识",
+          "whitespace_area": "中部 20% 留白",
+          "data_note_area": "右下角数据脚注",
+          "multi_size_adaptation": "竖版保持左图右信息，横版改为上图下文"
+        },
+        "composition_templates": [
+          {
+            "template_id": "T01",
+            "touchpoint": "exhibition_backdrop",
+            "subject_position": "背景实景",
+            "information_position": "前景信息",
+            "reusable_assets": [
+              "A033",
+              "A033"
+            ],
+            "image_object_rule": "栅格叠加",
+            "negative_constraints": [
+              "不得空镜建筑"
+            ]
+          },
+          {
+            "template_id": "T02",
+            "touchpoint": "poster",
+            "subject_position": "左侧人物",
+            "information_position": "右侧服务信息",
+            "reusable_assets": [
+              "A033",
+              "A034"
+            ],
+            "image_object_rule": "真实人物实景",
+            "negative_constraints": [
+              "不得远景宏大空间"
+            ]
+          }
+        ],
+        "material_and_light_support": {
+          "material_support": "哑光质感与实景自然光",
+          "light_support": "均匀柔光，不制造高级感假象"
+        },
+        "execution_examples": [
+          {
+            "example_id": "X031",
+            "touchpoint_category": "core_brand",
+            "subject": "医美机构门头与诊疗空间",
+            "visual_structure": "左图右信息栅格",
+            "information_position": "品牌主张+数据",
+            "reused_assets": [
+              "A031"
+            ],
+            "industry_recognition_source": "来自医美机构门头与诊疗空间",
+            "anti_concept_art_note": "以真实行业对象避免概念稿化"
+          },
+          {
+            "example_id": "X032",
+            "touchpoint_category": "capability_product",
+            "subject": "资质审核流程",
+            "visual_structure": "能力说明页",
+            "information_position": "流程+资质",
+            "reused_assets": [
+              "A032"
+            ],
+            "industry_recognition_source": "来自资质审核流程",
+            "anti_concept_art_note": "以真实行业对象避免概念稿化"
+          },
+          {
+            "example_id": "X033",
+            "touchpoint_category": "digital_event",
+            "subject": "机构合作洽谈室",
+            "visual_structure": "页面 hero",
+            "information_position": "行动召唤",
+            "reused_assets": [
+              "A033"
+            ],
+            "industry_recognition_source": "来自机构合作洽谈室",
+            "anti_concept_art_note": "以真实行业对象避免概念稿化"
+          }
+        ],
+        "brand_evidence": "九州美学是医美产业链 B2B 协同平台",
+        "execution_constraints": [
+          "不使用建筑/展馆为视觉主体",
+          "不伪造数据与资质"
+        ],
+        "anti_concept_art_constraints": [
+          {
+            "constraint_id": "no_giant_space_installation_as_primary",
+            "rule": "不得以巨型空间装置作为主要画面"
+          },
+          {
+            "constraint_id": "no_architecture_pavilion_sculpture_realestate_as_subject",
+            "rule": "不得以建筑、展馆、雕塑或地产空间为视觉主体"
+          },
+          {
+            "constraint_id": "no_material_light_only_premium",
+            "rule": "不得只依赖材质与光影形成高级感"
+          },
+          {
+            "constraint_id": "no_abstract_without_industry_content",
+            "rule": "不得只有抽象物体而没有行业内容"
+          },
+          {
+            "constraint_id": "must_convert_to_flat_design",
+            "rule": "不得生成无法转化为平面设计的画面"
+          },
+          {
+            "constraint_id": "no_distant_grand_space_replacing_info",
+            "rule": "不得用远景宏大空间替代品牌信息"
+          },
+          {
+            "constraint_id": "no_default_glass_stone_glowing",
+            "rule": "不得默认使用玻璃曲面、石材和发光结构"
+          },
+          {
+            "constraint_id": "no_cinematic_concept_art_only",
+            "rule": "不得只输出电影概念图语言"
+          },
+          {
+            "constraint_id": "must_generate_poster_booklet_packaging_page_template",
+            "rule": "必须能直接生成海报、画册、包装或页面母版"
+          }
+        ],
+        "template_risks": [
+          "过度依赖单一行业对象",
+          "信息层级被压缩"
+        ],
+        "readiness_score": 0,
+        "direction_family": "A",
+        "family_type": "supply_chain_trust",
+        "compliance_weights": {
+          "compliance_weight": 0.3,
+          "supply_chain_weight": 0.4,
+          "product_material_weight": 0.1,
+          "ecosystem_weight": 0.1,
+          "brand_aesthetic_weight": 0.05,
+          "consumer_value_weight": 0.05
+        },
+        "industry_recognition_classification": {
+          "regulatory_objects": [
+            "资质审核流程"
+          ],
+          "supply_chain_objects": [
+            "GSP 仓储",
+            "冷链配送"
+          ],
+          "product_material_objects": [],
+          "institution_service_objects": [],
+          "consumer_value_objects": [],
+          "aesthetic_culture_objects": []
+        },
+        "asset_authorization": {
+          "data_authorization_level": "abstracted",
+          "document_visualization_mode": "structure_only",
+          "credential_usage_mode": "redacted",
+          "generated_data_policy": "abstracted"
+        },
+        "downstream_consumer_value": {
+          "present": false,
+          "value_statement": "",
+          "visual_expression": "",
+          "touchpoints": [],
+          "evidence_ids": [],
+          "consumer_value_role": "none"
+        },
+        "evidence_ids": [
+          "VE-JZ-01",
+          "VE-JZ-02"
+        ],
+        "asset_references": [
+          "AS-JZ-LOGO",
+          "AS-JZ-VI"
+        ],
+        "execution_example_quality": {
+          "count_coverage_ratio": 0,
+          "field_completeness_ratio": 0.5,
+          "specificity_ratio": 1,
+          "diversity_ratio": 1,
+          "final_touchpoint_score_5": 2.9
+        }
+      },
+      "readiness": {
+        "evaluator_version": "execution-readiness-evaluator-v1",
+        "direction_id": "E03",
+        "direction_name": "九州美学方向3",
+        "metrics": {
+          "industry_recognition_strength": 4,
+          "directly_executable_degree": 5,
+          "reusable_visual_asset_count": 4,
+          "flat_design_conversion_ability": 5,
+          "real_touchpoint_coverage": 3,
+          "brand_exclusivity": 4,
+          "concept_art_risk": 1,
+          "real_estate_drift_risk": 1,
+          "abstract_object_dependency": 1
+        },
+        "readiness_score": 59,
+        "content_readiness_score": 59,
+        "content_readiness_breakdown": {
+          "weights": {
+            "industry_recognition": 0.15,
+            "direct_executability": 0.2,
+            "reusable_asset_quality": 0.15,
+            "graphic_translation": 0.15,
+            "touchpoint_coverage": 0.2,
+            "brand_exclusivity": 0.15
+          },
+          "dimensions": {
+            "industry_recognition_strength": 4,
+            "directly_executable_degree": 5,
+            "reusable_visual_asset_count": 4,
+            "flat_design_conversion_ability": 5,
+            "real_touchpoint_coverage": 3,
+            "brand_exclusivity": 4
+          },
+          "raw": 83,
+          "caps": []
+        },
+        "score_capped": false,
+        "execution_status": "ready",
+        "failed_criteria": [],
+        "concept_art_violations": [],
+        "real_estate_drift_signals": []
+      },
+      "assetAuthorization": {
+        "direction_id": "E03",
+        "ok": true,
+        "forgery_violations": [],
+        "detections": [
+          {
+            "direction_id": "E03",
+            "field_path": "visualDirectionV2.industry_recognition_layer.industry_data_objects[0]",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E03",
+            "field_path": "visualDirectionV2.core_reusable_assets[1].asset_name",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E03",
+            "field_path": "visualDirectionV2.core_reusable_assets[1].visual_description",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E03",
+            "field_path": "visualDirectionV2.core_reusable_assets[1].execution_role",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E03",
+            "field_path": "visualDirectionV2.core_reusable_assets[1].prohibited_use",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E03",
+            "field_path": "visualDirectionV2.information_system.data_qualification_info",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E03",
+            "field_path": "visualDirectionV2.information_system.information_hierarchy[2]",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E03",
+            "field_path": "visualDirectionV2.information_system.fabricated_info_prohibited[0]",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E03",
+            "field_path": "visualDirectionV2.layout_behavior.data_note_area",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E03",
+            "field_path": "visualDirectionV2.execution_examples[0].information_position",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          },
+          {
+            "direction_id": "E03",
+            "field_path": "visualDirectionV2.execution_constraints[1]",
+            "detected_text": "数",
+            "detection_type": "field_structure",
+            "source_type": "model_output",
+            "confidence": 0.6,
+            "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+            "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+            "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+            "risk_level": "warning"
+          }
+        ],
+        "data_authorization_level": "abstracted",
+        "document_visualization_mode": "structure_only",
+        "credential_usage_mode": "redacted",
+        "generated_data_policy": "abstracted"
+      },
+      "evidencePreservation": {
+        "ok": true,
+        "violations": [],
+        "preservedEvidenceCount": 2,
+        "referencedEvidenceCount": 2
+      },
+      "audienceBoundaryGuard": {
+        "ok": true,
+        "violations": [],
+        "businessModel": "b2b"
+      },
+      "examples_complete": false,
+      "execution_permission_status": "blocked",
+      "validation_error": null,
+      "content_readiness_score": 59
+    }
+  ],
+  "gates": {
+    "brand_identity_preservation": {
+      "evaluator_version": "brand-identity-preservation-evaluator-v2",
+      "brand_identity_preserved": true,
+      "brand_name_preserved": true,
+      "brand_role_preserved": true,
+      "strategic_thesis_preserved": true,
+      "industry_identity_preserved": true,
+      "contamination_detected": false,
+      "contamination_sources": [],
+      "blocking_reasons": []
+    },
+    "business_model_coverage": {
+      "evaluator_version": "business-model-coverage-evaluator-v1",
+      "per_direction": [
+        {
+          "direction_id": "E01",
+          "b2b_coverage": true,
+          "platform_role_coverage": true,
+          "industry_ecosystem_coverage": true,
+          "downstream_value_coverage": false,
+          "consumer_value_coverage": false,
+          "brand_value_coverage": true,
+          "covered_dimension_count": 3,
+          "meets_minimum": true
+        },
+        {
+          "direction_id": "E02",
+          "b2b_coverage": true,
+          "platform_role_coverage": true,
+          "industry_ecosystem_coverage": true,
+          "downstream_value_coverage": false,
+          "consumer_value_coverage": false,
+          "brand_value_coverage": true,
+          "covered_dimension_count": 3,
+          "meets_minimum": true
+        },
+        {
+          "direction_id": "E03",
+          "b2b_coverage": true,
+          "platform_role_coverage": true,
+          "industry_ecosystem_coverage": true,
+          "downstream_value_coverage": false,
+          "consumer_value_coverage": false,
+          "brand_value_coverage": true,
+          "covered_dimension_count": 3,
+          "meets_minimum": true
+        }
+      ],
+      "set_coverage": {
+        "upstream": true,
+        "platform": true,
+        "institution": true,
+        "consumer": false
+      },
+      "all_four_dimensions_covered": false,
+      "business_model_undercoverage": true,
+      "blocking_reasons": [
+        "set_missing_required_dimension"
+      ]
+    },
+    "consumer_value_coverage": {
+      "evaluator_version": "consumer-value-coverage-evaluator-v1",
+      "per_direction": [
+        {
+          "direction_id": "E01",
+          "present": false,
+          "consumer_value_role": "none",
+          "value_statement": "",
+          "visual_expression": "",
+          "touchpoints": [],
+          "evidence_ids": [],
+          "explicit": false
+        },
+        {
+          "direction_id": "E02",
+          "present": false,
+          "consumer_value_role": "none",
+          "value_statement": "",
+          "visual_expression": "",
+          "touchpoints": [],
+          "evidence_ids": [],
+          "explicit": false
+        },
+        {
+          "direction_id": "E03",
+          "present": false,
+          "consumer_value_role": "none",
+          "value_statement": "",
+          "visual_expression": "",
+          "touchpoints": [],
+          "evidence_ids": [],
+          "explicit": false
+        }
+      ],
+      "explicit_consumer_count": 0,
+      "primary_or_strong_secondary_count": 0,
+      "set_consumer_covered": false,
+      "set_missing_consumer_value": true,
+      "blocking_reasons": [
+        "set_missing_consumer_value",
+        "fewer_than_two_directions_consumer_value",
+        "no_primary_or_strong_secondary_consumer_value"
+      ]
+    },
+    "direction_family_difference": {
+      "evaluator_version": "direction-family-difference-evaluator-v1.1",
+      "pairwise_similarity": {
+        "E01_E02": 0.94,
+        "E01_E03": 0.964,
+        "E02_E03": 0.94
+      },
+      "pairwise_details": {
+        "E01_E02": {
+          "declared_family_similarity": 1,
+          "strategic_entry_similarity": 1,
+          "industry_object_similarity": 1,
+          "reusable_asset_similarity": 1,
+          "photography_subject_similarity": 1,
+          "layout_similarity": 1,
+          "touchpoint_similarity": 0.42857142857142855,
+          "audience_similarity": 1,
+          "semantic_similarity": 0.9481927710843373,
+          "composite": 0.94,
+          "band": "rewrite_required"
+        },
+        "E01_E03": {
+          "declared_family_similarity": 1,
+          "strategic_entry_similarity": 1,
+          "industry_object_similarity": 1,
+          "reusable_asset_similarity": 1,
+          "photography_subject_similarity": 1,
+          "layout_similarity": 1,
+          "touchpoint_similarity": 0.6666666666666666,
+          "audience_similarity": 1,
+          "semantic_similarity": 0.9481927710843373,
+          "composite": 0.964,
+          "band": "rewrite_required"
+        },
+        "E02_E03": {
+          "declared_family_similarity": 1,
+          "strategic_entry_similarity": 1,
+          "industry_object_similarity": 1,
+          "reusable_asset_similarity": 1,
+          "photography_subject_similarity": 1,
+          "layout_similarity": 1,
+          "touchpoint_similarity": 0.42857142857142855,
+          "audience_similarity": 1,
+          "semantic_similarity": 0.9425837320574163,
+          "composite": 0.94,
+          "band": "rewrite_required"
+        }
+      },
+      "overlap_dimensions": 3,
+      "direction_family_overlap": true,
+      "declared_families_distinct": false,
+      "rewrite_required": true,
+      "blocking_reasons": [
+        "all_pairs_overlap",
+        "declared_families_not_distinct",
+        "pair_high_overlap(E01_E02:0.94)",
+        "pair_high_overlap(E01_E03:0.964)",
+        "pair_high_overlap(E02_E03:0.94)"
+      ]
+    },
+    "compliance_weight_control": {
+      "evaluator_version": "compliance-weight-controller-v1",
+      "max_primary_compliance_directions": 1,
+      "max_secondary_compliance_directions": 3,
+      "per_direction": [
+        {
+          "direction_id": "E01",
+          "compliance_weight": 0.3,
+          "supply_chain_weight": 0.4,
+          "product_material_weight": 0.1,
+          "ecosystem_weight": 0.1,
+          "brand_aesthetic_weight": 0.05,
+          "consumer_value_weight": 0.05,
+          "derived": false,
+          "is_primary_compliance": false,
+          "is_secondary_compliance": true
+        },
+        {
+          "direction_id": "E02",
+          "compliance_weight": 0.3,
+          "supply_chain_weight": 0.4,
+          "product_material_weight": 0.1,
+          "ecosystem_weight": 0.1,
+          "brand_aesthetic_weight": 0.05,
+          "consumer_value_weight": 0.05,
+          "derived": false,
+          "is_primary_compliance": false,
+          "is_secondary_compliance": true
+        },
+        {
+          "direction_id": "E03",
+          "compliance_weight": 0.3,
+          "supply_chain_weight": 0.4,
+          "product_material_weight": 0.1,
+          "ecosystem_weight": 0.1,
+          "brand_aesthetic_weight": 0.05,
+          "consumer_value_weight": 0.05,
+          "derived": false,
+          "is_primary_compliance": false,
+          "is_secondary_compliance": true
+        }
+      ],
+      "primary_compliance_direction_count": 0,
+      "secondary_compliance_direction_count": 3,
+      "compliance_overweight": false,
+      "compliance_supplychain_dominant": true,
+      "rewrite_required": true,
+      "blocking_reasons": [
+        "all_directions_compliance_supplychain_dominant"
+      ]
+    },
+    "e02_aesthetic_gate": {
+      "evaluator_version": "e02-aesthetic-gate-v1",
+      "evaluated_direction_id": "E01",
+      "evaluated": true,
+      "brand_aesthetic_weight": 0.05,
+      "consumer_value_weight": 0.05,
+      "product_material_weight": 0.1,
+      "weight_pass": false,
+      "content_pass": true,
+      "degradation_pass": true,
+      "direction_family_label_mismatch": true,
+      "rewrite_required": true,
+      "positive_quality_pass": false,
+      "positive_quality_pass_with_warning": false,
+      "positive_quality_status": "rewrite_required",
+      "positive_quality_conditional": false,
+      "blocking_reasons": [
+        "e02_weight_fail(brand_aesthetic=0.05<0.15 | consumer_value=0.05<0.1 | product_material=0.10<0.3)",
+        "e02_direction_family_label_mismatch(E01)",
+        "e02_positive_quality_rewrite(product_presentation_strength/brand_aesthetic_strength/consumer_value_strength/execution_variety/material_specificity/brand_exclusivity)"
+      ],
+      "lab_scene_dominance": 0,
+      "scientific_info_dominance": 0,
+      "product_presentation_strength": 1,
+      "brand_aesthetic_strength": 1,
+      "consumer_value_strength": 0,
+      "execution_variety": 2,
+      "degradation_risk_warning": false,
+      "material_specificity": 1,
+      "brand_exclusivity": 1,
+      "positive_quality_dimensions": {
+        "product_presentation_strength": 1,
+        "brand_aesthetic_strength": 1,
+        "consumer_value_strength": 0,
+        "execution_variety": 2,
+        "material_specificity": 1,
+        "brand_exclusivity": 1
+      },
+      "positive_quality_failing_dimensions": [
+        "product_presentation_strength",
+        "brand_aesthetic_strength",
+        "consumer_value_strength",
+        "execution_variety",
+        "material_specificity",
+        "brand_exclusivity"
+      ]
+    },
+    "industry_recognition_coverage": {
+      "evaluator_version": "industry-recognition-classifier-v1",
+      "per_direction": [
+        {
+          "direction_id": "E01",
+          "classification": {
+            "regulatory_objects": [
+              "资质审核流程"
+            ],
+            "supply_chain_objects": [
+              "GSP 仓储",
+              "冷链配送"
+            ],
+            "product_material_objects": [
+              "inferred"
+            ],
+            "institution_service_objects": [
+              "inferred"
+            ],
+            "consumer_value_objects": [],
+            "aesthetic_culture_objects": [
+              "inferred"
+            ]
+          },
+          "covered_category_count": 5,
+          "meets_minimum": true
+        },
+        {
+          "direction_id": "E02",
+          "classification": {
+            "regulatory_objects": [
+              "资质审核流程"
+            ],
+            "supply_chain_objects": [
+              "GSP 仓储",
+              "冷链配送"
+            ],
+            "product_material_objects": [
+              "inferred"
+            ],
+            "institution_service_objects": [
+              "inferred"
+            ],
+            "consumer_value_objects": [],
+            "aesthetic_culture_objects": [
+              "inferred"
+            ]
+          },
+          "covered_category_count": 5,
+          "meets_minimum": true
+        },
+        {
+          "direction_id": "E03",
+          "classification": {
+            "regulatory_objects": [
+              "资质审核流程"
+            ],
+            "supply_chain_objects": [
+              "GSP 仓储",
+              "冷链配送"
+            ],
+            "product_material_objects": [
+              "inferred"
+            ],
+            "institution_service_objects": [
+              "inferred"
+            ],
+            "consumer_value_objects": [],
+            "aesthetic_culture_objects": [
+              "inferred"
+            ]
+          },
+          "covered_category_count": 5,
+          "meets_minimum": true
+        }
+      ],
+      "set_coverage": {
+        "regulatory_objects": true,
+        "supply_chain_objects": true,
+        "product_material_objects": true,
+        "institution_service_objects": true,
+        "consumer_value_objects": false
+      },
+      "all_required_categories_covered": false,
+      "rewrite_required": true,
+      "blocking_reasons": [
+        "set_missing_required_category"
+      ]
+    },
+    "asset_authorization": {
+      "evaluator_version": "asset-authorization-evaluator-v1.1",
+      "per_direction": [
+        {
+          "direction_id": "E01",
+          "ok": true,
+          "forgery_violations": [],
+          "detections": [
+            {
+              "direction_id": "E01",
+              "field_path": "visualDirectionV2.industry_recognition_layer.industry_data_objects[0]",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E01",
+              "field_path": "visualDirectionV2.core_reusable_assets[1].asset_name",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E01",
+              "field_path": "visualDirectionV2.core_reusable_assets[1].visual_description",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E01",
+              "field_path": "visualDirectionV2.core_reusable_assets[1].execution_role",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E01",
+              "field_path": "visualDirectionV2.core_reusable_assets[1].prohibited_use",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E01",
+              "field_path": "visualDirectionV2.information_system.data_qualification_info",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E01",
+              "field_path": "visualDirectionV2.information_system.information_hierarchy[2]",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E01",
+              "field_path": "visualDirectionV2.information_system.fabricated_info_prohibited[0]",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E01",
+              "field_path": "visualDirectionV2.layout_behavior.data_note_area",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E01",
+              "field_path": "visualDirectionV2.composition_templates[1].image_object_rule",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E01",
+              "field_path": "visualDirectionV2.composition_templates[1].negative_constraints[0]",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E01",
+              "field_path": "visualDirectionV2.execution_examples[0].information_position",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E01",
+              "field_path": "visualDirectionV2.execution_constraints[1]",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            }
+          ],
+          "data_authorization_level": "abstracted",
+          "document_visualization_mode": "structure_only",
+          "credential_usage_mode": "redacted",
+          "generated_data_policy": "abstracted"
+        },
+        {
+          "direction_id": "E02",
+          "ok": true,
+          "forgery_violations": [],
+          "detections": [
+            {
+              "direction_id": "E02",
+              "field_path": "visualDirectionV2.industry_recognition_layer.industry_data_objects[0]",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E02",
+              "field_path": "visualDirectionV2.core_reusable_assets[1].asset_name",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E02",
+              "field_path": "visualDirectionV2.core_reusable_assets[1].visual_description",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E02",
+              "field_path": "visualDirectionV2.core_reusable_assets[1].execution_role",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E02",
+              "field_path": "visualDirectionV2.core_reusable_assets[1].prohibited_use",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E02",
+              "field_path": "visualDirectionV2.information_system.data_qualification_info",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E02",
+              "field_path": "visualDirectionV2.information_system.information_hierarchy[2]",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E02",
+              "field_path": "visualDirectionV2.information_system.fabricated_info_prohibited[0]",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E02",
+              "field_path": "visualDirectionV2.layout_behavior.data_note_area",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E02",
+              "field_path": "visualDirectionV2.execution_examples[0].information_position",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E02",
+              "field_path": "visualDirectionV2.execution_constraints[1]",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            }
+          ],
+          "data_authorization_level": "abstracted",
+          "document_visualization_mode": "structure_only",
+          "credential_usage_mode": "redacted",
+          "generated_data_policy": "abstracted"
+        },
+        {
+          "direction_id": "E03",
+          "ok": true,
+          "forgery_violations": [],
+          "detections": [
+            {
+              "direction_id": "E03",
+              "field_path": "visualDirectionV2.industry_recognition_layer.industry_data_objects[0]",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E03",
+              "field_path": "visualDirectionV2.core_reusable_assets[1].asset_name",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E03",
+              "field_path": "visualDirectionV2.core_reusable_assets[1].visual_description",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E03",
+              "field_path": "visualDirectionV2.core_reusable_assets[1].execution_role",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E03",
+              "field_path": "visualDirectionV2.core_reusable_assets[1].prohibited_use",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E03",
+              "field_path": "visualDirectionV2.information_system.data_qualification_info",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E03",
+              "field_path": "visualDirectionV2.information_system.information_hierarchy[2]",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E03",
+              "field_path": "visualDirectionV2.information_system.fabricated_info_prohibited[0]",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E03",
+              "field_path": "visualDirectionV2.layout_behavior.data_note_area",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E03",
+              "field_path": "visualDirectionV2.execution_examples[0].information_position",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            },
+            {
+              "direction_id": "E03",
+              "field_path": "visualDirectionV2.execution_constraints[1]",
+              "detected_text": "数",
+              "detection_type": "field_structure",
+              "source_type": "model_output",
+              "confidence": 0.6,
+              "rule_id": "FABRICATED_DATA_FIELD_STRUCTURE",
+              "reason": "该指标字段可保留结构 / 占位，不得填具体数值",
+              "suggested_rewrite": "改为指标结构示意 / 占位（structure_only）",
+              "risk_level": "warning"
+            }
+          ],
+          "data_authorization_level": "abstracted",
+          "document_visualization_mode": "structure_only",
+          "credential_usage_mode": "redacted",
+          "generated_data_policy": "abstracted"
+        }
+      ],
+      "forgery_detected": false,
+      "blocking_reasons": []
+    },
+    "asset_id_uniqueness": {
+      "evaluator_version": "asset-id-validator-v1",
+      "duplicate_detected": false,
+      "duplicate_count": 0,
+      "duplicates": [],
+      "blocking_reasons": []
+    },
+    "spatial_drift": {
+      "evaluator_version": "spatial-drift-evaluator-v1",
+      "spatial_drift_status": "pass",
+      "architecture_as_primary_subject": 1,
+      "exhibition_space_dependency": false,
+      "real_estate_visual_language": false,
+      "interior_design_dependency": false,
+      "flat_design_translatability": 5,
+      "information_design_presence": true,
+      "warning": false,
+      "rewrite_required": false,
+      "blocking_reasons": []
+    },
+    "consumer_weight_consistency": {
+      "evaluator_version": "consumer-weight-consistency-v1",
+      "per_direction": [
+        {
+          "direction_id": "E01",
+          "consumer_value_role": "none",
+          "present": false,
+          "consumer_value_weight": 0.05,
+          "consistent": false,
+          "present_none_conflict": false
+        },
+        {
+          "direction_id": "E02",
+          "consumer_value_role": "none",
+          "present": false,
+          "consumer_value_weight": 0.05,
+          "consistent": false,
+          "present_none_conflict": false
+        },
+        {
+          "direction_id": "E03",
+          "consumer_value_role": "none",
+          "present": false,
+          "consumer_value_weight": 0.05,
+          "consistent": false,
+          "present_none_conflict": false
+        }
+      ],
+      "rewrite_required": true,
+      "blocking_reasons": [
+        "consumer_role_weight_mismatch(E01:none=0.05)",
+        "consumer_role_weight_mismatch(E02:none=0.05)",
+        "consumer_role_weight_mismatch(E03:none=0.05)"
+      ]
+    },
+    "execution_example_completeness": {
+      "evaluator_version": "execution-example-completeness-evaluator-v1",
+      "per_direction": [
+        {
+          "direction_id": "E01",
+          "blocked": true,
+          "conditional": false,
+          "warning": false,
+          "example_count": 3,
+          "examples": [
+            {
+              "touchpoint": "unknown",
+              "critical_missing": [
+                "touchpoint",
+                "information_zone",
+                "brand_zone"
+              ],
+              "required_missing": [
+                "canvas_ratio",
+                "hero_subject_position",
+                "hero_subject_scale",
+                "whitespace_behavior",
+                "responsive_adaptation",
+                "anti_concept_art_rule"
+              ],
+              "optional_missing": [
+                "supporting_subjects",
+                "graphic_overlay",
+                "ratio_breakdown",
+                "downstream_consumer_note"
+              ]
+            },
+            {
+              "touchpoint": "unknown",
+              "critical_missing": [
+                "touchpoint",
+                "information_zone",
+                "brand_zone"
+              ],
+              "required_missing": [
+                "canvas_ratio",
+                "hero_subject_position",
+                "hero_subject_scale",
+                "whitespace_behavior",
+                "responsive_adaptation",
+                "anti_concept_art_rule"
+              ],
+              "optional_missing": [
+                "supporting_subjects",
+                "graphic_overlay",
+                "ratio_breakdown",
+                "downstream_consumer_note"
+              ]
+            },
+            {
+              "touchpoint": "unknown",
+              "critical_missing": [
+                "touchpoint",
+                "information_zone",
+                "brand_zone"
+              ],
+              "required_missing": [
+                "canvas_ratio",
+                "hero_subject_position",
+                "hero_subject_scale",
+                "whitespace_behavior",
+                "responsive_adaptation",
+                "anti_concept_art_rule"
+              ],
+              "optional_missing": [
+                "supporting_subjects",
+                "graphic_overlay",
+                "ratio_breakdown",
+                "downstream_consumer_note"
+              ]
+            }
+          ]
+        },
+        {
+          "direction_id": "E02",
+          "blocked": true,
+          "conditional": false,
+          "warning": false,
+          "example_count": 3,
+          "examples": [
+            {
+              "touchpoint": "unknown",
+              "critical_missing": [
+                "touchpoint",
+                "information_zone",
+                "brand_zone"
+              ],
+              "required_missing": [
+                "canvas_ratio",
+                "hero_subject_position",
+                "hero_subject_scale",
+                "whitespace_behavior",
+                "responsive_adaptation",
+                "anti_concept_art_rule"
+              ],
+              "optional_missing": [
+                "supporting_subjects",
+                "graphic_overlay",
+                "ratio_breakdown",
+                "downstream_consumer_note"
+              ]
+            },
+            {
+              "touchpoint": "unknown",
+              "critical_missing": [
+                "touchpoint",
+                "information_zone",
+                "brand_zone"
+              ],
+              "required_missing": [
+                "canvas_ratio",
+                "hero_subject_position",
+                "hero_subject_scale",
+                "whitespace_behavior",
+                "responsive_adaptation",
+                "anti_concept_art_rule"
+              ],
+              "optional_missing": [
+                "supporting_subjects",
+                "graphic_overlay",
+                "ratio_breakdown",
+                "downstream_consumer_note"
+              ]
+            },
+            {
+              "touchpoint": "unknown",
+              "critical_missing": [
+                "touchpoint",
+                "information_zone",
+                "brand_zone"
+              ],
+              "required_missing": [
+                "canvas_ratio",
+                "hero_subject_position",
+                "hero_subject_scale",
+                "whitespace_behavior",
+                "responsive_adaptation",
+                "anti_concept_art_rule"
+              ],
+              "optional_missing": [
+                "supporting_subjects",
+                "graphic_overlay",
+                "ratio_breakdown",
+                "downstream_consumer_note"
+              ]
+            }
+          ]
+        },
+        {
+          "direction_id": "E03",
+          "blocked": true,
+          "conditional": false,
+          "warning": false,
+          "example_count": 3,
+          "examples": [
+            {
+              "touchpoint": "unknown",
+              "critical_missing": [
+                "touchpoint",
+                "information_zone",
+                "brand_zone"
+              ],
+              "required_missing": [
+                "canvas_ratio",
+                "hero_subject_position",
+                "hero_subject_scale",
+                "whitespace_behavior",
+                "responsive_adaptation",
+                "anti_concept_art_rule"
+              ],
+              "optional_missing": [
+                "supporting_subjects",
+                "graphic_overlay",
+                "ratio_breakdown",
+                "downstream_consumer_note"
+              ]
+            },
+            {
+              "touchpoint": "unknown",
+              "critical_missing": [
+                "touchpoint",
+                "information_zone",
+                "brand_zone"
+              ],
+              "required_missing": [
+                "canvas_ratio",
+                "hero_subject_position",
+                "hero_subject_scale",
+                "whitespace_behavior",
+                "responsive_adaptation",
+                "anti_concept_art_rule"
+              ],
+              "optional_missing": [
+                "supporting_subjects",
+                "graphic_overlay",
+                "ratio_breakdown",
+                "downstream_consumer_note"
+              ]
+            },
+            {
+              "touchpoint": "unknown",
+              "critical_missing": [
+                "touchpoint",
+                "information_zone",
+                "brand_zone"
+              ],
+              "required_missing": [
+                "canvas_ratio",
+                "hero_subject_position",
+                "hero_subject_scale",
+                "whitespace_behavior",
+                "responsive_adaptation",
+                "anti_concept_art_rule"
+              ],
+              "optional_missing": [
+                "supporting_subjects",
+                "graphic_overlay",
+                "ratio_breakdown",
+                "downstream_consumer_note"
+              ]
+            }
+          ]
+        }
+      ],
+      "touchpoint_coverage_score": 0.38,
+      "touchpoint_count": 0,
+      "total_examples": 9,
+      "expected_examples": 9,
+      "field_completeness": 0.5,
+      "any_blocked": true,
+      "any_conditional": false,
+      "any_warning": false,
+      "rewrite_required": true,
+      "conditional": false,
+      "warning": false,
+      "blocking_reasons": [
+        "execution_example_critical_missing"
+      ]
+    },
+    "execution_example_specificity": {
+      "evaluator_version": "execution-example-specificity-evaluator-v1",
+      "per_direction": [
+        {
+          "direction_id": "E01",
+          "repeated_field_ratios": {
+            "audience": 0,
+            "communication_goal": 0,
+            "canvas_ratio": 0,
+            "hero_subject_scale": 0,
+            "information_hierarchy": 0,
+            "responsive_adaptation": 0,
+            "whitespace_behavior": 0,
+            "supporting_subjects": 0,
+            "brand_zone": 0
+          },
+          "within_direction_template_overlap": 1
+        },
+        {
+          "direction_id": "E02",
+          "repeated_field_ratios": {
+            "audience": 0,
+            "communication_goal": 0,
+            "canvas_ratio": 0,
+            "hero_subject_scale": 0,
+            "information_hierarchy": 0,
+            "responsive_adaptation": 0,
+            "whitespace_behavior": 0,
+            "supporting_subjects": 0,
+            "brand_zone": 0
+          },
+          "within_direction_template_overlap": 1
+        },
+        {
+          "direction_id": "E03",
+          "repeated_field_ratios": {
+            "audience": 0,
+            "communication_goal": 0,
+            "canvas_ratio": 0,
+            "hero_subject_scale": 0,
+            "information_hierarchy": 0,
+            "responsive_adaptation": 0,
+            "whitespace_behavior": 0,
+            "supporting_subjects": 0,
+            "brand_zone": 0
+          },
+          "within_direction_template_overlap": 1
+        }
+      ],
+      "cross_direction_template_overlap": 0,
+      "specificity_score": 1,
+      "diversity_score": 1,
+      "template_overuse": false,
+      "template_warning": false,
+      "overall_overlap": 1
+    },
+    "execution_example_quality": {
+      "count_coverage_ratio": 0,
+      "field_completeness_ratio": 0.5,
+      "specificity_ratio": 1,
+      "diversity_ratio": 1,
+      "final_touchpoint_score_5": 2.9
+    }
+  },
+  "execution_permission_status": "blocked",
+  "blocking_reasons": [
+    "set_missing_consumer_value",
+    "execution_example_critical_missing",
+    "business_model_undercoverage",
+    "direction_family_difference",
+    "compliance_weight",
+    "e02_aesthetic",
+    "industry_recognition",
+    "consumer_weight_consistency",
+    "touchpoint_coverage_low"
+  ],
+  "overall_status": "rewrite_required",
+  "info_issues": []
+}

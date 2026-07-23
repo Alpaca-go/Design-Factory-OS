@@ -1,0 +1,10 @@
+{
+  "businessModel": "b2c",
+  "consumerVisualPolicy": "core_allowed",
+  "primaryAudience": [
+    {
+      "label": "社区居民"
+    }
+  ],
+  "excludedAudience": []
+}

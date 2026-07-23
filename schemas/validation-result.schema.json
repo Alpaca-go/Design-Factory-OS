@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://masterpiece-os.local/schemas/validation-result.schema.json",
+  "title": "Quality Validation Result V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "module",
+    "status",
+    "schema_validation",
+    "hard_fails",
+    "anti_patterns",
+    "penalty_summary",
+    "mqs_score",
+    "stage_results"
+  ],
+  "properties": {
+    "module": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["pass", "repair", "reject"] },
+    "mode": { "enum": ["shadow"] },
+    "schema_validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["valid", "errors"],
+      "properties": {
+        "valid": { "type": "boolean" },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "message"],
+            "properties": {
+              "path": { "type": "string" },
+              "message": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "hard_fails": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "message"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "message": { "type": "string", "minLength": 1 },
+          "location": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "anti_patterns": {
+      "type": "array",
+      "items": { "$ref": "./anti-pattern-result.schema.json" }
+    },
+    "penalty_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "uncapped_total", "cap", "cap_applied"],
+      "properties": {
+        "total": { "type": "number", "minimum": 0, "maximum": 40 },
+        "uncapped_total": { "type": "number", "minimum": 0 },
+        "cap": { "const": 40 },
+        "cap_applied": { "type": "boolean" }
+      }
+    },
+    "mqs_score": {
+      "oneOf": [
+        { "$ref": "./mqs-score.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "stage_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["stage", "status"],
+        "properties": {
+          "stage": {
+            "enum": ["schema_validation", "hard_fail_detection", "anti_pattern_detection", "mqs_scoring", "status_resolution"]
+          },
+          "status": { "enum": ["completed", "skipped"] },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

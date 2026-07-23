@@ -1,0 +1,10 @@
+{
+  "businessModel": "b2c",
+  "consumerVisualPolicy": "core_allowed",
+  "primaryAudience": [
+    {
+      "label": "功效护肤消费者"
+    }
+  ],
+  "excludedAudience": []
+}

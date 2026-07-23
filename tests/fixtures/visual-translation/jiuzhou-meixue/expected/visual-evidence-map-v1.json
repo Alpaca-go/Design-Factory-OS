@@ -1,0 +1,103 @@
+{
+  "identity": {
+    "projectName": "九州美学",
+    "brandName": "九州美学",
+    "status": "confirmed",
+    "evidenceIds": [
+      "VE001"
+    ]
+  },
+  "evidence": [
+    {
+      "evidenceId": "VE001",
+      "sourceId": "doc-1",
+      "chunkId": "chunk-e65c71e21ea0fd8d",
+      "type": "identity",
+      "statement": "九州美学是当前品牌主体",
+      "status": "confirmed",
+      "shortestQuote": "九州美学",
+      "visualImpact": "品牌名称影响所有视觉资产归属"
+    },
+    {
+      "evidenceId": "VE002",
+      "sourceId": "doc-1",
+      "chunkId": "chunk-e65c71e21ea0fd8d",
+      "type": "business-context",
+      "statement": "品牌服务医美产业链伙伴",
+      "status": "confirmed",
+      "shortestQuote": "服务医美产业链伙伴",
+      "visualImpact": "画面应表现产业协同而非单一消费产品"
+    },
+    {
+      "evidenceId": "VE003",
+      "sourceId": "doc-1",
+      "chunkId": "chunk-e65c71e21ea0fd8d",
+      "type": "capability",
+      "statement": "合规供应链是稳定交付基础",
+      "status": "confirmed",
+      "shortestQuote": "合规供应链",
+      "visualImpact": "画面需要可验证的节点与秩序"
+    },
+    {
+      "evidenceId": "VE004",
+      "sourceId": "doc-1",
+      "chunkId": "chunk-e65c71e21ea0fd8d",
+      "type": "relationship",
+      "statement": "生态协同建立长期伙伴关系",
+      "status": "confirmed",
+      "shortestQuote": "生态协同",
+      "visualImpact": "主体关系应互联而非中心压制"
+    },
+    {
+      "evidenceId": "VE005",
+      "sourceId": "doc-1",
+      "chunkId": "chunk-e65c71e21ea0fd8d",
+      "type": "emotion",
+      "statement": "品牌希望传递长期信任",
+      "status": "confirmed",
+      "shortestQuote": "长期信任",
+      "visualImpact": "节奏与光线需要稳定克制"
+    },
+    {
+      "evidenceId": "VE006",
+      "sourceId": "doc-1",
+      "chunkId": "chunk-e65c71e21ea0fd8d",
+      "type": "aesthetic-intent",
+      "statement": "严谨与温度需要同时出现",
+      "status": "confirmed",
+      "shortestQuote": "严谨而有温度",
+      "visualImpact": "需要理性结构与温和触感并置"
+    },
+    {
+      "evidenceId": "VE007",
+      "sourceId": "doc-1",
+      "chunkId": "chunk-e65c71e21ea0fd8d",
+      "type": "prohibited",
+      "statement": "避免医疗蓝与装饰性科技流线",
+      "status": "confirmed",
+      "shortestQuote": "避免医疗蓝、装饰性科技流线",
+      "visualImpact": "避免落入医美科技模板"
+    },
+    {
+      "evidenceId": "VE008",
+      "sourceId": "doc-1",
+      "chunkId": "chunk-e65c71e21ea0fd8d",
+      "type": "constraint",
+      "statement": "不得使用未经确认的认证符号",
+      "status": "confirmed",
+      "shortestQuote": "未经确认的认证符号",
+      "visualImpact": "画面不得出现伪造认证与批准标识"
+    }
+  ],
+  "conflicts": [],
+  "missingInformation": [
+    {
+      "statement": "正式 Logo 与认证资产待确认",
+      "evidenceIds": []
+    }
+  ],
+  "lockedAssets": [],
+  "suggestedAssets": [
+    "可验证的安心轨迹"
+  ]
+}

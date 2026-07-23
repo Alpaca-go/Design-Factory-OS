@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://masterpiece-os.local/schemas/mqs-score.schema.json",
+  "title": "Masterpiece Quality Score V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "module",
+    "score",
+    "level",
+    "status",
+    "minimum_level_met",
+    "core_dimensions_met",
+    "dimension_scores",
+    "hard_fails",
+    "violations",
+    "repair_actions"
+  ],
+  "properties": {
+    "module": { "type": "string", "minLength": 1 },
+    "score": { "type": "number", "minimum": 0, "maximum": 100 },
+    "level": { "enum": ["L0", "L1", "L2", "L3", "L4", "M"] },
+    "status": { "enum": ["pass", "repair", "reject"] },
+    "minimum_level_met": { "type": "boolean" },
+    "core_dimensions_met": { "type": "boolean" },
+    "dimension_scores": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "number", "minimum": 0, "maximum": 100 }
+    },
+    "hard_fails": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "violations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^AP-[A-Z]+-[0-9]{3}$" }
+    },
+    "repair_actions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

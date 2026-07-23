@@ -1,0 +1,39 @@
+{
+  "recommendedDirectionId": "D01",
+  "rationale": [
+    "以“逐层被验证的安心轨迹”回应 以可验证的供应链节点表达稳定交付；生态伙伴以互相支撑的结构出现",
+    "品牌匹配 94、灵感价值 92、独特性 93，并已计入行业模板风险惩罚",
+    "专属机制“节点确认后才由离散变为连续”可继续发展，但仍需人工选择后才能进入 Anchor 阶段"
+  ],
+  "preservedStrengths": [
+    "深石墨底色配克制暖金确认色",
+    "离散节点",
+    "连续轨迹",
+    "哑光基底"
+  ],
+  "unresolvedRisks": [
+    "轨迹必须避免退化为普通科技流线"
+  ],
+  "alternativeDirectionIds": [
+    "D03",
+    "D02"
+  ],
+  "humanSelectionRequired": true,
+  "comparison": [
+    {
+      "directionId": "D01",
+      "rank": 1,
+      "comparisonScore": 93.1
+    },
+    {
+      "directionId": "D03",
+      "rank": 2,
+      "comparisonScore": 89.2
+    },
+    {
+      "directionId": "D02",
+      "rank": 3,
+      "comparisonScore": 80.1
+    }
+  ]
+}

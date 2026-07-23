@@ -1,0 +1,38 @@
+{
+  "cases": [
+    {
+      "name": "方向输出复合错误",
+      "module": "visual_direction",
+      "metadata": { "currentProjectId": "project-a" },
+      "output": {
+        "assets": [{ "id": "foreign-symbol", "project_id": "project-z" }],
+        "directions": [
+          { "id": "d1", "visual_fingerprint": { "silhouette": "orb", "composition": "central", "graphic_mechanism": "glow", "material_family": "glass", "emotional_role": "future" } },
+          { "id": "d2", "visual_fingerprint": { "silhouette": "orb", "composition": "central", "graphic_mechanism": "glow", "material_family": "glass", "emotional_role": "future" } }
+        ],
+        "recommendation": { "selection_method": "highest_score", "strategic_factors": {} }
+      },
+      "expectedRules": ["AP-BRAND-002", "AP-DIR-001", "AP-DIR-003"],
+      "expectedStatus": "reject"
+    },
+    {
+      "name": "报告复合错误",
+      "module": "report",
+      "metadata": {
+        "semanticFindings": {
+          "AP-REP-004": {
+            "evidence": ["中文报告大量混入无必要英文，导致结论难以阅读"],
+            "location": { "path": "/sections" }
+          }
+        }
+      },
+      "output": {
+        "claims": [{ "kind": "patent", "statement": "拥有国际专利", "evidence_ids": [] }],
+        "scores": [{ "id": "d1", "score": 0 }, { "id": "d2", "score": 0 }],
+        "recommendation": { "direction_id": "d1" }
+      },
+      "expectedRules": ["AP-BRAND-004", "AP-REP-003", "AP-REP-004"],
+      "expectedStatus": "reject"
+    }
+  ]
+}

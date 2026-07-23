@@ -1,0 +1,58 @@
+{
+  "name": "正常 Visual Direction 输出",
+  "module": "visual_direction",
+  "metadata": {
+    "currentProjectId": "project-a",
+    "lockedAssets": ["logo"]
+  },
+  "output": {
+    "assets": [
+      { "id": "logo-main", "project_id": "project-a" }
+    ],
+    "claims": [
+      { "kind": "capability", "statement": "透明履约", "evidence_ids": ["VE003"], "verified": true }
+    ],
+    "directions": [
+      {
+        "id": "d1",
+        "visual_fingerprint": {
+          "silhouette": "linear",
+          "composition": "diagonal",
+          "graphic_mechanism": "verified_nodes",
+          "material_family": "matte",
+          "emotional_role": "assurance"
+        }
+      },
+      {
+        "id": "d2",
+        "visual_fingerprint": {
+          "silhouette": "nested",
+          "composition": "central",
+          "graphic_mechanism": "soft_boundary",
+          "material_family": "fiber",
+          "emotional_role": "care"
+        }
+      },
+      {
+        "id": "d3",
+        "visual_fingerprint": {
+          "silhouette": "modular",
+          "composition": "axial",
+          "graphic_mechanism": "audit_scale",
+          "material_family": "etched",
+          "emotional_role": "responsibility"
+        }
+      }
+    ],
+    "recommendation": {
+      "selection_method": "strategic_review",
+      "strategic_factors": {
+        "opportunities": ["可形成独特履约视觉"],
+        "costs": ["需要建立节点资产"],
+        "risks": ["避免退化为科技流线"],
+        "strategic_fit": ["符合产业协同角色"]
+      }
+    }
+  },
+  "expectedStatus": "pass"
+}

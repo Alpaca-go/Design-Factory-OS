@@ -1,0 +1,15 @@
+{
+  "allowed_assets": [
+    {
+      "asset_id": "AS-MJ-LOGO"
+    },
+    {
+      "asset_id": "AS-MJ-VI"
+    }
+  ],
+  "restricted_assets": [
+    {
+      "asset_id": "AS-MJ-PARENT"
+    }
+  ]
+}

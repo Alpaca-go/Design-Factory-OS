@@ -1,0 +1,10 @@
+{
+  "businessModel": "b2b",
+  "consumerVisualPolicy": "auxiliary_only",
+  "primaryAudience": [
+    {
+      "label": "医美机构"
+    }
+  ],
+  "excludedAudience": []
+}

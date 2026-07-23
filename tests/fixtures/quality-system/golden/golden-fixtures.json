@@ -1,0 +1,526 @@
+{
+  "dataset_version": "golden-quality-phase-4a-v1",
+  "fixtures": [
+    {
+      "id": "golden-report-zero-score",
+      "description": "评分全部为零但仍排序推荐",
+      "adapter": "report",
+      "project_id": "golden-project-a",
+      "run_id": "run-zero-score",
+      "source": {
+        "fixture_id": "golden-report-zero-score",
+        "reportMarkdown": "# 匿名品牌视觉方向报告\n\n全部比较分均为零，但报告仍给出推荐。",
+        "recommendation": {
+          "recommendedDirectionId": "D01",
+          "comparison": [
+            { "directionId": "D01", "rank": 1, "comparisonScore": 0 },
+            { "directionId": "D02", "rank": 2, "comparisonScore": 0 },
+            { "directionId": "D03", "rank": 3, "comparisonScore": 0 }
+          ]
+        }
+      },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-REP-003"],
+      "expected_system_rules": ["AP-REP-003"],
+      "expected_status": "reject",
+      "allowed_semantic_skips": [],
+      "human_notes": "零分候选不得产生正式推荐。"
+    },
+    {
+      "id": "golden-report-language-pollution",
+      "description": "中文报告大量混入无必要英文",
+      "adapter": "report",
+      "project_id": "golden-project-a",
+      "run_id": "run-language",
+      "source": {
+        "fixture_id": "golden-report-language-pollution",
+        "reportMarkdown": "# 匿名报告\n\n本段为脱敏后的混合语言质量样本。"
+      },
+      "semantic_results": {
+        "AP-REP-004": {
+          "evidence": ["人工标注确认：中文报告连续段落存在大量无必要英文，影响可读性"],
+          "location": { "path": "/sections/0" },
+          "confidence": 1
+        }
+      },
+      "human_expected_rules": ["AP-REP-004"],
+      "expected_system_rules": ["AP-REP-004"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "Fixture Evaluator 代表人工确认的语言污染。"
+    },
+    {
+      "id": "golden-direction-b2b-b2c",
+      "description": "B2B 产业品牌被表达为 B2C 消费大片",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-b",
+      "run_id": "run-b2b-b2c",
+      "brand_source": {
+        "brandFacts": { "brandName": "匿名产业品牌", "businessModel": "B2B", "industry": "产业服务" }
+      },
+      "source": {
+        "fixture_id": "golden-direction-b2b-b2c",
+        "directions": {
+          "directions": [
+            { "directionId": "D01", "name": "方向一", "subjectPolicy": { "people": "消费人物大片", "products": "个人护理产品", "environment": "生活方式场景" } }
+          ]
+        }
+      },
+      "semantic_results": {
+        "AP-DIR-005": {
+          "evidence": ["人工标注确认：B2B 产业服务定位与消费人物大片主体明显错位"],
+          "location": { "path": "/directions/0/subject_policy" },
+          "confidence": 1
+        }
+      },
+      "human_expected_rules": ["AP-DIR-005"],
+      "expected_system_rules": ["AP-DIR-005"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "B2B 核心视觉被错误替换为消费场景。"
+    },
+    {
+      "id": "golden-direction-homogeneous",
+      "description": "三个方向视觉指纹同质化",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-c",
+      "run_id": "run-homogeneous",
+      "source": {
+        "fixture_id": "golden-direction-homogeneous",
+        "directions": {
+          "directions": [
+            { "directionId": "D01", "name": "方向一", "visual_fingerprint": { "silhouette": "orb", "composition": "central", "graphic_mechanism": "glow", "material_family": "glass", "emotional_role": "future" } },
+            { "directionId": "D02", "name": "方向二", "visual_fingerprint": { "silhouette": "orb", "composition": "central", "graphic_mechanism": "glow", "material_family": "glass", "emotional_role": "future" } },
+            { "directionId": "D03", "name": "方向三", "visual_fingerprint": { "silhouette": "orb", "composition": "central", "graphic_mechanism": "glow", "material_family": "glass", "emotional_role": "future" } }
+          ]
+        }
+      },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-DIR-001"],
+      "expected_system_rules": ["AP-DIR-001"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "三个方向的完整视觉指纹相同。"
+    },
+    {
+      "id": "golden-suggested-assets-overflow",
+      "description": "Suggested Assets 未声明状态",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-d",
+      "run_id": "run-suggested-assets",
+      "source": {
+        "fixture_id": "golden-suggested-assets-overflow",
+        "evidenceMap": {
+          "identity": { "projectName": "匿名项目", "brandName": "匿名品牌" },
+          "lockedAssets": [],
+          "suggestedAssets": ["认证徽章", "官方印章", "玻璃球", "双螺旋", "发光网络", "金属盾牌", "实验数据面板"]
+        }
+      },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-GEN-005"],
+      "expected_system_rules": ["AP-GEN-005"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "无状态字符串资产不能进入执行链。"
+    },
+    {
+      "id": "golden-direction-pass",
+      "description": "正常通过的三个差异方向",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-e",
+      "run_id": "run-pass",
+      "source": {
+        "fixture_id": "golden-direction-pass",
+        "assets": [{ "id": "logo-main", "project_id": "golden-project-e" }],
+        "directions": {
+          "directions": [
+            { "directionId": "D01", "name": "方向一", "visual_fingerprint": { "silhouette": "linear", "composition": "diagonal", "graphic_mechanism": "verified_nodes", "material_family": "matte", "emotional_role": "assurance" } },
+            { "directionId": "D02", "name": "方向二", "visual_fingerprint": { "silhouette": "nested", "composition": "central", "graphic_mechanism": "soft_boundary", "material_family": "fiber", "emotional_role": "care" } },
+            { "directionId": "D03", "name": "方向三", "visual_fingerprint": { "silhouette": "modular", "composition": "axial", "graphic_mechanism": "audit_scale", "material_family": "etched", "emotional_role": "responsibility" } }
+          ]
+        },
+        "recommendation": {
+          "recommendedDirectionId": "D01",
+          "selection_method": "strategic_review",
+          "strategic_factors": {
+            "opportunities": ["建立独特机制"],
+            "costs": ["建立组件库"],
+            "risks": ["避免模板化"],
+            "strategic_fit": ["符合品牌角色"]
+          }
+        }
+      },
+      "semantic_results": {},
+      "human_expected_rules": [],
+      "expected_system_rules": [],
+      "expected_status": "pass",
+      "allowed_semantic_skips": [],
+      "human_notes": "已知来源与差异明确的正常方向样本。"
+    },
+    {
+      "id": "golden-report-fabricated-certification",
+      "description": "无证据虚构认证",
+      "adapter": "report",
+      "project_id": "golden-project-f",
+      "run_id": "run-fabricated",
+      "source": {
+        "fixture_id": "golden-report-fabricated-certification",
+        "reportMarkdown": "# 匿名报告",
+        "claims": [
+          { "kind": "certification", "statement": "获得未提供来源的国际认证", "evidence_ids": [] }
+        ]
+      },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-BRAND-004"],
+      "expected_system_rules": ["AP-BRAND-004"],
+      "expected_status": "reject",
+      "allowed_semantic_skips": [],
+      "human_notes": "认证事实无证据且未标记为 proposal。"
+    },
+    {
+      "id": "golden-direction-cross-project",
+      "description": "输出引用外部项目资产",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-g",
+      "run_id": "run-cross-project",
+      "source": {
+        "fixture_id": "golden-direction-cross-project",
+        "assets": [
+          { "id": "external-logo", "project_id": "another-project" }
+        ]
+      },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-BRAND-002"],
+      "expected_system_rules": ["AP-BRAND-002"],
+      "expected_status": "reject",
+      "allowed_semantic_skips": [],
+      "human_notes": "资产 project_id 与当前项目不一致。"
+    },
+    {
+      "id": "golden-report-locked-logo-change",
+      "description": "Locked Logo 被修改",
+      "adapter": "report",
+      "project_id": "golden-project-h",
+      "run_id": "run-locked-logo",
+      "source": { "fixture_id": "golden-report-locked-logo-change", "lockedAssets": ["logo"], "asset_changes": [{ "asset": "logo", "before": "approved.svg", "after": "redrawn.svg", "authorized": false }] },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-BRAND-003"],
+      "expected_system_rules": ["AP-BRAND-003"],
+      "expected_status": "reject",
+      "allowed_semantic_skips": [],
+      "human_notes": "已锁定 Logo 没有修改授权。"
+    },
+    {
+      "id": "golden-report-fabricated-metric",
+      "description": "无证据虚构业务数据",
+      "adapter": "report",
+      "project_id": "golden-project-i",
+      "run_id": "run-fabricated-metric",
+      "source": { "fixture_id": "golden-report-fabricated-metric", "claims": [{ "kind": "metric", "statement": "覆盖率达到 99%", "verified": false, "evidence_ids": [] }] },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-BRAND-004"],
+      "expected_system_rules": ["AP-BRAND-004"],
+      "expected_status": "reject",
+      "allowed_semantic_skips": [],
+      "human_notes": "业务数据未获证据支持。"
+    },
+    {
+      "id": "golden-direction-b2b-touchpoint",
+      "description": "B2B 项目采用消费者社交广告核心触点",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-j",
+      "run_id": "run-b2b-touchpoint",
+      "brand_source": { "brandFacts": { "brandName": "匿名平台", "businessModel": "B2B", "industry": "产业平台" } },
+      "source": { "fixture_id": "golden-direction-b2b-touchpoint", "directions": { "directions": [{ "directionId": "D01", "name": "消费者种草", "subjectPolicy": { "people": "消费者人脸", "products": "护肤体验", "environment": "社交媒体广告" } }] } },
+      "semantic_results": { "AP-DIR-005": { "evidence": ["B2B 产业平台被放入消费者种草广告核心触点"], "location": { "path": "/directions/0/subject_policy" }, "confidence": 1 } },
+      "human_expected_rules": ["AP-DIR-005"],
+      "expected_system_rules": ["AP-DIR-005"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "与首个 B2B 样本不同，本例聚焦触点错位。"
+    },
+    {
+      "id": "golden-assets-proposed-executable",
+      "description": "proposed 资产错误标记 executable",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-k",
+      "run_id": "run-proposed-executable",
+      "source": { "fixture_id": "golden-assets-proposed-executable", "evidenceMap": { "suggestedAssets": [{ "assetId": "SA201", "name": "新插图", "status": "proposed", "executable": true, "evidence_ids": ["VE001"] }] } },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-GEN-005"],
+      "expected_system_rules": ["AP-GEN-005"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "提案资产不能直接执行。"
+    },
+    {
+      "id": "golden-assets-restricted-reference",
+      "description": "restricted 资产进入 executableAssetIds",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-l",
+      "run_id": "run-restricted-reference",
+      "source": { "fixture_id": "golden-assets-restricted-reference", "evidenceMap": { "suggestedAssets": [{ "assetId": "SA202", "name": "认证徽章", "status": "restricted", "executable": false }] }, "directions": { "directions": [{ "directionId": "D01", "name": "方向一", "executableAssetIds": ["SA202"] }] } },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-GEN-005"],
+      "expected_system_rules": ["AP-GEN-005"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "受限资产不能进入当前方向执行列表。"
+    },
+    {
+      "id": "golden-assets-unrelated-derived",
+      "description": "新增 derived 资产没有品牌证据",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-m",
+      "run_id": "run-unrelated-derived",
+      "source": { "fixture_id": "golden-assets-unrelated-derived", "evidenceMap": { "suggestedAssets": [{ "assetId": "SA203", "name": "发光玻璃球", "status": "derived", "executable": false }] } },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-GEN-005"],
+      "expected_system_rules": ["AP-GEN-005"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "新增资产没有证据关联。"
+    },
+    {
+      "id": "golden-assets-count-inflation",
+      "description": "Suggested Assets 数量异常膨胀",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-n",
+      "run_id": "run-asset-count",
+      "source": { "fixture_id": "golden-assets-count-inflation", "evidenceMap": { "suggestedAssets": [
+        { "assetId": "SA301", "status": "existing" }, { "assetId": "SA302", "status": "existing" }, { "assetId": "SA303", "status": "existing" },
+        { "assetId": "SA304", "status": "existing" }, { "assetId": "SA305", "status": "existing" }, { "assetId": "SA306", "status": "existing" },
+        { "assetId": "SA307", "status": "existing" }, { "assetId": "SA308", "status": "existing" }, { "assetId": "SA309", "status": "existing" },
+        { "assetId": "SA310", "status": "existing" }, { "assetId": "SA311", "status": "existing" }, { "assetId": "SA312", "status": "existing" },
+        { "assetId": "SA313", "status": "existing" }
+      ] } },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-GEN-005"],
+      "expected_system_rules": ["AP-GEN-005"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "十三项独立资产超过离线校准阈值。"
+    },
+    {
+      "id": "golden-assets-future-identity-reference",
+      "description": "当前 Direction 使用 future_identity_design 资产",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-o",
+      "run_id": "run-future-identity",
+      "source": { "fixture_id": "golden-assets-future-identity-reference", "evidenceMap": { "suggestedAssets": [{ "assetId": "SA204", "name": "未来识别资产", "status": "derived", "execution_scope": "future_identity_design", "evidence_ids": ["VE002"] }] }, "directions": { "directions": [{ "directionId": "D02", "name": "方向二", "executableAssetIds": ["SA204"] }] } },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-GEN-005"],
+      "expected_system_rules": ["AP-GEN-005"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "未来身份设计资产不属于当前 Direction。"
+    },
+    {
+      "id": "golden-assets-parent-brand",
+      "description": "未授权母品牌资产进入执行",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-p",
+      "run_id": "run-parent-brand",
+      "source": { "fixture_id": "golden-assets-parent-brand", "evidenceMap": { "suggestedAssets": [{ "assetId": "SA205", "name": "集团 Logo", "assetType": "parent_brand_logo", "status": "existing", "providedInSource": false, "authorizedForGeneration": false, "executable": true }] } },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-ASSET-001"],
+      "expected_system_rules": ["AP-ASSET-001"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "事实关联不等于母品牌视觉资产授权。"
+    },
+    {
+      "id": "golden-assets-unapproved-logo",
+      "description": "未批准 Logo 进入当前执行",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-q",
+      "run_id": "run-unapproved-logo",
+      "source": { "fixture_id": "golden-assets-unapproved-logo", "evidenceMap": { "suggestedAssets": [{ "assetId": "SA206", "name": "品牌 Logo", "assetType": "brand_logo", "status": "proposed", "execution_scope": "current_direction", "executable": true, "evidence_ids": ["VE003"] }] } },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-ASSET-002", "AP-GEN-005"],
+      "expected_system_rules": ["AP-ASSET-002", "AP-GEN-005"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "同一事实应由资产授权规则与生命周期规则分别给证据。"
+    },
+    {
+      "id": "golden-direction-people-policy",
+      "description": "People Policy 文本与枚举冲突",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-r",
+      "run_id": "run-people-policy",
+      "source": { "fixture_id": "golden-direction-people-policy", "directions": { "directions": [{ "directionId": "D03", "name": "生态协作", "subject_policy": { "people": "生态参与者作为辅助关系角色", "peopleRole": "consumer_auxiliary" } }] } },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-AUD-001"],
+      "expected_system_rules": ["AP-AUD-001"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "生态参与者不应映射为消费者。"
+    },
+    {
+      "id": "golden-report-score-scale",
+      "description": "评分量纲混用 0-1 与 0-100",
+      "adapter": "report",
+      "project_id": "golden-project-s",
+      "run_id": "run-score-scale",
+      "source": { "fixture_id": "golden-report-score-scale", "recommendation": { "recommendedDirectionId": "D01", "comparison": [{ "directionId": "D01", "rank": 1, "raw_score": 0.82, "confidence_adjusted_score": 82, "risk_penalty": 4, "final_score": 78, "penalty_reasons": ["风险"], "risk_breakdown": { "risk_penalty_total": 4, "template_risk_penalty": 4 } }] } },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-REP-006"],
+      "expected_system_rules": ["AP-REP-006"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "raw_score 与后续评分量纲不一致。"
+    },
+    {
+      "id": "golden-report-risk-link",
+      "description": "风险扣分链路不一致",
+      "adapter": "report",
+      "project_id": "golden-project-t",
+      "run_id": "run-risk-link",
+      "source": { "fixture_id": "golden-report-risk-link", "recommendation": { "recommendedDirectionId": "D01", "comparison": [{ "directionId": "D01", "rank": 1, "raw_score": 88, "confidence_adjusted_score": 84, "risk_penalty": 8, "final_score": 84, "penalty_reasons": [], "risk_breakdown": { "risk_penalty_total": 3, "template_risk_penalty": 3 } }] } },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-REP-006"],
+      "expected_system_rules": ["AP-REP-006"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "拆分合计、总扣分和 final_score 不一致。"
+    },
+    {
+      "id": "golden-matrix-single-full-score",
+      "description": "单组 Difference Matrix 满分且缺复核",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-u",
+      "run_id": "run-matrix-single",
+      "source": { "fixture_id": "golden-matrix-single-full-score", "differenceMatrix": { "evaluation_method": "semantic_assessment", "pairs": [{ "direction_pair": "D01/D02", "total_score": 12, "shared_visual_traits": [], "full_difference_review_required": false, "dimensions": [{ "score": 2, "reason": "a" }, { "score": 2, "reason": "b" }, { "score": 2, "reason": "c" }, { "score": 2, "reason": "d" }, { "score": 2, "reason": "e" }, { "score": 2, "reason": "f" }] }] } },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-DIR-008"],
+      "expected_system_rules": ["AP-DIR-008"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "满分需要共享特征与二次复核。"
+    },
+    {
+      "id": "golden-matrix-all-full-score",
+      "description": "三组 Difference Matrix 全部满分",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-v",
+      "run_id": "run-matrix-all",
+      "source": { "fixture_id": "golden-matrix-all-full-score", "differenceMatrix": { "evaluation_method": "string_comparison", "pairs": [
+        { "direction_pair": "D01/D02", "total_score": 12, "shared_visual_traits": ["比例"], "full_difference_review_required": true, "review_result": "checked", "dimensions": [] },
+        { "direction_pair": "D01/D03", "total_score": 12, "shared_visual_traits": ["网格"], "full_difference_review_required": true, "review_result": "checked", "dimensions": [] },
+        { "direction_pair": "D02/D03", "total_score": 12, "shared_visual_traits": ["色温"], "full_difference_review_required": true, "review_result": "checked", "dimensions": [] }
+      ] } },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-DIR-007", "AP-DIR-008"],
+      "expected_system_rules": ["AP-DIR-007", "AP-DIR-008"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "三组空维度且全部满分，同时触发机械矩阵与满分偏差。"
+    },
+    {
+      "id": "golden-direction-score-only",
+      "description": "推荐完全依赖最高分",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-w",
+      "run_id": "run-score-only",
+      "source": { "fixture_id": "golden-direction-score-only", "recommendation": { "recommendedDirectionId": "D01", "selection_method": "highest_score", "strategic_factors": {} } },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-DIR-003"],
+      "expected_system_rules": ["AP-DIR-003"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "缺少机会、成本、风险与战略适配判断。"
+    },
+    {
+      "id": "golden-composite-locked-fabricated",
+      "description": "Locked Asset 修改与虚构资质复合错误",
+      "adapter": "report",
+      "project_id": "golden-project-x",
+      "run_id": "run-composite-critical",
+      "source": { "fixture_id": "golden-composite-locked-fabricated", "lockedAssets": ["brand_name"], "asset_changes": [{ "asset": "brand_name", "before": "匿名原名", "after": "匿名新名", "authorized": false }], "claims": [{ "kind": "regulatory_approval", "statement": "已获批准", "evidence_ids": [] }] },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-BRAND-003", "AP-BRAND-004"],
+      "expected_system_rules": ["AP-BRAND-003", "AP-BRAND-004"],
+      "expected_status": "reject",
+      "allowed_semantic_skips": [],
+      "human_notes": "两个独立 S4 事实错误必须同时保留。"
+    },
+    {
+      "id": "golden-composite-b2b-assets",
+      "description": "B2B 错位与 Suggested Assets 失控复合错误",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-y",
+      "run_id": "run-composite-b2b-assets",
+      "brand_source": { "brandFacts": { "businessModel": "B2B", "industry": "工业服务" } },
+      "source": { "fixture_id": "golden-composite-b2b-assets", "directions": { "directions": [{ "directionId": "D01", "name": "护肤体验", "subjectPolicy": { "people": "女性脸部特写" } }] }, "evidenceMap": { "suggestedAssets": [{ "assetId": "SA401", "name": "医疗批准徽章", "status": "restricted", "executable": false }] } },
+      "semantic_results": { "AP-DIR-005": { "evidence": ["B2B 工业服务被表达为护肤消费者体验"], "location": { "path": "/directions/0" }, "confidence": 1 } },
+      "human_expected_rules": ["AP-DIR-005"],
+      "expected_system_rules": ["AP-DIR-005"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "受限但未执行的资产本身合规，错位方向仍需命中。"
+    },
+    {
+      "id": "golden-composite-homogeneous-score",
+      "description": "方向同质化与分数推荐复合错误",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-z",
+      "run_id": "run-composite-direction",
+      "source": { "fixture_id": "golden-composite-homogeneous-score", "directions": { "directions": [
+        { "directionId": "D01", "visual_fingerprint": { "silhouette": "line", "composition": "grid", "graphic_mechanism": "node", "material_family": "matte", "emotional_role": "trust" } },
+        { "directionId": "D02", "visual_fingerprint": { "silhouette": "line", "composition": "grid", "graphic_mechanism": "node", "material_family": "matte", "emotional_role": "trust" } }
+      ] }, "recommendation": { "recommendedDirectionId": "D01", "selection_method": "highest_score", "strategic_factors": {} } },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-DIR-001", "AP-DIR-003"],
+      "expected_system_rules": ["AP-DIR-001", "AP-DIR-003"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "同质化和机械推荐是两个不同问题。"
+    },
+    {
+      "id": "golden-composite-parent-logo",
+      "description": "母品牌资产与未批准 Logo 复合错误",
+      "adapter": "visual_direction",
+      "project_id": "golden-project-aa",
+      "run_id": "run-composite-assets",
+      "source": { "fixture_id": "golden-composite-parent-logo", "evidenceMap": { "suggestedAssets": [
+        { "assetId": "SA501", "name": "集团 Logo", "assetType": "parent_brand_logo", "status": "existing", "providedInSource": false, "authorizedForGeneration": false, "executable": true },
+        { "assetId": "SA502", "name": "品牌 Logo", "assetType": "brand_logo", "status": "proposed", "execution_scope": "current_direction", "executable": true, "evidence_ids": ["VE005"] }
+      ] } },
+      "semantic_results": {},
+      "human_expected_rules": ["AP-ASSET-001", "AP-ASSET-002", "AP-GEN-005"],
+      "expected_system_rules": ["AP-ASSET-001", "AP-ASSET-002", "AP-GEN-005"],
+      "expected_status": "repair",
+      "allowed_semantic_skips": [],
+      "human_notes": "两个资产授权问题与生命周期失控同时存在。"
+    },
+    {
+      "id": "golden-report-language-zero-score",
+      "description": "语言污染与零分推荐复合错误",
+      "adapter": "report",
+      "project_id": "golden-project-ab",
+      "run_id": "run-composite-report",
+      "source": { "fixture_id": "golden-report-language-zero-score", "reportMarkdown": "# 匿名报告", "recommendation": { "recommendedDirectionId": "D01", "comparison": [{ "directionId": "D01", "rank": 1, "comparisonScore": 0 }, { "directionId": "D02", "rank": 2, "comparisonScore": 0 }] } },
+      "semantic_results": { "AP-REP-004": { "evidence": ["人工确认正文存在连续无必要英文段落"], "location": { "path": "/sections/0" }, "confidence": 1 } },
+      "human_expected_rules": ["AP-REP-003", "AP-REP-004"],
+      "expected_system_rules": ["AP-REP-003", "AP-REP-004"],
+      "expected_status": "reject",
+      "allowed_semantic_skips": [],
+      "human_notes": "S4 冲突决定 reject，同时保留语言证据。"
+    },
+    {
+      "id": "golden-report-pass",
+      "description": "评分、排名和语言均正常的报告",
+      "adapter": "report",
+      "project_id": "golden-project-ac",
+      "run_id": "run-report-pass",
+      "source": { "fixture_id": "golden-report-pass", "reportMarkdown": "# 匿名品牌视觉方向报告\n\n本报告使用中文说明方向依据。", "languageMetadata": { "report_language": "zh-CN", "primary_language_ratio": 1 }, "directions": { "directions": [{ "name": "可信秩序" }, { "name": "协作生长" }] }, "scores": [{ "id": "D01", "score": 86 }, { "id": "D02", "score": 79 }], "ranking": ["D01", "D02"], "recommendation": { "recommendedDirectionId": "D01", "rationale": "证据与战略适配共同支持" } },
+      "semantic_results": {},
+      "human_expected_rules": [],
+      "expected_system_rules": [],
+      "expected_status": "pass",
+      "allowed_semantic_skips": [],
+      "human_notes": "独立于方向通过样本的正常报告基线。"
+    }
+  ]
+}

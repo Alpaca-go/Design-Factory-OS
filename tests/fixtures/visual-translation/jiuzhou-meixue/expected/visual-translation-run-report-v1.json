@@ -1,0 +1,73 @@
+{
+  "protocolVersion": "visual-translation-v1",
+  "status": "completed-directions",
+  "modelCallCount": 3,
+  "metrics": [
+    {
+      "stageId": "00-document-preparation",
+      "kind": "local",
+      "durationMs": 3,
+      "resumed": false
+    },
+    {
+      "stageId": "01-visual-evidence",
+      "kind": "model",
+      "durationMs": 1,
+      "resumed": false,
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 80
+      },
+      "modelId": "mock-visual-model",
+      "provider": "mock",
+      "finishReason": "stop",
+      "thinkingEnabled": false
+    },
+    {
+      "stageId": "02-visual-signal-opportunity",
+      "kind": "model",
+      "durationMs": 1,
+      "resumed": false,
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 80
+      },
+      "modelId": "mock-visual-model",
+      "provider": "mock",
+      "finishReason": "stop",
+      "thinkingEnabled": true
+    },
+    {
+      "stageId": "04-three-creative-directions",
+      "kind": "model",
+      "durationMs": 1,
+      "resumed": false,
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 80
+      },
+      "modelId": "mock-visual-model",
+      "provider": "mock",
+      "finishReason": "stop",
+      "thinkingEnabled": true
+    },
+    {
+      "stageId": "05-direction-recommendation",
+      "kind": "local",
+      "durationMs": 0,
+      "resumed": false
+    },
+    {
+      "stageId": "10-local-report-compiler",
+      "kind": "local",
+      "durationMs": 1,
+      "resumed": false
+    }
+  ],
+  "composition": {
+    "baseCharacters": 115,
+    "visualCharacters": 2588,
+    "visualRatio": 0.9574546799852016
+  },
+  "note": "Offline mock regression; real Provider Token and latency were not measured."
+}

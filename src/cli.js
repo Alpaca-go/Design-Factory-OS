@@ -8,6 +8,7 @@ import { selectProject } from './project-selector.js';
 import { ensureDir, writeText } from './utils.js';
 import { formatPerformanceProfile } from './performance-profiler.js';
 import { formatValidationCheck, validateProjectDelivery } from './validation-check.js';
+import { createReasonerFromEnvironment } from './v5/adapters/reasoner-factory.js';
 
 const HELP = `Masterpiece-OS v5.0 — Deep Creative Director Preparation System
 
@@ -39,6 +40,8 @@ v5 正式输出：
   --lock             v5 项目级额外锁定资产；可重复或用逗号分隔
   --allow-logo-redesign  v5 显式授权 Logo 重设计；默认关闭
   --required-app     v5 必须覆盖的应用；可重复或用逗号分隔
+  --provider         v5 Reasoner Provider：qwen 或 codex-host
+  --force-reasoning  v5 跳过精确推理缓存并执行一次新推理
   -o, --output       直接素材目录模式的输出目录；项目模式固定写入项目 outputs/
   -c, --config       v5 默认读取 masterpiece-os-v5.json；v4 读取 masterpiece-os.json
   --mode             仅供显式 v4 analyze 使用；v5 已废弃
@@ -52,9 +55,9 @@ function parseArgs(args) {
   const options = {};
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg === '--online' || arg === '--json' || arg === '--debug' || arg === '--profile' || arg === '--allow-logo-redesign') {
+    if (arg === '--online' || arg === '--json' || arg === '--debug' || arg === '--profile' || arg === '--allow-logo-redesign' || arg === '--force-reasoning') {
       const key = arg === '--allow-logo-redesign' ? 'allowLogoRedesign' : arg.slice(2);
-      options[key] = true;
+      options[key === 'force-reasoning' ? 'forceReasoning' : key] = true;
     }
     else if (arg === '--quick') options.mode = 'quick';
     else if (arg === '--standard' || arg === '--review') options.mode = 'standard';
@@ -65,14 +68,14 @@ function parseArgs(args) {
       const key = arg === '--lock' ? 'lockedAssets' : 'requiredApplications';
       options[key] = [...(options[key] || []), ...value.split(',').map((item) => item.trim()).filter(Boolean)];
     }
-    else if (['--output', '-o', '--config', '-c', '--name', '--thinking-dir', '--knowledge-dir', '--history-dir', '--project', '--project-brief', '--mode', '--language', '--creative-freedom'].includes(arg)) {
+    else if (['--output', '-o', '--config', '-c', '--name', '--thinking-dir', '--knowledge-dir', '--history-dir', '--project', '--project-brief', '--mode', '--language', '--creative-freedom', '--provider'].includes(arg)) {
       const value = args[++i];
       if (!value || value.startsWith('-')) throw new Error(`${arg} 缺少参数值`);
       const key = ({
         '--output': 'output', '-o': 'output', '--config': 'config', '-c': 'config', '--name': 'name',
         '--thinking-dir': 'thinkingDir', '--knowledge-dir': 'thinkingDir', '--history-dir': 'historyDir',
         '--project': 'project', '--project-brief': 'projectBrief', '--mode': 'mode',
-        '--language': 'language', '--creative-freedom': 'creativeFreedom'
+        '--language': 'language', '--creative-freedom': 'creativeFreedom', '--provider': 'provider'
       })[arg];
       options[key] = value;
     } else if (arg.startsWith('-')) throw new Error(`未知选项：${arg}`);
@@ -225,6 +228,12 @@ export async function main(args) {
       console.log(`完整交付耗时：${Math.round(result.handoff.handoffDurationMs / 1000)} 秒`);
       console.log(`输出目录：${output}`);
       return;
+    }
+    const selectedProvider = pipelineOptions.provider || process.env.MASTERPIECE_PROVIDER;
+    if (selectedProvider && !pipelineOptions.deepCreativeDirectorReasoner) {
+      pipelineOptions.deepCreativeDirectorReasonerFactory = () => createReasonerFromEnvironment({
+        provider: selectedProvider
+      });
     }
     const { result, output } = await runV5Pipeline(input, pipelineOptions);
     console.log('Masterpiece OS v5.0 — Deep Creative Director Mode');
