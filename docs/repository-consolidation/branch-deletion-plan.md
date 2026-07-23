@@ -7,10 +7,9 @@ Status: **completed on 2026-07-23 after explicit user confirmation**.
 - `main`
 - `develop`
 - `feature/reference-led-visual-direction`
-- `feature/retrieval-first-single-pipeline`
 
-The Retrieval-First feature branch is retained for 3-7 days after PR #6 and
-requires a separate later deletion confirmation.
+The merged `feature/retrieval-first-single-pipeline` branch was deleted locally
+and remotely after separate user confirmation.
 
 ## Deleted remote branches
 
@@ -31,5 +30,7 @@ before deletion:
 
 - All nine remote branches are absent.
 - All nine annotated archive tags remain on the remote.
-- The four retained remote branches remain present.
+- The three retained remote branches remain present.
 - Deleted branches can be restored from their corresponding archive tags.
+- Retrieval-First remains preserved by PR #6, `main`, and
+  `retrieval-first-core-beta-0.5`.

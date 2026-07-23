@@ -9,7 +9,6 @@ Audit date: 2026-07-23 (Asia/Shanghai).
 | `main` | Retrieval-First core baseline |
 | `develop` | Long-lived integration branch |
 | `feature/reference-led-visual-direction` | Active; PR #7 targets `develop` |
-| `feature/retrieval-first-single-pipeline` | Merged by PR #6; retain for 3-7 days |
 
 ## Pull requests
 
@@ -35,3 +34,8 @@ After explicit user confirmation, the following remote branches were deleted:
 
 All nine annotated `archive/*-20260723` tags remain on the remote and retain
 the exact deleted branch tips.
+
+The merged `feature/retrieval-first-single-pipeline` branch was subsequently
+deleted locally and remotely after separate user confirmation. Its history
+remains reachable through PR #6, `main`, and
+`retrieval-first-core-beta-0.5`.

@@ -43,12 +43,13 @@ archive tags were reverified.
 - Nine confirmed historical remote branches were deleted.
 - Their nine annotated `archive/*-20260723` tags remain available.
 - The remaining remote branches are `main`, `develop`,
-  `feature/reference-led-visual-direction`, and
-  `feature/retrieval-first-single-pipeline`.
+  and `feature/reference-led-visual-direction`.
+- The merged `feature/retrieval-first-single-pipeline` branch was later
+  deleted locally and remotely after separate user confirmation.
 
 ## Rollback and retention policy
 
 - Restore an archived line from its `archive/*-20260723` annotated tag.
 - Do not rewrite `main`; use a revert PR if PR #6 must be reversed.
-- Retain `feature/retrieval-first-single-pipeline` for 3-7 days after merge and
-  handle it in a separate later confirmation.
+- Retrieval-First remains recoverable through PR #6, the `main` merge commit,
+  and `retrieval-first-core-beta-0.5`.
