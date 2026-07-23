@@ -1,0 +1,12 @@
+origin/feature/reference-led-visual-direction 7ea99598cb8efdc4c1f04e33da340f0af93cefaa
+origin/feature/retrieval-first-single-pipeline 66e867aedc68c3e851473126e63c4b47c617836c
+origin/experiment/visual-fact-first-pipeline 9f862fd70dc21dc4678ca1c7921539320840eacc
+origin/experiment/execution-oriented-directions-v2 21cb8ea7f38482ec0281221052cc9f9978a5361d
+origin/feature/visual-translation-v1 b404c7639bd770e3be83c047b64932fe7fc96f37
+origin/feature/brand-dna-v3-core-quality-fix c48cb5ec2bea203fe22c80f49272fde794fb2544
+origin/feature/brand-dna-v3-deep-compact 4fe4a2e854cffa515bf92ce61bc58e424e038e23
+origin/feature/brand-dna-report-v2 ba27aad08d91465c9c95478c77575eea4e1cc88f
+origin/feature/brand-dna-analysis 92a255088a382b4365a594a3ca3e97b636a74f59
+origin/v5-desktop abc51a4357e7f5a7a04bd14d47c1fe9751f19fb3
+origin/main cf55955417e6a4e0e4fd1f62bf4702be4e19be78
+origin/v5-deep-creative-director 7a89c2a3e5931ac7c9646c799eb8b9ae38c890b5
