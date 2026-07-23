@@ -31,7 +31,8 @@ export function evaluatePipelineCompleteness({
   const upstreamFilesExist = upstreamArtifacts.every((name) => names.has(name));
   const benchmarkExists = Array.isArray(benchmarkRetrieval?.cases)
     && benchmarkRetrieval.cases.length > 0
-    && ['completed', 'partial', 'fixture'].includes(benchmarkRetrieval.retrieval_status);
+    && benchmarkRetrieval.retrieval_status === 'completed'
+    && benchmarkRetrieval.minimum_case_requirements_met === true;
   const opportunitiesExist = Array.isArray(visualOpportunitySynthesis?.differentiation_opportunities)
     && visualOpportunitySynthesis.differentiation_opportunities.length >= 3;
   return visualFacts && upstreamFilesExist && benchmarkExists && opportunitiesExist

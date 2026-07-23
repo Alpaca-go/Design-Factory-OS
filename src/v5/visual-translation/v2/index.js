@@ -131,6 +131,11 @@ export { adaptVisualFactFirstToStep4 } from './visual-fact-first/step4-input-ada
 export { evaluateVisualFactFirstAB } from './visual-fact-first/ab-evaluator.js';
 export { compileVisualBrief, compileVisualBriefMarkdown } from './retrieval-first/visual-brief.js';
 export { validateLightweightDirections, evaluateModelCriticAdvisory } from './runtime/lightweight-validator.js';
+export { buildDirectionFingerprint, compareDirectionFingerprints, evaluateCrossProjectDirectionSimilarity } from './runtime/direction-fingerprint.js';
+export { classifyPhotographySubject, PHOTOGRAPHY_SUBJECT_TYPES } from './runtime/photography-subject-classifier.js';
+export { compileDirectionFamilyCandidates } from './visual-fact-first/direction-family-compiler.js';
+export { resolveBenchmarkRequirementStatus, BENCHMARK_REQUIREMENTS } from './visual-fact-first/benchmark-status-resolver.js';
+export { evaluateFamilyRecommendationBias } from './freeze-test/family-bias-monitor.js';
 export { buildAnchorCandidateV2Prompt, ANCHOR_CANDIDATE_PROMPT_V2_VERSION } from './prompts/anchor-candidate-prompt-v2.js';
 
 export { renderNestedField } from './report/compile-execution-directions-report-v2.js';

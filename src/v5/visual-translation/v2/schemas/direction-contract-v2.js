@@ -79,8 +79,9 @@ export const ANTI_CONCEPT_ART_CONSTRAINTS = Object.freeze([
 
 const ANTI_CONCEPT_ART_CONSTRAINT_IDS = ANTI_CONCEPT_ART_CONSTRAINTS.map((item) => item.constraint_id);
 
-// Direction families (doc section 6). Optional: the model may declare which
-// family each direction belongs to; the family-difference gate also derives it.
+// Legacy values remain exported for archived fixture compatibility. New runs
+// use the selected DirectionFamilyCandidate id/name and do not map A/B/C to a
+// semantic family.
 export const DIRECTION_FAMILIES = Object.freeze(['A', 'B', 'C']);
 
 // v2.1 — semantic Direction Family types (doc section 五/八). `direction_family`
@@ -343,7 +344,7 @@ const INDUSTRY_CLASSIFICATION_KEYS = ['regulatory_objects', 'supply_chain_object
 const ASSET_AUTHORIZATION_KEYS = ['data_authorization_level', 'document_visualization_mode', 'credential_usage_mode', 'generated_data_policy'];
 
 function resolveFamilyType(letter, explicit) {
-  if (explicit !== undefined && DIRECTION_FAMILY_TYPES.includes(explicit)) return explicit;
+  if (explicit !== undefined && explicit !== null) return String(explicit);
   if (letter !== undefined && DIRECTION_FAMILY_TYPE_BY_LETTER[letter]) return DIRECTION_FAMILY_TYPE_BY_LETTER[letter];
   return undefined;
 }
@@ -426,7 +427,7 @@ export function validateExecutionDirectionV2(value, context = {}) {
     readiness_score: root.readiness_score === undefined ? null : numberValue(root.readiness_score, 'visualDirectionV2.readiness_score', { min: 0, max: 100 }),
     // doc sections 6/7/8/9 — optional structured fields the specialized-fix gates
     // consume. When absent, the evaluators derive the same signals from free text.
-    direction_family: root.direction_family === undefined ? undefined : enumValue(root.direction_family, DIRECTION_FAMILIES, 'visualDirectionV2.direction_family'),
+    direction_family: root.direction_family === undefined ? undefined : stringValue(root.direction_family, 'visualDirectionV2.direction_family'),
     family_type: resolveFamilyType(root.direction_family, root.family_type),
     compliance_weights: validateOptionalComplianceWeights(root.compliance_weights, 'visualDirectionV2.compliance_weights'),
     industry_recognition_classification: validateOptionalIndustryClassification(root.industry_recognition_classification, 'visualDirectionV2.industry_recognition_classification'),
@@ -482,8 +483,6 @@ export function validateExecutionDirectionV2(value, context = {}) {
 }
 
 const ENUM_FIELD_SPECS = Object.freeze([
-  { path: 'direction_family', allowed: DIRECTION_FAMILIES, optional: true },
-  { path: 'family_type', allowed: DIRECTION_FAMILY_TYPES, optional: true },
   { path: 'photography_object_system.needs_photography', allowed: PHOTOGRAPHY_REQUIREMENT_MODES },
   { path: 'downstream_consumer_value.consumer_value_role', allowed: CONSUMER_VALUE_ROLES, optional: true }
 ]);

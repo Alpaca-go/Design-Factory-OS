@@ -188,6 +188,72 @@ export function groupVisualDirectionIssues(issues = []) {
     }));
 }
 
+const ROOT_CAUSE_RULES = Object.freeze([
+  {
+    type: 'direction_scope_narrowing',
+    pattern: /BRAND_ROLE|STRATEGIC_THESIS|PRODUCT_MATERIAL|DIRECTION_SCOPE|ANCHOR_MECHANISM/u,
+    message: '方向过度缩减品牌角色，需重新扩展战略命题与视觉机制。',
+    action: '回到来源机会与品牌事实，重写视觉主角、生成机制和品牌角色映射。'
+  },
+  {
+    type: 'mechanism_generic',
+    pattern: /GENERIC|TEMPLATE|SPECIFICITY|MECHANISM/u,
+    message: '核心机制仍偏通用，多个 Gate 命中属于同一模板化根因。',
+    action: '用品牌事实、真实资产和触点行为替换通用图形与布局描述。'
+  },
+  {
+    type: 'authorization_unclear',
+    pattern: /AUTHORIZATION|INSTITUTION_PHOTOGRAPHY|CREDENTIAL/u,
+    message: '素材或拍摄主体的授权边界尚不明确。',
+    action: '识别拍摄主体类型；仅真实可识别机构进入授权确认。'
+  },
+  {
+    type: 'benchmark_insufficient',
+    pattern: /BENCHMARK|RETRIEVAL/u,
+    message: 'Benchmark 子门槛不足，方向差异判断证据不完整。',
+    action: '补足未通过的同行业、同商业模式或反模板案例子门槛。'
+  }
+]);
+
+export function aggregateRootCauseIssues(groups = []) {
+  const merged = new Map();
+  for (const group of groups) {
+    const rule = ROOT_CAUSE_RULES.find((item) => item.pattern.test(String(group.code || '')));
+    if (!rule) {
+      merged.set(`raw:${group.group_id}`, group);
+      continue;
+    }
+    const key = `${rule.type}|${group.affected_directions.join(',')}`;
+    const existing = merged.get(key);
+    if (existing) {
+      existing.technical_issues.push(...group.technical_issues);
+      existing.affected_issue_ids.push(group.group_id);
+      existing.hit_count += group.hit_count;
+      if (SEVERITY_ORDER[group.severity] < SEVERITY_ORDER[existing.severity]) existing.severity = group.severity;
+      continue;
+    }
+    merged.set(key, {
+      ...group,
+      root_cause_id: `RC-${String(merged.size + 1).padStart(3, '0')}`,
+      root_cause_type: rule.type,
+      affected_issue_ids: [group.group_id],
+      title: rule.message,
+      summary: rule.message,
+      action: rule.action
+    });
+  }
+  const counts = new Map();
+  return [...merged.values()].filter((group) => {
+    if (!group.affected_directions.length) return true;
+    return group.affected_directions.some((id) => {
+      const count = counts.get(id) || 0;
+      if (count >= 2) return false;
+      counts.set(id, count + 1);
+      return true;
+    });
+  });
+}
+
 function pipelineImpact(id, statusValue, hasCases) {
   if (statusValue === 'complete') return '本阶段信息可直接支持方向判断';
   const impacts = {
@@ -253,9 +319,11 @@ function directionCritic(modelCritic, directionId, direction, issueGroups) {
   const actions = issueGroups.map((item) => item.action).filter(Boolean);
   return {
     rating: status(found?.recommendation || found?.status || (problems.length ? 'Promising With Revision' : 'not_available')),
+    decision: found?.decision || null,
     conclusion: found?.conclusion || (problems.length ? '可继续深化' : '待评估'),
     score: Number.isFinite(found?.score) ? found.score : null,
     dimensions: found?.dimensions || {},
+    dimension_scores: found?.dimension_scores || {},
     relative_rank: comparative?.relative_rank ?? null,
     collection_size: items.length,
     strongest_dimension: comparative?.strongest_dimension || null,
@@ -469,6 +537,7 @@ function retrievalSummary(visualFactFirst) {
     relevant_count: retrieval?.relevant_count || 0,
     case_count: retrieval?.cases?.length || 0,
     minimum_requirements_met: Boolean(retrieval?.minimum_case_requirements_met),
+    requirement_status: retrieval?.requirement_status || null,
     failure_reason: retrieval?.failure_reason || null,
     failure_stage: retrieval?.failure_stage || null,
     fallback_query_count: retrieval?.fallback_query_count || 0,
@@ -479,8 +548,12 @@ function retrievalSummary(visualFactFirst) {
 
 function buildEnterConditions({ retrieval, visibleGroups, best, compiled }) {
   const conditions = [];
-  if (retrieval?.retrieval_status === 'failed' || !retrieval?.minimum_case_requirements_met) {
-    conditions.push({ id: 'pipeline-benchmark', priority: 'high', source: 'pipeline', description: '修复 Benchmark Retrieval，并达到最低案例数量。' });
+  if (retrieval?.retrieval_status === 'failed') {
+    conditions.push({ id: 'pipeline-benchmark', priority: 'high', source: 'pipeline', description: '恢复 Benchmark Provider，并达到总可用案例门槛。' });
+  } else if (retrieval?.retrieval_status === 'partial') {
+    const missing = Object.entries(retrieval.requirement_status || {})
+      .filter(([, item]) => !item.passed).map(([key]) => key).join('、');
+    conditions.push({ id: 'pipeline-benchmark', priority: 'medium', source: 'pipeline', description: `补足 Benchmark 分类子门槛：${missing || '未通过分类'}。` });
   }
   if (visibleGroups.some((item) => item.category === 'evidence' || item.category === 'asset_placeholder')) {
     conditions.push({ id: 'evidence-confirmation', priority: 'high', source: 'evidence', description: '为全部具体数据补 confirmed EvidenceRef，或降级为不含原数值的结构占位。' });
@@ -500,19 +573,15 @@ function buildEnterConditions({ retrieval, visibleGroups, best, compiled }) {
 function deriveRecommendation(compiled, directions, pipelineStages, visibleGroups, visualFactFirst) {
   const blockers = visibleGroups.filter((item) => item.severity === 'block');
   const retrievalFailed = pipelineStages.some((item) => item.id === 'benchmark_retrieval' && item.status === 'failed');
-  const ranked = [...directions].sort((a, b) => {
-    const localRank = { ready: 4, ready_with_warnings: 3, rewrite_required: 2, blocked: 1, not_available: 0 };
-    return (localRank[b.local_status] || 0) - (localRank[a.local_status] || 0)
-      || (b.critic.score ?? -1) - (a.critic.score ?? -1)
-      || (b.content_score ?? -1) - (a.content_score ?? -1);
-  });
-  const best = ranked[0];
+  const finalRanking = compiled?.model_critic?.final_direction_ranking
+    || compiled?.model_critic?.set_level_critic?.final_direction_ranking;
+  const best = directions.find((item) => item.id === finalRanking?.primary_direction_id);
   const retrieval = visualFactFirst?.benchmarkRetrieval;
   const enterConditions = buildEnterConditions({ retrieval, visibleGroups, best, compiled });
-  if (!best) return {
+  if (!best || finalRanking?.recommendation_confidence === 'unavailable') return {
     priority_direction: '暂不选择', recommended_direction: '暂不确定',
     recommendation_mode: 'unavailable', recommendation_confidence: 'unavailable',
-    reason: '当前没有可比较的方向', entry_conditions: enterConditions
+    reason: finalRanking?.recommendation_reason || 'FinalDirectionRanking 未提供可用首选方向。', entry_conditions: enterConditions
   };
   if (blockers.length || compiled?.overall_status === 'blocked') {
     return {
@@ -529,7 +598,7 @@ function deriveRecommendation(compiled, directions, pipelineStages, visibleGroup
   });
   const assetComplete = assetPipeline.analysis_status === 'complete' && assetPipeline.usage_status === 'referenced';
   const minimumMet = retrieval?.minimum_case_requirements_met === true;
-  const confidence = retrievalFailed ? 'low' : minimumMet && assetComplete ? 'high' : 'medium';
+  const confidence = retrievalFailed ? 'low' : finalRanking.recommendation_confidence || (minimumMet && assetComplete ? 'high' : 'medium');
   return {
     priority_direction: best.id,
     recommended_direction: retrievalFailed ? '暂不确定' : best.id,
@@ -537,13 +606,13 @@ function deriveRecommendation(compiled, directions, pipelineStages, visibleGroup
     recommendation_confidence: confidence,
     reason: retrievalFailed
       ? '标杆检索失败，当前判断仅基于项目事实与现有视觉素材。'
-      : `${best.name}在方向结论、维度差异与主要风险的综合判断中优先。`,
+      : finalRanking.recommendation_reason,
     entry_conditions: enterConditions
   };
 }
 
 export function compileVisualDirectionsReportViewModel({ projectId = 'unknown', compiled = {}, pipelineCompleteness, visualFactFirst, auditFilePath = '06-Visual-Directions-Audit.md' } = {}) {
-  const allIssueGroups = groupVisualDirectionIssues(compiled.gate_issues || []);
+  const allIssueGroups = aggregateRootCauseIssues(groupVisualDirectionIssues(compiled.gate_issues || []));
   const visibleGroups = allIssueGroups.filter((item) => !item.hidden_from_user_report).slice(0, 8);
   const pipelineStatus = derivePipelineStages(compiled, visualFactFirst, pipelineCompleteness);
   const directions = (compiled.directions || []).map((entry) => mapDirection(entry, visibleGroups, compiled.model_critic, visualFactFirst?.visualAssetEvidence));
@@ -822,7 +891,20 @@ export function renderVisualDirectionsReport(viewModel) {
   lines.push('', '## 附录 A：Retrieval First 证据摘要', '');
   lines.push(`- 检索状态：${status(vm.retrieval_summary.status)}`);
   lines.push(`- 查询 / 结果 / 相关结果 / 可用案例：${vm.retrieval_summary.query_count} / ${vm.retrieval_summary.result_count} / ${vm.retrieval_summary.relevant_count} / ${vm.retrieval_summary.case_count}`);
-  lines.push(`- 最低案例要求：${vm.retrieval_summary.minimum_requirements_met ? '已满足' : '未满足'}`);
+  const requirementLabels = {
+    total_usable: '总可用案例',
+    same_industry: '同行业案例',
+    same_business_model: '同商业模式案例',
+    anti_template: '反模板案例'
+  };
+  const requirements = vm.retrieval_summary.requirement_status || {};
+  if (Object.keys(requirements).length) {
+    for (const [key, item] of Object.entries(requirements)) {
+      lines.push(`- ${requirementLabels[key] || key}：${item.actual} / ${item.required}，${item.passed ? '通过' : '未通过'}`);
+    }
+  } else {
+    lines.push(`- 最低案例要求：${vm.retrieval_summary.minimum_requirements_met ? '已满足' : '未满足'}`);
+  }
   if (vm.retrieval_summary.failure_reason) lines.push(`- 失败原因：${vm.retrieval_summary.failure_reason}`);
   if (vm.retrieval_summary.failure_stage) lines.push(`- 失败阶段：${vm.retrieval_summary.failure_stage}`);
   lines.push(`- Fallback Query：${vm.retrieval_summary.fallback_query_count} 个查询 / ${vm.retrieval_summary.fallback_round_count} 轮`);

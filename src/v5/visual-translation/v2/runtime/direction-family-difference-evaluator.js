@@ -15,6 +15,7 @@
 // no longer decided by that single field.
 
 import { collectDirectionText } from './direction-text-util.js';
+import { buildDirectionFingerprint, compareDirectionFingerprints } from './direction-fingerprint.js';
 
 export const DIRECTION_FAMILY_DIFFERENCE_EVALUATOR_VERSION = 'direction-family-difference-evaluator-v1.2';
 
@@ -36,7 +37,8 @@ export const SIMILARITY_WEIGHTS = Object.freeze({
   responsive_pattern_similarity: 0.07
 });
 
-const OVERLAP_THRESHOLD = 0.72;
+const OVERLAP_THRESHOLD = 0.70;
+const EXECUTION_TEMPLATE_THRESHOLD = 0.72;
 
 function bigrams(text) {
   if (!text) return new Set();
@@ -160,7 +162,7 @@ function composite(dim) {
 }
 
 function band(score) {
-  if (score > 0.72) return 'rewrite_required';
+  if (score >= OVERLAP_THRESHOLD) return 'rewrite_required';
   if (score > 0.55) return 'high_overlap_warning';
   if (score > 0.35) return 'partial_overlap';
   return 'clear';
@@ -175,6 +177,10 @@ export function evaluateDirectionFamilyDifference(directions = []) {
       const b = directions[j];
       const dims = pairDimensions(a, b);
       const score = composite(dims);
+      const fingerprintSimilarity = compareDirectionFingerprints(
+        buildDirectionFingerprint(a),
+        buildDirectionFingerprint(b)
+      );
       const executionTemplateSimilarity = Math.round(([
         dims.composition_template_similarity, dims.subject_position_similarity,
         dims.image_graphic_ratio_similarity, dims.overlay_behavior_similarity,
@@ -182,16 +188,16 @@ export function evaluateDirectionFamilyDifference(directions = []) {
       ].reduce((sum, value) => sum + value, 0) / 6) * 1000) / 1000;
       const anchorMechanismSimilarity = Math.round(((dims.reusable_asset_similarity + dims.photography_subject_similarity + dims.composition_template_similarity) / 3) * 1000) / 1000;
       const key = `${a.direction_id}_${b.direction_id}`;
-      pairs.push({ pair: key, similarity: score, execution_template_similarity: executionTemplateSimilarity, anchor_mechanism_similarity: anchorMechanismSimilarity, band: band(score) });
-      details[key] = { ...dims, execution_template_similarity: executionTemplateSimilarity, anchor_mechanism_similarity: anchorMechanismSimilarity, composite: score, band: band(score) };
+      pairs.push({ pair: key, similarity: score, fingerprint_similarity: fingerprintSimilarity.similarity, execution_template_similarity: executionTemplateSimilarity, anchor_mechanism_similarity: anchorMechanismSimilarity, band: band(Math.max(score, fingerprintSimilarity.similarity)) });
+      details[key] = { ...dims, fingerprint: fingerprintSimilarity, execution_template_similarity: executionTemplateSimilarity, anchor_mechanism_similarity: anchorMechanismSimilarity, composite: score, band: band(Math.max(score, fingerprintSimilarity.similarity)) };
     }
   }
 
   const declaredFamilies = directions.map((d) => d.direction_family).filter(Boolean);
   const familyDistinct = new Set(declaredFamilies).size === declaredFamilies.length;
 
-  const highOverlapPairs = pairs.filter((p) => p.similarity > OVERLAP_THRESHOLD);
-  const templateOverlapPairs = pairs.filter((p) => p.execution_template_similarity > OVERLAP_THRESHOLD);
+  const highOverlapPairs = pairs.filter((p) => p.similarity >= OVERLAP_THRESHOLD || p.fingerprint_similarity >= OVERLAP_THRESHOLD);
+  const templateOverlapPairs = pairs.filter((p) => p.execution_template_similarity > EXECUTION_TEMPLATE_THRESHOLD);
   const directionFamilyOverlap = pairs.length > 0 && highOverlapPairs.length === pairs.length;
   const rewriteRequired = highOverlapPairs.length > 0 || templateOverlapPairs.length > 0 || (declaredFamilies.length === directions.length && !familyDistinct);
 
@@ -203,17 +209,18 @@ export function evaluateDirectionFamilyDifference(directions = []) {
 
   const differenceBand = (values) => values.every((value) => value <= 0.55)
     ? 'clear'
-    : values.some((value) => value > 0.72) ? 'weak' : 'moderate';
+    : values.some((value) => value >= OVERLAP_THRESHOLD) ? 'weak' : 'moderate';
 
   return {
     evaluator_version: DIRECTION_FAMILY_DIFFERENCE_EVALUATOR_VERSION,
     pairwise_similarity: Object.fromEntries(pairs.map((p) => [p.pair, p.similarity])),
+    pairwise_fingerprint_similarity: Object.fromEntries(pairs.map((p) => [p.pair, p.fingerprint_similarity])),
     pairwise_details: details,
     direction_family_difference: differenceBand(pairs.map((pair) => pair.similarity)),
     anchor_mechanism_difference_band: differenceBand(pairs.map((pair) => pair.anchor_mechanism_similarity)),
     execution_template_difference_band: differenceBand(pairs.map((pair) => pair.execution_template_similarity)),
-    execution_template_difference: pairs.every((pair) => pair.execution_template_similarity <= 0.55) ? 'clear' : pairs.some((pair) => pair.execution_template_similarity > 0.72) ? 'rewrite_required' : 'partial_overlap',
-    anchor_mechanism_difference: pairs.every((pair) => pair.anchor_mechanism_similarity <= 0.55) ? 'clear' : pairs.some((pair) => pair.anchor_mechanism_similarity > 0.72) ? 'rewrite_required' : 'partial_overlap',
+    execution_template_difference: pairs.every((pair) => pair.execution_template_similarity <= 0.55) ? 'clear' : pairs.some((pair) => pair.execution_template_similarity > EXECUTION_TEMPLATE_THRESHOLD) ? 'rewrite_required' : 'partial_overlap',
+    anchor_mechanism_difference: pairs.every((pair) => pair.anchor_mechanism_similarity <= 0.55) ? 'clear' : pairs.some((pair) => pair.anchor_mechanism_similarity >= OVERLAP_THRESHOLD) ? 'rewrite_required' : 'partial_overlap',
     overlap_dimensions: highOverlapPairs.length,
     direction_family_overlap: directionFamilyOverlap,
     declared_families_distinct: familyDistinct,

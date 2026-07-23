@@ -1,4 +1,5 @@
 import { buildEvidenceBoundValueRegistry } from './evidence-bound-values.js';
+import { compileDirectionFamilyCandidates } from './direction-family-compiler.js';
 import {
   sanitizeRejectedEvidenceBoundValue,
   sanitizeSpecificBusinessValuesDeep,
@@ -81,6 +82,7 @@ export function adaptVisualFactFirstToStep4({ visualFacts, visualAssetEvidence, 
     .flatMap(([group, value]) => value.map((item) => ({ ...item, group })));
   const allowedAssets = assetItems.filter((item) => item.authorization === 'locked' || item.authorization === 'editable').map((item) => item.evidence_id);
   const restrictedAssets = assetItems.filter((item) => !allowedAssets.includes(item.evidence_id)).map((item) => item.evidence_id);
+  const directionFamilyCompilation = compileDirectionFamilyCandidates({ visualOpportunitySynthesis });
   const context = {
     brand_identity: {
       brand_name: confirmed('brand_name', visualFacts.project_identity.brand_name, 'unknown'),
@@ -110,6 +112,9 @@ export function adaptVisualFactFirstToStep4({ visualFacts, visualAssetEvidence, 
     visual_asset_evidence: visualAssetEvidence,
     benchmark_findings: benchmarkRetrieval,
     visual_opportunities: visualOpportunitySynthesis,
+    direction_family_candidates: directionFamilyCompilation.candidates,
+    selected_direction_families: directionFamilyCompilation.selected_candidates,
+    direction_set_diversity_requirements: directionFamilyCompilation.requirements,
     fact_status_groups: factsByStatus,
     evidence_bound_values: allowedEvidenceBoundValues,
     rejected_evidence_bound_values: rejectedEvidenceBoundValues,

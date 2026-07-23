@@ -229,14 +229,14 @@ test('similarity gate detects one shared execution composition despite different
   assert.equal(result.rewrite_required, true);
 });
 
-test('direction prompt encodes the three differentiated quality mechanisms', () => {
+test('direction prompt selects dynamic families and removes the fixed three-slot mechanisms', () => {
   const messages = buildExecutionDirectionV2Prompt({
     projectId: 'prompt-quality-test', evidenceIndex: {}, audienceBoundary: {},
     assetBoundary: {}, selectedTouchpoints: [], brandFacts: {}
   });
   const prompt = messages.map((message) => message.content).join('\n');
-  assert.match(prompt, /验证窗口|时间带|批次轨迹/u);
-  assert.match(prompt, /平台品质选择/u);
-  assert.match(prompt, /不是成分、配方、实验室、护肤品或单一医械品牌/u);
-  assert.match(prompt, /上游品牌.*平台.*机构.*消费者.*安全.*稳定.*透明/us);
+  assert.match(prompt, /Selected Direction Families/u);
+  assert.match(prompt, /D01、D02、D03/u);
+  assert.match(prompt, /来源机会、视觉主角、生成机制、主要触点/u);
+  assert.doesNotMatch(prompt, /E01「全链可信」|E02「平台品质选择」|E03「生态价值流」/u);
 });

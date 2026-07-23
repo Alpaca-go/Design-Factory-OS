@@ -1,5 +1,6 @@
 import { validateBenchmarkCase } from './schemas.js';
 import { createRetrievalTransport } from './retrieval-transport.js';
+import { resolveBenchmarkRequirementStatus } from './benchmark-status-resolver.js';
 
 const MINIMUM_CASES = Object.freeze({ total: 6, direct_industry: 2, business_model: 2, anti_template: 1 });
 
@@ -148,25 +149,18 @@ export async function retrieveBenchmarkCases({
   const relevantCases = cases.filter((item) => item.relevance_score >= 0.6);
   const boundedCases = relevantCases.slice(0, 12);
   const categoryCounts = Object.fromEntries(['direct_industry', 'business_model', 'tone_price', 'anti_template'].map((category) => [category, boundedCases.filter((item) => item.case_type === category).length]));
-  const minimumMet = raw.length >= 12
-    && relevantCases.length >= 8
-    && boundedCases.length >= MINIMUM_CASES.total
-    && categoryCounts.direct_industry >= MINIMUM_CASES.direct_industry
-    && categoryCounts.business_model >= MINIMUM_CASES.business_model
-    && categoryCounts.anti_template >= MINIMUM_CASES.anti_template;
+  const providerHadResults = raw.length > 0 || seedCases.length > 0;
+  const benchmarkRequirements = resolveBenchmarkRequirementStatus(boundedCases, { providerHadResults });
+  const minimumMet = benchmarkRequirements.all_passed;
   diagnostics.forEach((item) => {
     if (!item.failure_reason && item.raw_result_count > 0 && item.usable_result_count === 0) item.failure_reason = 'all_results_filtered';
   });
   const noCasesReason = parserFailures && parserFailures === raw.length ? 'parser_error'
     : diagnostics.find((item) => item.failure_reason)?.failure_reason
       || (boundedCases.length ? null : 'empty_response');
-  const retrievalStatus = typeof retriever !== 'function'
-    ? (seedCases.length ? 'fixture' : 'not_configured')
-    : boundedCases.length === 0
-      ? 'failed'
-      : minimumMet && queryErrors.length === 0
-        ? 'completed'
-        : 'partial';
+  const retrievalStatus = typeof retriever !== 'function' && !seedCases.length
+    ? 'not_configured'
+    : benchmarkRequirements.status;
   return Object.freeze({
     schema_version: 'benchmark-retrieval-v2',
     retrieval_status: retrievalStatus,
@@ -179,6 +173,7 @@ export async function retrieveBenchmarkCases({
     category_counts: Object.freeze(categoryCounts),
     minimum_case_requirements: MINIMUM_CASES,
     minimum_case_requirements_met: minimumMet,
+    requirement_status: benchmarkRequirements.requirement_status,
     failure_reason: retrievalStatus === 'failed' ? noCasesReason : null,
     failure_stage: retrievalStatus === 'failed'
       ? diagnostics.some((item) => ['failed', 'timeout'].includes(item.request_status)) ? 'provider_request'
