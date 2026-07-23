@@ -8,8 +8,16 @@
 
 ## Validation
 
-- Pending Phase B validation.
-- No merge is authorized during Phase A.
+- `npm test`: 410 passed, 0 failed.
+- `npm run verify:document-flows`: passed; the offline document-flow gate
+  completed without external API calls.
+- `npm --prefix apps/desktop test`: 32 passed, 0 failed.
+- `npm --prefix apps/desktop run typecheck`: passed.
+- `npm run desktop:build`: passed.
+- Retrieval-First targeted regression suite: 34 passed, 0 failed across
+  visual-fact-first, retrieval transport, cross-industry diversity and
+  report-consistency coverage.
+- Validated on 2026-07-23 before creating the Phase B consolidation PR.
 
 ## Merge strategy
 
