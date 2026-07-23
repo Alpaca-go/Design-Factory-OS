@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { AnalysisProgress, DesktopApi, VisualTranslationProgress } from '../shared/types';
+import type {
+  AnalysisProgress,
+  DesktopApi,
+  ReferenceTranslationProgress,
+  VisualTranslationProgress
+} from '../shared/types';
 
 const api: DesktopApi = {
   settings: {
@@ -61,12 +66,24 @@ const api: DesktopApi = {
     chooseInput: () => ipcRenderer.invoke('reference-translation:choose-input'),
     chooseReferenceAssets: () => ipcRenderer.invoke('reference-translation:choose-reference-assets'),
     chooseProjectSources: () => ipcRenderer.invoke('reference-translation:choose-project-sources'),
+    inspectAssets: (paths) => ipcRenderer.invoke('reference-translation:inspect-assets', paths),
     runUserInput: (input) => ipcRenderer.invoke('reference-translation:run-user-input', input),
     run: (input) => ipcRenderer.invoke('reference-translation:run', input),
     listRuns: () => ipcRenderer.invoke('reference-translation:list-runs'),
+    getActive: () => ipcRenderer.invoke('reference-translation:get-active'),
     getProfile: (runId) => ipcRenderer.invoke('reference-translation:get-profile', runId),
+    getDirection: (runId) => ipcRenderer.invoke('reference-translation:get-direction', runId),
+    getReconstruction: (runId) => ipcRenderer.invoke('reference-translation:get-reconstruction', runId),
+    readReport: (runId) => ipcRenderer.invoke('reference-translation:read-report', runId),
+    retryReport: (runId) => ipcRenderer.invoke('reference-translation:retry-report', runId),
+    cancel: (runId) => ipcRenderer.invoke('reference-translation:cancel', runId),
     remove: (runId) => ipcRenderer.invoke('reference-translation:remove', runId),
-    openFolder: (runId) => ipcRenderer.invoke('reference-translation:open-folder', runId)
+    openFolder: (runId) => ipcRenderer.invoke('reference-translation:open-folder', runId),
+    onProgress(callback) {
+      const listener = (_event: Electron.IpcRendererEvent, progress: ReferenceTranslationProgress) => callback(progress);
+      ipcRenderer.on('reference-translation:progress', listener);
+      return () => ipcRenderer.removeListener('reference-translation:progress', listener);
+    }
   },
   files: {
     getPathForFile: (file) => webUtils.getPathForFile(file)

@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { isUsableProjectName } from './project-intake.ts';
+import { validateReferenceTranslationMarkdown, type ReportType } from './reference-translation-report.ts';
 
 const WINDOWS_FORBIDDEN = /[<>:"/\\|?*\u0000-\u001F]/g;
 
@@ -63,7 +64,7 @@ export function normalizeReportTitle(markdown: string, projectName: string, lang
   return /^#\s+.+$/m.test(value) ? value.replace(/^#\s+.+$/m, title) + '\n' : `${title}\n\n${value}\n`;
 }
 
-export function validateDesktopReport(markdown: string): void {
+export function validateVisualUpgradeMarkdown(markdown: string): void {
   const required = Array.from({ length: 11 }, (_, index) => `## ${index}.`);
   const missing = required.filter((heading) => !markdown.includes(heading));
   if (missing.length) throw new Error(`Markdown 校验失败：缺少章节 ${missing.join('、')}`);
@@ -72,6 +73,21 @@ export function validateDesktopReport(markdown: string): void {
     throw new Error('Markdown 校验失败：资产决策未覆盖保留、升级、替换、删除、新增');
   }
 }
+
+export function validateMarkdownReport(
+  reportType: ReportType,
+  markdown: string,
+  structuredResult?: unknown
+): void {
+  if (reportType === 'visual_upgrade') return validateVisualUpgradeMarkdown(markdown);
+  if (reportType === 'reference_translation') {
+    return validateReferenceTranslationMarkdown(markdown, structuredResult as Parameters<typeof validateReferenceTranslationMarkdown>[1]);
+  }
+  throw new Error(`Unsupported report type: ${reportType}`);
+}
+
+// Backward-compatible visual-upgrade entry point.
+export const validateDesktopReport = validateVisualUpgradeMarkdown;
 
 export function assertInside(parent: string, target: string): string {
   const resolvedParent = path.resolve(parent);

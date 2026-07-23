@@ -417,7 +417,196 @@ export interface ReferenceTranslationProfile {
   projectTranslationMatrix: ReferenceTranslationMatrixItem[];
 }
 
-export type ReferenceTranslationRunStatus = 'completed' | 'failed';
+export interface ReferenceLedDirection {
+  directionName: string;
+  coreProposition: string;
+  visualAnchor: string;
+  compositionSystem: string[];
+  graphicSystem: string[];
+  colorSystem: string[];
+  materialSystem: string[];
+  typographySystem: string[];
+  touchpointRules: {
+    packaging: string[];
+    poster: string[];
+    vi: string[];
+    spatial?: string[];
+  };
+  prohibitedActions: string[];
+}
+
+export interface CurrentProjectProfile {
+  schemaVersion: string;
+  projectId: string;
+  projectName: string;
+  brandName: string;
+  industry: string;
+  coreProducts: string[];
+  targetAudience: string[];
+  pricePositioning?: string;
+  brandPositioning: string;
+  usageScenarios: string[];
+  businessTouchpoints: string[];
+  lockedAssets: string[];
+  packagingStructures: string[];
+  confirmedFacts: string[];
+  sourceArtifactIds: string[];
+  currentVisualAssets?: string[];
+  existingBrandCopy?: string[];
+}
+
+export interface ReferenceStyleRule {
+  rule: string;
+  evidence: string[];
+  designEffect: string;
+  confidence: number;
+}
+
+export type VisualAnalysisPurpose = 'current_project_audit' | 'reference_style';
+
+export interface ReferenceStyleProfile {
+  schemaVersion: string;
+  overallTemperament: ReferenceStyleRule[];
+  colorSystem: ReferenceStyleRule[];
+  compositionSystem: ReferenceStyleRule[];
+  graphicLanguage: ReferenceStyleRule[];
+  typographySystem: ReferenceStyleRule[];
+  materialSystem: ReferenceStyleRule[];
+  lightingSystem: ReferenceStyleRule[];
+  photographySystem: ReferenceStyleRule[];
+  packagingPresentation: ReferenceStyleRule[];
+  posterPresentation: ReferenceStyleRule[];
+  viExtensionSystem: ReferenceStyleRule[];
+  excludedIdentityTerms: string[];
+  sourceAssetIds: string[];
+  portfolioPresentation?: ReferenceStyleRule[];
+}
+
+export interface StyleApplicationPlan {
+  retainedProjectIdentity: string[];
+  currentVisualElementsToRetain: string[];
+  currentVisualElementsToRedesign: string[];
+  referenceStyleToApply: Array<{
+    referenceRule: string;
+    applicationToCurrentProject: string;
+    affectedTouchpoints: string[];
+  }>;
+  projectSpecificReinterpretation: Array<{
+    sourceVisualFunction: string;
+    projectSpecificSource: string;
+    reconstructionRule: string;
+  }>;
+  touchpointStrategy: Record<string, string[]>;
+  prohibitedActions: string[];
+}
+
+export interface VisualReconstructionDirection {
+  directionName: string;
+  coreProposition: string;
+  visualAnchor: string;
+  currentProjectIdentityToRetain: string[];
+  currentVisualElementsToRedesign: string[];
+  compositionSystem: string[];
+  graphicSystem: string[];
+  colorSystem: string[];
+  typographySystem: string[];
+  materialSystem: string[];
+  lightingSystem: string[];
+  photographySystem: string[];
+  touchpointRules: {
+    packaging: string[];
+    poster: string[];
+    vi: string[];
+    space?: string[];
+  };
+  prohibitedActions: string[];
+}
+
+export interface ReconstructionQualityValidation {
+  currentProjectContextComplete: boolean;
+  lockedAssetsPresent: boolean;
+  referenceStyleProfilePresent: boolean;
+  noReferenceBrandPollution: boolean;
+  noInternalSystemTerms: boolean;
+  noMarkdownFragments: boolean;
+  styleApplicationIsProjectSpecific: boolean;
+  visualDirectionIsExecutable: boolean;
+  touchpointRulesPresent: boolean;
+  gptExecutionConstraintsPresent: boolean;
+  projectProfileClean?: boolean;
+  outputNotDuplicated?: boolean;
+  visualDirectionSpecific?: boolean;
+  passed: boolean;
+  issues: string[];
+}
+
+export interface ReferenceStyleReconstruction {
+  currentProjectProfile: CurrentProjectProfile;
+  referenceStyleProfile: ReferenceStyleProfile;
+  styleApplicationPlan?: StyleApplicationPlan;
+  visualReconstructionDirection: VisualReconstructionDirection;
+  validation: ReconstructionQualityValidation;
+}
+
+export type ReferenceTranslationStage =
+  | 'PREPARING_ASSETS'
+  | 'ANALYZING_REFERENCE'
+  | 'LOADING_PROJECT_CONTEXT'
+  | 'SYNTHESIZING_REFERENCE_DNA'
+  | 'CLASSIFYING_TRANSFERABILITY'
+  | 'MAPPING_TO_PROJECT'
+  | 'GENERATING_DIRECTION'
+  | 'COMPILING_REPORT'
+  | 'VALIDATING_REPORT'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELLED';
+
+export type ReferenceTranslationRunStatus = 'running' | 'completed' | 'failed' | 'cancelled';
+
+export interface ReferenceTranslationError {
+  code:
+    | 'REFERENCE_ASSET_PREPARATION_FAILED'
+    | 'REFERENCE_ANALYSIS_FAILED'
+    | 'CURRENT_PROJECT_CONTEXT_INCOMPLETE'
+    | 'CURRENT_PROJECT_PROFILE_CONTAMINATED'
+    | 'REFERENCE_STYLE_INSUFFICIENT'
+    | 'REFERENCE_STYLE_PROFILE_CONTAMINATED'
+    | 'REFERENCE_BRAND_CONTAMINATION'
+    | 'REFERENCE_IDENTITY_LEAKAGE'
+    | 'RECONSTRUCTION_OUTPUT_DUPLICATED'
+    | 'VISUAL_DIRECTION_NOT_EXECUTABLE'
+    | 'RECONSTRUCTION_QUALITY_FAILED'
+    | 'PROJECT_CONTEXT_LOAD_FAILED'
+    | 'REFERENCE_DNA_FAILED'
+    | 'TRANSFERABILITY_FAILED'
+    | 'PROJECT_MAPPING_FAILED'
+    | 'DIRECTION_GENERATION_FAILED'
+    | 'MARKDOWN_COMPILE_FAILED'
+    | 'MARKDOWN_VALIDATION_FAILED'
+    | 'REPORT_WRITE_FAILED'
+    | 'CANCELLED';
+  message: string;
+  stage: ReferenceTranslationStage;
+  recoverable: boolean;
+  retryFromStage?: ReferenceTranslationStage;
+}
+
+export interface ReferenceTranslationProgress {
+  jobId: string;
+  projectId: string;
+  jobType: 'reference_translation';
+  status: ReferenceTranslationRunStatus;
+  stage: ReferenceTranslationStage;
+  stageIndex: number;
+  stageCount: number;
+  progress: number;
+  analyzedAssetCount?: number;
+  totalAssetCount?: number;
+  startedAt: string;
+  updatedAt: string;
+  message?: string;
+}
 
 export interface ReferenceTranslationRunRecord {
   id: string;
@@ -434,11 +623,19 @@ export interface ReferenceTranslationRunRecord {
   matrixCount?: number;
   prohibitedCount?: number;
   lastError?: string | null;
+  projectId?: string;
+  stage?: ReferenceTranslationStage;
+  progress?: number;
+  analyzedAssetCount?: number;
+  totalAssetCount?: number;
+  reportFilename?: string | null;
+  error?: ReferenceTranslationError | null;
 }
 
 export interface StartReferenceTranslationInput {
   visualAnalysisPath: string;
   projectContextPath: string;
+  referenceStylePreference?: string;
   preference?: string;
   force?: boolean;
 }
@@ -448,13 +645,32 @@ export interface StartReferenceTranslationUserInput {
   currentProjectId?: string;
   currentProjectSourcePaths?: string[];
   apiProfileId?: string;
+  referenceStylePreference?: string;
   preference?: string;
   force?: boolean;
 }
 
+export interface ReferenceAssetSelectionItem {
+  sourcePath: string;
+  name: string;
+  extension: string;
+  sizeBytes: number;
+  fingerprint: string;
+  thumbnailDataUrl?: string;
+}
+
+export interface ReferenceAssetSelection {
+  items: ReferenceAssetSelectionItem[];
+  skipped: string[];
+  duplicateCount: number;
+}
+
 export interface ReferenceTranslationResult {
   run: ReferenceTranslationRunRecord;
-  profile: ReferenceTranslationProfile;
+  profile?: ReferenceTranslationProfile;
+  direction?: ReferenceLedDirection;
+  reportMarkdown?: string;
+  reconstruction?: ReferenceStyleReconstruction;
 }
 
 export interface DesktopApi {
@@ -509,12 +725,20 @@ export interface DesktopApi {
     chooseInput(): Promise<string[]>;
     chooseReferenceAssets(): Promise<string[]>;
     chooseProjectSources(): Promise<string[]>;
+    inspectAssets(paths: string[]): Promise<ReferenceAssetSelection>;
     runUserInput(input: StartReferenceTranslationUserInput): Promise<ReferenceTranslationResult>;
     run(input: StartReferenceTranslationInput): Promise<ReferenceTranslationResult>;
     listRuns(): Promise<ReferenceTranslationRunRecord[]>;
+    getActive(): Promise<ReferenceTranslationProgress | null>;
     getProfile(runId: string): Promise<ReferenceTranslationProfile>;
+    getDirection(runId: string): Promise<ReferenceLedDirection>;
+    getReconstruction(runId: string): Promise<ReferenceStyleReconstruction>;
+    readReport(runId: string): Promise<string>;
+    retryReport(runId: string): Promise<ReferenceTranslationResult>;
+    cancel(runId: string): Promise<boolean>;
     remove(runId: string): Promise<void>;
     openFolder(runId: string): Promise<void>;
+    onProgress(callback: (progress: ReferenceTranslationProgress) => void): () => void;
   };
   files: {
     getPathForFile(file: File): string;
