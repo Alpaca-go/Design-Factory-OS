@@ -100,6 +100,203 @@ export interface ProjectAsset {
   archiveSourceName?: string;
 }
 
+export type ConfidenceLevel = 'high' | 'medium' | 'low';
+
+export type CurrentProjectAssetRole =
+  | 'logo_evidence'
+  | 'logo_typography_evidence'
+  | 'brand_name_evidence'
+  | 'product_fact_evidence'
+  | 'packaging_structure_evidence'
+  | 'product_structure_evidence'
+  | 'touchpoint_evidence'
+  | 'locked_asset_evidence'
+  | 'brand_copy_evidence'
+  | 'spatial_structure_evidence'
+  | 'legacy_visual_style_only'
+  | 'duplicate'
+  | 'irrelevant'
+  | 'uncertain';
+
+export interface CurrentProjectAssetDecision {
+  assetId: string;
+  filename: string;
+  role: CurrentProjectAssetRole;
+  keepInCorePack: boolean;
+  keepReason: string;
+  extractedFacts: string[];
+  lockedEvidence: string[];
+  containsLegacyStyle: boolean;
+  legacyStyleShouldInfluenceOutput: false;
+  confidence: number;
+  requiresHumanReview: boolean;
+}
+
+export interface PackagingStructureEvidence {
+  assetId: string;
+  description: string;
+  confidence: number;
+}
+
+export interface LockedAssetEvidence {
+  name: string;
+  assetIds: string[];
+  reason: string;
+}
+
+export interface CurrentProjectCorePack {
+  projectId: string;
+  brandName: string;
+  industry: string;
+  productFacts: string[];
+  targetAudience?: string[];
+  brandPositioning?: string;
+  logoAssetIds: string[];
+  logoTypographyAssetIds: string[];
+  packagingStructures: PackagingStructureEvidence[];
+  productAssets: string[];
+  touchpoints: ProjectTouchpointInventory;
+  confirmedBrandCopy: string[];
+  lockedAssets: LockedAssetEvidence[];
+  excludedLegacyStyleAssetIds: string[];
+  uncertainAssetIds: string[];
+  sourceAssetIds: string[];
+  schemaVersion: 'current-project-core-pack-v1';
+}
+
+export interface CurrentProjectCorePackValidation {
+  hasBrandName: boolean;
+  hasLogoEvidence: boolean;
+  hasLogoTypographyEvidence: boolean;
+  hasProductFactEvidence: boolean;
+  hasRequiredStructureEvidence: boolean;
+  hasLockedAssetEvidence: boolean;
+  excludesLegacyStyleOnlyAssets: boolean;
+  excludesDuplicateAssets: boolean;
+  noReferenceAssetsMixedIn: boolean;
+  unresolvedUncertainAssets: string[];
+  passed: boolean;
+  warnings: string[];
+}
+
+export type ReferenceAssetRole =
+  | 'system_overview'
+  | 'packaging'
+  | 'packaging_detail'
+  | 'poster'
+  | 'vi_application'
+  | 'material_detail'
+  | 'typography_detail'
+  | 'graphic_detail'
+  | 'spatial'
+  | 'display_layout'
+  | 'photography_style'
+  | 'brand_strategy_text'
+  | 'pure_text_slide'
+  | 'duplicate'
+  | 'irrelevant'
+  | 'uncertain';
+
+export type GenerationOutputType =
+  | 'anchor_vi_system'
+  | 'packaging_single'
+  | 'packaging_series'
+  | 'brand_poster'
+  | 'product_poster'
+  | 'vi_application'
+  | 'spatial_scene'
+  | 'digital_campaign';
+
+export type StyleCarrierCategory =
+  | 'color'
+  | 'layout'
+  | 'typography'
+  | 'graphic'
+  | 'material'
+  | 'photography'
+  | 'display'
+  | 'spatial';
+
+export interface ReferenceAssetDecision {
+  assetId: string;
+  filename: string;
+  role: ReferenceAssetRole;
+  styleCarrierStrength: ConfidenceLevel;
+  includeInMasterSet: boolean;
+  eligibleOutputTypes: GenerationOutputType[];
+  representedStyleCarriers: StyleCarrierCategory[];
+  duplicationGroupId?: string;
+  confidence: number;
+  reason: string;
+  requiresHumanReview: boolean;
+}
+
+export interface StyleCarrier {
+  id: string;
+  category: StyleCarrierCategory;
+  description: string;
+  priority: 'primary' | 'secondary' | 'optional';
+  supportingAssetIds: string[];
+  mustBeVisibleInOutput: boolean;
+  confidence: number;
+}
+
+export interface ReferenceMasterSet {
+  assetIds: string[];
+  decisions: ReferenceAssetDecision[];
+  styleCarriers: StyleCarrier[];
+  schemaVersion: 'reference-master-set-v1';
+}
+
+export interface ReferenceMasterSetValidation {
+  hasSystemOverview: boolean;
+  hasCrossTouchpointCoverage: boolean;
+  hasPrimaryStyleCarrierEvidence: boolean;
+  hasPackagingEvidence: boolean;
+  hasPosterOrLayoutEvidence: boolean;
+  hasMaterialOrDetailEvidence: boolean;
+  excludesPureTextSlides: boolean;
+  excludesBusinessAnalysisPages: boolean;
+  excludesNearDuplicates: boolean;
+  missingCoverageRoles: ReferenceAssetRole[];
+  passed: boolean;
+  warnings: string[];
+}
+
+export interface TaskReferenceSubset {
+  outputType: GenerationOutputType;
+  selectedAssetIds: string[];
+  primaryReferenceAssetId: string;
+  supportingReferenceAssetIds: string[];
+  coveredPrimaryStyleCarrierIds: string[];
+  missingStyleCarrierIds: string[];
+  selectionReason: string;
+  confidence: number;
+}
+
+export interface TaskSubsetValidation {
+  matchesOutputType: boolean;
+  hasHighStrengthPrimaryReference: boolean;
+  coversPrimaryStyleCarriers: boolean;
+  avoidsCrossTypeNoise: boolean;
+  avoidsNearDuplicates: boolean;
+  assetCountValid: boolean;
+  passed: boolean;
+}
+
+export interface AssetSelectionProtocolResult {
+  currentProjectAssetDecisions: CurrentProjectAssetDecision[];
+  currentProjectCorePack: CurrentProjectCorePack;
+  currentCorePackValidation: CurrentProjectCorePackValidation;
+  referenceAssetDecisions: ReferenceAssetDecision[];
+  referenceMasterSet: ReferenceMasterSet;
+  referenceMasterSetValidation: ReferenceMasterSetValidation;
+  taskReferenceSubsets: TaskReferenceSubset[];
+  taskSubsetValidations: TaskSubsetValidation[];
+  requiresHumanConfirmation: boolean;
+  schemaVersion: 'asset-selection-protocol-v1';
+}
+
 export interface ProjectRecord {
   id: string;
   projectName: string;
@@ -619,11 +816,15 @@ export interface ReferenceStyleReconstruction {
   referenceStyleProfile: ReferenceStyleProfile;
   styleApplicationPlan?: StyleApplicationPlan;
   visualReconstructionDirection: VisualReconstructionDirection;
+  assetSelectionProtocol?: AssetSelectionProtocolResult;
   validation: ReconstructionQualityValidation;
 }
 
 export type ReferenceTranslationStage =
   | 'PREPARING_ASSETS'
+  | 'SELECTING_CURRENT_CORE_PACK'
+  | 'SELECTING_REFERENCE_MASTER_SET'
+  | 'BUILDING_TASK_REFERENCE_SUBSETS'
   | 'ANALYZING_REFERENCE'
   | 'LOADING_PROJECT_CONTEXT'
   | 'SYNTHESIZING_REFERENCE_DNA'
@@ -641,6 +842,11 @@ export type ReferenceTranslationRunStatus = 'running' | 'completed' | 'failed' |
 export interface ReferenceTranslationError {
   code:
     | 'REFERENCE_ASSET_PREPARATION_FAILED'
+    | 'CURRENT_CORE_PACK_INCOMPLETE'
+    | 'CURRENT_CORE_PACK_CONTAMINATED'
+    | 'REFERENCE_MASTER_SET_INSUFFICIENT'
+    | 'TASK_REFERENCE_SUBSET_MISMATCH'
+    | 'TASK_REFERENCE_SUBSET_TOO_WEAK'
     | 'REFERENCE_ANALYSIS_FAILED'
     | 'CURRENT_PROJECT_CONTEXT_INCOMPLETE'
     | 'CURRENT_PROJECT_PROFILE_CONTAMINATED'
@@ -745,6 +951,7 @@ export interface ReferenceTranslationResult {
   direction?: ReferenceLedDirection;
   reportMarkdown?: string;
   reconstruction?: ReferenceStyleReconstruction;
+  assetSelectionProtocol?: AssetSelectionProtocolResult;
 }
 
 export interface DesktopApi {

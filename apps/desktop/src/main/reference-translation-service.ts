@@ -3,7 +3,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 import type {
+  CurrentProjectAssetDecision,
   PublicSettings,
+  ReferenceAssetDecision,
   ReferenceLedDirection,
   ReferenceTranslationError,
   ReferenceAssetSelection,
@@ -16,6 +18,13 @@ import type {
   StartReferenceTranslationInput,
   StartReferenceTranslationUserInput
 } from '../shared/types';
+import {
+  assembleAssetSelectionProtocol,
+  assertAssetSelectionProtocol,
+  createFallbackCurrentProjectDecisions,
+  createFallbackReferenceDecisions,
+  detectReferenceNearDuplicates
+} from './asset-selection-protocol/index.ts';
 import { atomicWriteJsonWithRetry } from './runtime/atomic-write.ts';
 import type { ProjectStore } from './project-store.ts';
 import type { PipelineService } from './pipeline-service.ts';
@@ -239,17 +248,20 @@ export function createReferenceTranslationService(
 
   const STAGE_META: Record<ReferenceTranslationStage, { index: number; progress: number; message: string }> = {
     PREPARING_ASSETS: { index: 1, progress: 5, message: '正在读取当前项目' },
-    LOADING_PROJECT_CONTEXT: { index: 2, progress: 12, message: '正在锁定项目身份与资产' },
-    ANALYZING_REFERENCE: { index: 3, progress: 45, message: '正在分析参考视觉方案' },
-    SYNTHESIZING_REFERENCE_DNA: { index: 4, progress: 60, message: '正在提取参考风格' },
-    CLASSIFYING_TRANSFERABILITY: { index: 5, progress: 72, message: '正在将参考风格应用到当前项目' },
-    MAPPING_TO_PROJECT: { index: 5, progress: 84, message: '正在完成项目化风格重建' },
-    GENERATING_DIRECTION: { index: 6, progress: 92, message: '正在生成重构后的核心视觉方向' },
-    COMPILING_REPORT: { index: 7, progress: 97, message: '正在编译 GPT 执行文档' },
-    VALIDATING_REPORT: { index: 8, progress: 99, message: '正在校验视觉重构输出' },
-    COMPLETED: { index: 8, progress: 100, message: '视觉重构执行文档已完成' },
-    FAILED: { index: 8, progress: 100, message: '视觉重构任务失败' },
-    CANCELLED: { index: 8, progress: 100, message: '视觉重构任务已取消' }
+    SELECTING_CURRENT_CORE_PACK: { index: 2, progress: 9, message: '正在筛选当前项目核心资料包' },
+    LOADING_PROJECT_CONTEXT: { index: 3, progress: 18, message: '正在锁定项目身份与资产' },
+    SELECTING_REFERENCE_MASTER_SET: { index: 4, progress: 28, message: '正在筛选参考依据母集' },
+    BUILDING_TASK_REFERENCE_SUBSETS: { index: 5, progress: 36, message: '正在为各类输出匹配任务参考子集' },
+    ANALYZING_REFERENCE: { index: 6, progress: 45, message: '正在分析参考视觉方案' },
+    SYNTHESIZING_REFERENCE_DNA: { index: 7, progress: 60, message: '正在提取参考风格' },
+    CLASSIFYING_TRANSFERABILITY: { index: 8, progress: 72, message: '正在将参考风格应用到当前项目' },
+    MAPPING_TO_PROJECT: { index: 8, progress: 84, message: '正在完成项目化风格重建' },
+    GENERATING_DIRECTION: { index: 9, progress: 92, message: '正在生成重构后的核心视觉方向' },
+    COMPILING_REPORT: { index: 10, progress: 97, message: '正在编译 GPT 执行文档' },
+    VALIDATING_REPORT: { index: 11, progress: 99, message: '正在校验视觉重构输出' },
+    COMPLETED: { index: 11, progress: 100, message: '视觉重构执行文档已完成' },
+    FAILED: { index: 11, progress: 100, message: '视觉重构任务失败' },
+    CANCELLED: { index: 11, progress: 100, message: '视觉重构任务已取消' }
   };
 
   async function publishProgress(
@@ -271,7 +283,7 @@ export function createReferenceTranslationService(
             : 'running',
       stage,
       stageIndex: meta.index,
-      stageCount: 8,
+      stageCount: 11,
       progress: Math.max(previous?.progress || 0, meta.progress),
       analyzedAssetCount: counts.analyzed ?? previous?.analyzedAssetCount,
       totalAssetCount: counts.total ?? previous?.totalAssetCount,
@@ -485,7 +497,7 @@ export function createReferenceTranslationService(
         status: 'running',
         stage: 'PREPARING_ASSETS',
         stageIndex: 1,
-        stageCount: 8,
+        stageCount: 11,
         progress: 0,
         startedAt: createdAt,
         updatedAt: createdAt
@@ -520,14 +532,18 @@ export function createReferenceTranslationService(
         sourcePaths: currentProjectSourcePaths,
         apiProfileId
       });
-      await publishProgress(runId, currentProject.id, createdAt, 'LOADING_PROJECT_CONTEXT');
       active.pipelineProjectId = currentProject.id;
-      const currentFactsResult = await dependencies.pipeline.analyzeCurrentProjectProfile(
-        currentProject.id,
-        apiProfileId,
-        'current_project_audit'
-      );
-      const currentProjectProfile = currentFactsResult.value;
+      await publishProgress(runId, currentProject.id, createdAt, 'SELECTING_CURRENT_CORE_PACK');
+      const currentSelectionResult = dependencies.pipeline.selectCurrentProjectAssets
+        ? await dependencies.pipeline.selectCurrentProjectAssets(currentProject.id, apiProfileId)
+        : {
+          value: createFallbackCurrentProjectDecisions(currentProject.assets || []),
+          provider: 'local',
+          model: 'deterministic-fallback',
+          durationMs: 0,
+          modelCallCount: 0
+        };
+      const currentDecisions = currentSelectionResult.value as CurrentProjectAssetDecision[];
       assertNotCancelled();
 
       const referenceProject = await dependencies.projects.create({
@@ -544,6 +560,95 @@ export function createReferenceTranslationService(
         { recursive: true }
       );
       active.pipelineProjectId = referenceProject.id;
+      await publishProgress(runId, targetProjectId, createdAt, 'SELECTING_REFERENCE_MASTER_SET', {
+        analyzed: 0,
+        total: referenceSummary.totalFiles
+      });
+      const referenceSelectionResult = dependencies.pipeline.selectReferenceAssets
+        ? await dependencies.pipeline.selectReferenceAssets(referenceProject.id, apiProfileId)
+        : {
+          value: createFallbackReferenceDecisions(referenceProject.assets || []),
+          provider: 'local',
+          model: 'deterministic-fallback',
+          durationMs: 0,
+          modelCallCount: 0
+        };
+      const referenceDecisions = await detectReferenceNearDuplicates(
+        referenceSelectionResult.value as ReferenceAssetDecision[],
+        referenceProject.assets || [],
+        referencePaths.input
+      );
+      const assetSelectionProtocol = assembleAssetSelectionProtocol(
+        currentProject,
+        currentDecisions,
+        referenceDecisions
+      );
+      assertAssetSelectionProtocol(assetSelectionProtocol);
+      const lowConfidenceCurrent = currentDecisions.some((item) =>
+        item.confidence < 0.6 || (item.role === 'uncertain' && item.requiresHumanReview));
+      const lowConfidenceReference = referenceDecisions.some((item) =>
+        item.confidence < 0.6 || (item.role === 'uncertain' && item.requiresHumanReview));
+      await publishProgress(runId, targetProjectId, createdAt, 'BUILDING_TASK_REFERENCE_SUBSETS');
+      const root = await runRoot(runId);
+      const taskSubsetDir = path.join(root, 'task-reference-subsets');
+      await fs.mkdir(taskSubsetDir, { recursive: true });
+      const subsetFilename: Record<string, string> = {
+        anchor_vi_system: 'anchor.json',
+        packaging_single: 'packaging.json',
+        packaging_series: 'packaging-series.json',
+        brand_poster: 'poster.json',
+        product_poster: 'product-poster.json',
+        vi_application: 'vi.json',
+        spatial_scene: 'space.json',
+        digital_campaign: 'digital-campaign.json'
+      };
+      await Promise.all([
+        writeJson(path.join(root, 'current-project-assets.json'), currentProject.assets || []),
+        writeJson(path.join(root, 'current-project-asset-decisions.json'), currentDecisions),
+        writeJson(path.join(root, 'current-project-core-pack.json'), assetSelectionProtocol.currentProjectCorePack),
+        writeJson(path.join(root, 'current-core-pack-validation.json'), assetSelectionProtocol.currentCorePackValidation),
+        writeJson(path.join(root, 'reference-assets.json'), referenceProject.assets || []),
+        writeJson(path.join(root, 'reference-asset-decisions.json'), referenceDecisions),
+        writeJson(path.join(root, 'reference-master-set.json'), assetSelectionProtocol.referenceMasterSet),
+        writeJson(path.join(root, 'reference-master-set-validation.json'), assetSelectionProtocol.referenceMasterSetValidation),
+        writeJson(path.join(root, 'style-carrier-ranking.json'), assetSelectionProtocol.referenceMasterSet.styleCarriers),
+        writeJson(path.join(root, 'user-confirmation.json'), {
+          status: input.force
+            ? 'confirmed_by_user'
+            : lowConfidenceCurrent || lowConfidenceReference
+              ? 'required'
+              : assetSelectionProtocol.requiresHumanConfirmation ? 'suggested' : 'not_required',
+          reason: input.force
+            ? '用户已明确确认低置信度素材筛选结果'
+            : assetSelectionProtocol.requiresHumanConfirmation
+            ? '存在置信度低于 0.8 或 requiresHumanReview 的素材决定'
+            : '全部自动筛选决定置信度不低于 0.8'
+        }),
+        ...assetSelectionProtocol.taskReferenceSubsets.map((subset) =>
+          writeJson(path.join(taskSubsetDir, subsetFilename[subset.outputType]!), subset))
+      ]);
+      if (!input.force && (lowConfidenceCurrent || lowConfidenceReference)) {
+        throw Object.assign(
+          new Error('素材筛选包含低于 0.6 的决定，必须先查看运行目录中的筛选结果并由用户确认后重试'),
+          { code: lowConfidenceCurrent ? 'CURRENT_CORE_PACK_INCOMPLETE' : 'REFERENCE_MASTER_SET_INSUFFICIENT' }
+        );
+      }
+      assertNotCancelled();
+
+      await publishProgress(runId, currentProject.id, createdAt, 'LOADING_PROJECT_CONTEXT');
+      active.pipelineProjectId = currentProject.id;
+      const currentFactsResult = await dependencies.pipeline.analyzeCurrentProjectProfile(
+        currentProject.id,
+        apiProfileId,
+        'current_project_audit',
+        assetSelectionProtocol.currentProjectCorePack.sourceAssetIds.length
+          ? assetSelectionProtocol.currentProjectCorePack.sourceAssetIds
+          : undefined
+      );
+      const currentProjectProfile = currentFactsResult.value;
+      assertNotCancelled();
+
+      active.pipelineProjectId = referenceProject.id;
       await publishProgress(runId, targetProjectId, createdAt, 'ANALYZING_REFERENCE', {
         analyzed: 0,
         total: referenceSummary.totalFiles
@@ -552,7 +657,8 @@ export function createReferenceTranslationService(
       const referenceStyleResult = await dependencies.pipeline.analyzeReferenceStyle(
         referenceProject.id,
         apiProfileId,
-        'reference_style'
+        'reference_style',
+        assetSelectionProtocol.referenceMasterSet.assetIds
       );
       const referenceStyleProfile = referenceStyleResult.value;
       await publishProgress(runId, targetProjectId, createdAt, 'ANALYZING_REFERENCE', {
@@ -582,7 +688,6 @@ export function createReferenceTranslationService(
         schemaVersion: 'project-context-v2',
         currentProjectProfile
       };
-      const root = await runRoot(runId);
       const inputDir = path.join(root, 'input');
       const intermediateDir = path.join(root, 'intermediate');
       await Promise.all([
@@ -613,6 +718,7 @@ export function createReferenceTranslationService(
         currentProjectProfile,
         referenceStyleProfile,
         visualReconstructionDirection: decisionResult.value,
+        assetSelectionProtocol,
         referenceIdentityTerms
       });
       await publishProgress(runId, currentProject.id, createdAt, 'VALIDATING_REPORT');
@@ -626,6 +732,20 @@ export function createReferenceTranslationService(
         writeJson(path.join(root, 'logs', 'model-calls.json'), {
           terminalStatus: 'completed',
           calls: [
+            {
+              step: 'current-project-asset-selection',
+              provider: currentSelectionResult.provider,
+              model: currentSelectionResult.model,
+              modelCallCount: currentSelectionResult.modelCallCount,
+              durationMs: currentSelectionResult.durationMs
+            },
+            {
+              step: 'reference-master-set-selection',
+              provider: referenceSelectionResult.provider,
+              model: referenceSelectionResult.model,
+              modelCallCount: referenceSelectionResult.modelCallCount,
+              durationMs: referenceSelectionResult.durationMs
+            },
             {
               step: 'current-project-profile',
               provider: currentFactsResult.provider,
@@ -672,7 +792,8 @@ export function createReferenceTranslationService(
       return {
         run: completedRecord,
         reportMarkdown: finalized.markdown,
-        reconstruction: finalized.reconstruction
+        reconstruction: finalized.reconstruction,
+        assetSelectionProtocol
       };
     } catch (error) {
       const root = await runRoot(runId);
@@ -683,6 +804,11 @@ export function createReferenceTranslationService(
       const stage = active?.progress.stage || 'FAILED';
       const structuredError: ReferenceTranslationError = {
         code: cancelled ? 'CANCELLED'
+          : sourceCode === 'CURRENT_CORE_PACK_INCOMPLETE' ? 'CURRENT_CORE_PACK_INCOMPLETE'
+            : sourceCode === 'CURRENT_CORE_PACK_CONTAMINATED' ? 'CURRENT_CORE_PACK_CONTAMINATED'
+              : sourceCode === 'REFERENCE_MASTER_SET_INSUFFICIENT' ? 'REFERENCE_MASTER_SET_INSUFFICIENT'
+                : sourceCode === 'TASK_REFERENCE_SUBSET_MISMATCH' ? 'TASK_REFERENCE_SUBSET_MISMATCH'
+                  : sourceCode === 'TASK_REFERENCE_SUBSET_TOO_WEAK' ? 'TASK_REFERENCE_SUBSET_TOO_WEAK'
           : sourceCode === 'CURRENT_PROJECT_CONTEXT_INCOMPLETE' ? 'CURRENT_PROJECT_CONTEXT_INCOMPLETE'
             : sourceCode === 'CURRENT_PROJECT_PROFILE_CONTAMINATED' ? 'CURRENT_PROJECT_PROFILE_CONTAMINATED'
             : sourceCode === 'REFERENCE_STYLE_INSUFFICIENT' ? 'REFERENCE_STYLE_INSUFFICIENT'
@@ -748,7 +874,7 @@ export function createReferenceTranslationService(
         status: 'running',
         stage: 'COMPILING_REPORT',
         stageIndex: 8,
-        stageCount: 8,
+        stageCount: 11,
         progress: Math.max(record.progress || 0, 98),
         startedAt,
         updatedAt: new Date().toISOString()

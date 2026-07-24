@@ -40,6 +40,7 @@ export function ReferenceTranslationWorkspace({ initialRunId = '', onBack }: Pro
   const [visualAnalysisPath, setVisualAnalysisPath] = useState('');
   const [projectContextPath, setProjectContextPath] = useState('');
   const [preference, setPreference] = useState('');
+  const [confirmLowConfidenceSelections, setConfirmLowConfidenceSelections] = useState(false);
   const [runs, setRuns] = useState<ReferenceTranslationRunRecord[]>([]);
   const [selectedRun, setSelectedRun] = useState<ReferenceTranslationRunRecord | null>(null);
   const [profile, setProfile] = useState<ReferenceTranslationProfile | null>(null);
@@ -159,7 +160,8 @@ export function ReferenceTranslationWorkspace({ initialRunId = '', onBack }: Pro
           referenceAssetPaths: referenceAssets.map((item) => item.sourcePath),
           currentProjectId: currentProjectId || undefined,
           currentProjectSourcePaths: currentProjectId ? undefined : currentProjectSourcePaths,
-          referenceStylePreference: preference
+          referenceStylePreference: preference,
+          force: confirmLowConfidenceSelections
         });
       setSelectedRun(result.run);
       setProfile(result.profile || null);
@@ -233,6 +235,7 @@ export function ReferenceTranslationWorkspace({ initialRunId = '', onBack }: Pro
     const current = reconstruction.currentProjectProfile;
     const style = reconstruction.referenceStyleProfile;
     const visualDirection = reconstruction.visualReconstructionDirection;
+    const selectionProtocol = reconstruction.assetSelectionProtocol;
     const legacyCurrent = current as typeof current & { coreOffering?: string[] };
     const legacyDirection = visualDirection as typeof visualDirection & {
       imageSystem?: string[];
@@ -297,6 +300,23 @@ export function ReferenceTranslationWorkspace({ initialRunId = '', onBack }: Pro
           </div>)}
         </div>
       </section>
+
+      {selectionProtocol && <section className="panel">
+        <div className="section-heading"><span>02A</span><div><h2>素材筛选协议</h2><p>核心资料、参考母集与各任务参考子集已分层隔离</p></div></div>
+        <div className="reference-lock-grid">
+          <p><strong>当前项目核心资料包</strong>{selectionProtocol.currentProjectCorePack.sourceAssetIds.length} 个资产</p>
+          <p><strong>参考依据母集</strong>{selectionProtocol.referenceMasterSet.assetIds.length} 个资产</p>
+          <p><strong>主要风格载体</strong>{selectionProtocol.referenceMasterSet.styleCarriers
+            .filter((item) => item.priority === 'primary').map((item) => item.category).join('；') || '单参考降级提取'}</p>
+          <p><strong>确认状态</strong>{selectionProtocol.requiresHumanConfirmation ? '建议人工复核低置信度项' : '自动筛选已通过'}</p>
+        </div>
+        <div className="reference-application-list">
+          {selectionProtocol.taskReferenceSubsets.map((subset) => <div key={subset.outputType}>
+            <small>{subset.outputType}</small>
+            <strong>{subset.selectedAssetIds.length} 张 · 主参考 {subset.primaryReferenceAssetId || '无'}</strong>
+          </div>)}
+        </div>
+      </section>}
 
       <section className="panel">
         <div className="section-heading"><span>03</span><div><h2>当前项目风格应用策略</h2><p>参考风格作用于当前项目内容，专属图形必须项目化重建</p></div></div>
@@ -502,6 +522,15 @@ export function ReferenceTranslationWorkspace({ initialRunId = '', onBack }: Pro
         <label>你最希望继承参考方案中的什么？（可选）
           <textarea value={preference} maxLength={500} rows={3} placeholder="例如：低饱和配色、留白构图、材质感、摄影光线和包装展示方式。" onChange={(event) => setPreference(event.target.value)} />
         </label>
+
+        {!useIntermediateResults && <label className="reference-developer-toggle">
+          <input
+            type="checkbox"
+            checked={confirmLowConfidenceSelections}
+            onChange={(event) => setConfirmLowConfidenceSelections(event.target.checked)}
+          />
+          我已查看上次运行目录中的素材筛选结果，并确认继续使用低置信度项
+        </label>}
 
         {showDebugInputs && <details className="reference-advanced" onToggle={(event) => {
           if (!(event.currentTarget as HTMLDetailsElement).open) setUseIntermediateResults(false);

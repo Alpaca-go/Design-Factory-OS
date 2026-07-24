@@ -5,12 +5,14 @@ import { app } from 'electron';
 import type {
   AnalysisProgress,
   AnalysisResult,
+  CurrentProjectAssetDecision,
   CurrentProjectProfile,
   CurrentProjectVisualSources,
   FlexibleColorSystem,
   FlexibleCompositionSystem,
   ProjectTouchpointInventory,
   PublicSettings,
+  ReferenceAssetDecision,
   ReferenceInheritanceRule,
   ReferenceStyleProfile,
   ReferenceStyleRule,
@@ -18,6 +20,14 @@ import type {
   VisualAnalysisPurpose,
   VisualReconstructionDirection
 } from '../shared/types';
+import {
+  normalizeCurrentProjectDecisions,
+  normalizeReferenceDecisions
+} from './asset-selection-protocol/index.ts';
+import {
+  buildCurrentProjectAssetSelectionPrompt,
+  buildReferenceAssetSelectionPrompt
+} from './asset-selection-protocol/prompts.ts';
 import {
   buildFusionEnhancedTask,
   buildReportFilename,
@@ -441,6 +451,8 @@ export function createPipelineService(
     apiProfileId?: string;
     prompt: string;
     includeVisualAssets: boolean;
+    assetIds?: string[];
+    maxVisualAssets?: number;
     normalize(value: Record<string, unknown>, assetIds: string[]): T;
     validate(value: T): T;
   }): Promise<{
@@ -458,11 +470,14 @@ export function createPipelineService(
     const startedAt = new Date().toISOString();
     const started = performance.now();
     active.set(options.projectId, { controller, startedAt });
+    const allowedAssetIds = options.assetIds ? new Set(options.assetIds) : null;
     const visualAssets = options.includeVisualAssets
-      ? (project.assets || []).filter((asset) => /^image\//iu.test(asset.mimeType)).slice(0, 12)
+      ? (project.assets || []).filter((asset) =>
+        /^image\//iu.test(asset.mimeType) && (!allowedAssetIds || allowedAssetIds.has(asset.id)))
+        .slice(0, options.maxVisualAssets || 12)
       : [];
     const attachments = visualAssets.map((asset, index) => ({
-      assetId: `visual-${String(index + 1).padStart(3, '0')}`,
+      assetId: asset.id || `visual-${String(index + 1).padStart(3, '0')}`,
       path: path.join(projectPaths.input, asset.relativePath),
       mediaType: 'image',
       format: path.extname(asset.relativePath).slice(1),
@@ -556,10 +571,96 @@ export function createPipelineService(
     }
   }
 
+  async function selectCurrentProjectAssets(projectId: string, apiProfileId?: string) {
+    const project = await projects.get(projectId);
+    const assets = (project.assets || []).filter((asset) =>
+      asset.status !== 'deleted' && /^image\//iu.test(asset.mimeType));
+    if (!assets.length) {
+      return {
+        value: [] as CurrentProjectAssetDecision[],
+        provider: 'local',
+        model: 'deterministic-fallback',
+        durationMs: 0,
+        modelCallCount: 0
+      };
+    }
+    const results: Awaited<ReturnType<typeof runStructuredReferenceStep<CurrentProjectAssetDecision[]>>>[] = [];
+    for (let offset = 0; offset < assets.length; offset += 30) {
+      const batch = assets.slice(offset, offset + 30);
+      results.push(await runStructuredReferenceStep<CurrentProjectAssetDecision[]>({
+        step: `current-project-asset-selection-${Math.floor(offset / 30) + 1}`,
+        projectId,
+        apiProfileId,
+        prompt: buildCurrentProjectAssetSelectionPrompt(project, batch),
+        includeVisualAssets: true,
+        assetIds: batch.map((asset) => asset.id),
+        maxVisualAssets: 30,
+        normalize: (raw) => normalizeCurrentProjectDecisions(
+          Array.isArray(raw.decisions) ? raw.decisions as CurrentProjectAssetDecision[] : [],
+          batch
+        ),
+        validate: (value) => {
+          if (value.length !== batch.length) {
+            throw Object.assign(new Error('当前项目资产筛选结果未覆盖当前批次全部可视资产'), {
+              code: 'CURRENT_CORE_PACK_INCOMPLETE'
+            });
+          }
+          return value;
+        }
+      }));
+    }
+    return {
+      value: results.flatMap((item) => item.value),
+      provider: results[0]!.provider,
+      model: results[0]!.model,
+      durationMs: results.reduce((sum, item) => sum + item.durationMs, 0),
+      modelCallCount: results.reduce((sum, item) => sum + item.modelCallCount, 0)
+    };
+  }
+
+  async function selectReferenceAssets(projectId: string, apiProfileId?: string) {
+    const project = await projects.get(projectId);
+    const assets = (project.assets || []).filter((asset) =>
+      asset.status !== 'deleted' && /^image\//iu.test(asset.mimeType));
+    const results: Awaited<ReturnType<typeof runStructuredReferenceStep<ReferenceAssetDecision[]>>>[] = [];
+    for (let offset = 0; offset < assets.length; offset += 30) {
+      const batch = assets.slice(offset, offset + 30);
+      results.push(await runStructuredReferenceStep<ReferenceAssetDecision[]>({
+        step: `reference-master-set-selection-${Math.floor(offset / 30) + 1}`,
+        projectId,
+        apiProfileId,
+        prompt: buildReferenceAssetSelectionPrompt(batch),
+        includeVisualAssets: true,
+        assetIds: batch.map((asset) => asset.id),
+        maxVisualAssets: 30,
+        normalize: (raw) => normalizeReferenceDecisions(
+          Array.isArray(raw.decisions) ? raw.decisions as ReferenceAssetDecision[] : [],
+          batch
+        ),
+        validate: (value) => {
+          if (value.length !== batch.length) {
+            throw Object.assign(new Error('参考资产筛选结果未覆盖当前批次全部可视资产'), {
+              code: 'REFERENCE_MASTER_SET_INSUFFICIENT'
+            });
+          }
+          return value;
+        }
+      }));
+    }
+    return {
+      value: results.flatMap((item) => item.value),
+      provider: results[0]!.provider,
+      model: results[0]!.model,
+      durationMs: results.reduce((sum, item) => sum + item.durationMs, 0),
+      modelCallCount: results.reduce((sum, item) => sum + item.modelCallCount, 0)
+    };
+  }
+
   async function analyzeCurrentProjectProfile(
     projectId: string,
     apiProfileId?: string,
-    purpose: VisualAnalysisPurpose = 'current_project_audit'
+    purpose: VisualAnalysisPurpose = 'current_project_audit',
+    assetIds?: string[]
   ) {
     if (purpose !== 'current_project_audit') throw new Error(`不支持的当前项目分析用途：${purpose}`);
     const project = await projects.get(projectId);
@@ -569,6 +670,7 @@ export function createPipelineService(
       apiProfileId,
       prompt: buildCurrentProjectFactsPrompt(project),
       includeVisualAssets: true,
+      assetIds,
       normalize: (raw, assetIds) => {
         const classifiedTouchpoints = normalizeProjectTouchpointClassification({
           packagingStructures: valueArray(raw.packagingStructures),
@@ -610,7 +712,8 @@ export function createPipelineService(
   async function analyzeReferenceStyle(
     projectId: string,
     apiProfileId?: string,
-    purpose: VisualAnalysisPurpose = 'reference_style'
+    purpose: VisualAnalysisPurpose = 'reference_style',
+    assetIds?: string[]
   ) {
     if (purpose !== 'reference_style') throw new Error(`不支持的参考视觉分析用途：${purpose}`);
     return runStructuredReferenceStep<ReferenceStyleProfile>({
@@ -619,6 +722,7 @@ export function createPipelineService(
       apiProfileId,
       prompt: buildReferenceStylePrompt(),
       includeVisualAssets: true,
+      assetIds,
       normalize: (raw, assetIds) => ({
         schemaVersion: 'reference-style-profile-v3',
         overallTemperament: styleRuleArray(raw.overallTemperament),
@@ -719,6 +823,8 @@ export function createPipelineService(
 
   return {
     start,
+    selectCurrentProjectAssets,
+    selectReferenceAssets,
     analyzeCurrentProjectProfile,
     analyzeReferenceStyle,
     generateVisualReconstructionDecision,

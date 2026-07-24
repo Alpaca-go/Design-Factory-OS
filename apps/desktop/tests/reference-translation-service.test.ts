@@ -161,7 +161,17 @@ test('formal user flow analyzes reference assets and generates internal structur
       status: 'draft',
       lastReportFilename: null,
       assets: [
-        { originalName: 'reference.png', mimeType: 'image/png', sha256: 'abc' }
+        {
+          id: 'reference-asset-1',
+          batchId: 'batch-1',
+          sourceType: 'file',
+          originalName: 'reference.png',
+          relativePath: 'assets/reference.png',
+          mimeType: 'image/png',
+          sizeBytes: 11,
+          sha256: 'abc',
+          status: 'ready'
+        }
       ]
     };
     let removedProjectId = '';
@@ -317,6 +327,7 @@ test('formal user flow analyzes reference assets and generates internal structur
     assert.match(result.run.reportFilename || '', /视觉方案参考风格重构执行文档\.md$/);
     const brief = await fs.readFile(path.join(runRoot, result.run.reportFilename!), 'utf8');
     assert.match(brief, /## 7\. GPT 生图执行约束/);
+    assert.match(brief, /## 3\.1 参考素材使用说明/);
     assert.match(brief, /Anchor Image/);
     assert.doesNotMatch(brief, /PTM-\d+/);
     assert.match(brief, /不得复制参考身份：参考茶研/);
@@ -331,6 +342,17 @@ test('formal user flow analyzes reference assets and generates internal structur
     ]) {
       await fs.access(path.join(runRoot, 'intermediate', filename));
     }
+    for (const filename of [
+      'current-project-core-pack.json',
+      'current-core-pack-validation.json',
+      'reference-master-set.json',
+      'reference-master-set-validation.json',
+      'style-carrier-ranking.json',
+      'user-confirmation.json'
+    ]) {
+      await fs.access(path.join(runRoot, filename));
+    }
+    await fs.access(path.join(runRoot, 'task-reference-subsets', 'anchor.json'));
 
     pipeline.generateVisualReconstructionDecision = async () => {
       throw Object.assign(new Error('核心视觉方向不可执行：posterSpecific（缺少：标题）'), {

@@ -1010,6 +1010,30 @@ function ruleBullet(values: ReferenceStyleRule[]): string {
   return bullet(values.map((item) => item.rule));
 }
 
+function compileReferenceUsageSection(
+  protocol: ReferenceStyleReconstruction['assetSelectionProtocol']
+): string {
+  if (!protocol) return '';
+  const master = protocol.referenceMasterSet;
+  const roles = unique(master.decisions.map((item) => item.role));
+  const primary = master.styleCarriers.filter((item) => item.priority === 'primary');
+  const subsets = protocol.taskReferenceSubsets.map((subset) =>
+    `- ${subset.outputType}：主参考 ${subset.primaryReferenceAssetId || '无'}；辅助参考 ${subset.supportingReferenceAssetIds.join('、') || '无'}`
+  );
+  return `
+## 3.1 参考素材使用说明
+- 当前项目核心资料包：${protocol.currentProjectCorePack.sourceAssetIds.length} 个资产
+- 参考依据母集：${master.assetIds.length} 个资产
+- 覆盖的参考类型：${roles.join('；') || '无'}
+- 主要风格载体：${primary.map((item) => `${item.category}（${item.description}）`).join('；') || '按单参考降级提取'}
+- 缺失参考类型：${protocol.referenceMasterSetValidation.missingCoverageRoles.join('；') || '无'}
+- 自动筛选置信状态：${protocol.requiresHumanConfirmation ? '建议人工确认' : '可自动采用'}
+
+### 各输出任务参考子集
+${subsets.join('\n')}
+`;
+}
+
 export function compileReconstructionBrief(
   reconstruction: Omit<ReferenceStyleReconstruction, 'validation'>
 ): string {
@@ -1066,6 +1090,7 @@ ${ruleBullet(style.lightingSystem)}
 ${ruleBullet(style.photographySystem)}
 ### 包装、海报与 VI 延展
 ${ruleBullet([...style.packagingPresentation, ...style.posterPresentation, ...style.viExtensionSystem])}
+${compileReferenceUsageSection(reconstruction.assetSelectionProtocol)}
 
 ## 4. 当前项目风格应用策略
 ${bullet(applications)}
@@ -1176,6 +1201,7 @@ export function finalizeReferenceStyleReconstruction(input: {
   currentProjectProfile: CurrentProjectProfile;
   referenceStyleProfile: ReferenceStyleProfile;
   visualReconstructionDirection: VisualReconstructionDirection;
+  assetSelectionProtocol?: ReferenceStyleReconstruction['assetSelectionProtocol'];
   referenceIdentityTerms?: string[];
 }): { reconstruction: ReferenceStyleReconstruction; markdown: string } {
   assertCurrentProjectProfile(input.currentProjectProfile, input.referenceIdentityTerms);
@@ -1187,7 +1213,8 @@ export function finalizeReferenceStyleReconstruction(input: {
   const partial = {
     currentProjectProfile: input.currentProjectProfile,
     referenceStyleProfile: input.referenceStyleProfile,
-    visualReconstructionDirection
+    visualReconstructionDirection,
+    assetSelectionProtocol: input.assetSelectionProtocol
   };
   const markdown = compileReconstructionBrief(partial);
   const validation = validateReferenceStyleReconstruction(partial, markdown, input.referenceIdentityTerms);
