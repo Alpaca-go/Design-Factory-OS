@@ -118,12 +118,19 @@ test('reference reconstruction isolates project facts, reference style and the i
   assert.match(service, /analyzeCurrentProjectProfile/);
   assert.match(service, /analyzeReferenceStyle/);
   assert.match(service, /generateVisualReconstructionDecision/);
+  assert.match(service, /async function resume\(runId:/);
+  assert.match(service, /resumedFromStage: 'GENERATING_DIRECTION'/);
   assert.doesNotMatch(service, /const currentReport|const referenceReport|reportObservations/);
   assert.match(prompts, /只能使用下面两个干净 JSON/);
   assert.match(prompts, /不得假设或引用任何上游 Markdown 报告/);
   assert.doesNotMatch(prompts, /CATEGORY_PREFIX|wrapAsStyleRule/);
   assert.match(workspace, /查看中间结果/);
   assert.match(workspace, /quality-validation\.json/);
+  assert.match(workspace, /上传自己的视觉方案/);
+  assert.match(workspace, /role="current_project"/);
+  assert.match(workspace, /currentProjectMode === 'upload'/);
+  assert.match(workspace, />继续分析<\/button>/);
+  assert.match(workspace, /referenceTranslation\.resume\(run\.id\)/);
 });
 
 test('API Key is encrypted outside project records', async () => {

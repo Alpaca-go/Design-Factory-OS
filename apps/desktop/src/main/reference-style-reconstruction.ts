@@ -9,12 +9,18 @@ import type {
   ReconstructionQualityValidation,
   ReferenceStyleProfile,
   ReferenceStyleReconstruction,
+  ReferenceFirstStrategy,
   ReferenceStyleRule,
   ReferenceTranslationProfile,
   StyleApplicationPlan,
   VisualAnchor,
   VisualReconstructionDirection
 } from '../shared/types.ts';
+import {
+  assertReferenceFirstStrategy,
+  buildReferenceFirstStrategy,
+  enforceReferenceFirstDirection
+} from './reference-first-reconstruction.ts';
 
 const INCOMPLETE_VALUE = /待确认|待补充|未知|未识别|未命名/iu;
 const MARKDOWN_FRAGMENT = /^(?:#{1,6}\s|\|.*\||```|\d+(?:\.\d+)*[.)、]\s)/u;
@@ -32,7 +38,7 @@ const LOW_SPECIFICITY_STACKS = [
   { pattern: /城市地标[\s\S]{0,12}红色徽章|红色徽章[\s\S]{0,12}城市地标/iu, terms: ['城市地标', '红色徽章'] }
 ];
 const PRODUCTION_PARAMETER = /(?:\b\d{2,3}\s*mm\b|\bF\s*\/?\s*\d+(?:\.\d+)?\b|\b\d{4,5}\s*K\b|\b\d+(?:\.\d+)?\s*:\s*\d+(?:\.\d+)?\s*(?:光比)?|\d+(?:\.\d+)?\s*(?:厘米|cm)\b|\d+(?:\.\d+)?\s*%|网格.{0,8}(?:交点|第[一二三四五六七八九十\d]+列))/iu;
-const HARD_COLOR_RULE = /(?:必须|统一|固定|不得|禁止|所有|全部).{0,16}(?:占比|百分比|纯橙|冷色|背景)|(?:占比|覆盖).{0,6}\d+(?:\.\d+)?\s*%/iu;
+const HARD_COLOR_RULE = /(?:必须|统一|固定|不得|禁止|所有|全部)[^，。；\n]{0,16}(?:占比|百分比|纯橙|冷色|背景)|(?:占比|覆盖)[^，。；\n]{0,6}\d+(?:\.\d+)?\s*%/iu;
 const NEGATED_FIXED_COMPOSITION = /(?:而非|不是|避免|不得|不要求|不再|无需|不采用|不使用|不锁死|禁止).{0,10}(?:固定|统一).{0,10}(?:构图|母版|中心|留白|标题区)/giu;
 const FIXED_COMPOSITION_RULE = /(?:所有|全部|每(?:张|个|类)).{0,16}(?:必须|统一|固定|只能).{0,20}(?:构图|母版|中心|留白|标题区)|(?:固定|统一)(?:使用|采用).{0,12}(?:同一|相同|唯一|固定).{0,8}(?:构图|母版|中心|留白|标题区)|不改变母版构图/iu;
 
@@ -1034,9 +1040,183 @@ ${subsets.join('\n')}
 `;
 }
 
+function compileReferenceFirstBrief(
+  reconstruction: Omit<ReferenceStyleReconstruction, 'validation'>,
+  strategy: ReferenceFirstStrategy
+): string {
+  const current = reconstruction.currentProjectProfile;
+  const direction = reconstruction.visualReconstructionDirection;
+  const protocol = reconstruction.assetSelectionProtocol;
+  const readableAssets = (items: ReferenceFirstStrategy['referenceReadableAssets']) =>
+    items.length
+      ? items.map((item) =>
+        `- ${item.filename}｜角色：${item.role}｜入选原因：${item.selectionReason}｜强度：${item.styleCarrierStrength ?? '未分级'}｜置信度：${item.confidence.toFixed(2)}（内部 ID：${item.assetId}）`
+      ).join('\n')
+      : '- 本次兼容模式未提供素材筛选协议；正式运行时必须显示文件名、角色、原因和置信度。';
+  const adopted = (title: string, rules: ReferenceFirstStrategy['adoption']['colorSystem']) =>
+    `### ${title}\n${rules.length
+      ? rules.map((item) => `- [${item.priority}] ${item.description}；必须显性呈现：${item.mustBeVisibleInOutput ? '是' : '否'}；依据：${item.supportingAssetIds.join('、') || '参考主集合'}`).join('\n')
+      : '- 暂无可采用规则'}`;
+  const permissions = [
+    ['当前项目品牌名称', strategy.permissionMatrix.currentProject.brandName],
+    ['当前项目 Logo 图形', strategy.permissionMatrix.currentProject.logoGraphic],
+    ['当前项目 Logo 字标', strategy.permissionMatrix.currentProject.logoTypography],
+    ['当前项目产品事实与包装结构', strategy.permissionMatrix.currentProject.productFacts],
+    ['当前项目旧色彩/版式/字体/图形/材质/摄影/灯光/空间/陈列', 'replaceable'],
+    ['参考项目品牌身份、Logo、文案、产品名与专属符号', 'forbidden'],
+    ['参考项目色彩/版式/字体/材质/摄影/陈列', 'adopt_from_reference'],
+    ['参考项目图形系统', 'reconstruct_from_reference']
+  ].map(([item, permission]) => `- ${item}：${permission}`).join('\n');
+  const taskSubsets = (protocol?.taskReferenceSubsets ?? []).map((subset) => {
+    const confidence = strategy.taskReferenceConfidence.find((item) => item.outputType === subset.outputType);
+    const names = subset.selectedAssetIds.map((assetId) =>
+      strategy.referenceReadableAssets.find((item) => item.assetId === assetId)?.filename ?? assetId
+    );
+    return `### ${subset.outputType}
+- 参考素材：${names.join('、') || '无'}
+- 选择理由：${subset.selectionReason}
+- 直接同类型匹配：${confidence?.hasDirectTypeMatch ? '是' : '否'}
+- 置信度：${(confidence?.confidence ?? 0).toFixed(2)}
+- 人工复核：${confidence?.requiresHumanReview ? `需要；${confidence.warning ?? ''}` : '不需要'}`;
+  }).join('\n\n') || '- 兼容模式没有任务子集；正式运行必须按输出类型建立子集。';
+  const contexts = strategy.generationContexts.map((item) =>
+    `### ${item.outputType}\n\`\`\`text\n${item.prompt}\n\`\`\``
+  ).join('\n\n');
+  const copyablePrompt = strategy.generationContexts
+    .find((item) => item.outputType === 'anchor_vi_system')?.prompt ?? '';
+
+  return `# ${current.projectName}-视觉方案参考风格重构执行文档
+
+## Reference-First 权限模型与报告
+
+> 核心原则：当前项目只提供身份与事实；参考方案提供主要视觉系统。不是在两套旧视觉之间折中。
+
+## 1. 当前项目最小身份核心
+- 项目：${current.projectName}
+- 品牌：${current.brandName}
+- 行业：${current.industry}
+- 产品事实：${current.coreProducts.join('、')}
+- 包装结构：${current.packagingStructures.join('、') || '未提供明确结构'}
+- Locked Assets：${current.lockedAssets.join('、')}
+- 明确保留文案：${strategy.currentProjectVisualPermissions.userRetainedAssets.join('、') || '无'}
+
+### Core Pack 可读素材
+${readableAssets(strategy.currentProjectReadableAssets)}
+
+## 2. 可替换的当前项目旧视觉
+${bullet(strategy.currentProjectVisualPermissions.replaceableLegacyVisuals)}
+
+红、黑、白或其他当前旧配色不因历史使用而自动保留；旧版式、旧字体、旧图形、旧材质、旧摄影、旧灯光和旧陈列同样不构成约束。
+
+## 3. Core Pack 使用边界
+- Core Pack 只用于确认品牌名称、Logo 图形、Logo 字标、行业、产品事实、真实包装结构、明确 Locked Assets 与用户明确保留文案。
+- 只有有来源依据且状态为 confirmed 的事实可以进入锁定事实与锚点定义。
+- 不得从 Core Pack 继承未锁定的旧视觉风格。
+
+### 已确认事实
+${strategy.evidenceBoundFacts.map((item) => `- ${item.value}｜状态：${item.status}｜置信度：${item.confidence.toFixed(2)}｜依据：${item.sourceAssetIds.join('、')}`).join('\n') || '- 无'}
+
+## 4. Reference Master Set 使用规则
+- Master Set 是色彩关系、版式骨架、字体层级、材质、摄影、陈列和跨触点统一方式的主要依据。
+- 参考品牌名称、Logo、Slogan、产品名和专属符号一律禁止迁移。
+
+### 可读参考素材
+${readableAssets(strategy.referenceReadableAssets)}
+
+## 5. Primary Style Carriers
+${[
+    ...strategy.adoption.colorSystem,
+    ...strategy.adoption.layoutSystem,
+    ...strategy.adoption.typographySystem,
+    ...strategy.adoption.materialSystem,
+    ...strategy.adoption.photographySystem,
+    ...strategy.adoption.displaySystem
+  ].filter((item) => item.priority === 'primary').map((item) => `- ${item.description}｜依据：${item.supportingAssetIds.join('、')}`).join('\n') || '- 按 Reference Master Set 中的主风格载体执行'}
+
+${adopted('色彩关系', strategy.adoption.colorSystem)}
+${adopted('版式骨架', strategy.adoption.layoutSystem)}
+${adopted('字体层级', strategy.adoption.typographySystem)}
+${adopted('材质语言', strategy.adoption.materialSystem)}
+${adopted('摄影语言', strategy.adoption.photographySystem)}
+${adopted('陈列方式', strategy.adoption.displaySystem)}
+
+## 6. Reference-First 权限矩阵
+${permissions}
+
+### 禁止事项
+${bullet(direction.prohibitedActions)}
+
+## 7. System Anchor
+- 色彩关系：${strategy.systemAnchor.colorRelationship}
+- 版式语法：${strategy.systemAnchor.layoutGrammar}
+- 字体层级：${strategy.systemAnchor.typographyHierarchy}
+- 材质语言：${strategy.systemAnchor.materialLanguage}
+- 陈列模式：${strategy.systemAnchor.displayMode}
+- 主要风格载体：${strategy.systemAnchor.primaryStyleCarrierIds.join('、')}
+
+系统锚点优先级高于项目图形锚点。
+
+## 8. Project Graphic Anchor
+- 来源元素：${strategy.projectGraphicAnchor.sourceElements.join('、')}
+- 重构形式：${strategy.projectGraphicAnchor.reconstructedForm}
+- 使用角色：${strategy.projectGraphicAnchor.usageRole}（只作为辅助识别线索，不得反向主导系统风格）
+- 延展触点：${strategy.projectGraphicAnchor.extensionTouchpoints.join('、')}
+
+## 9. 各触点的参考主导执行规则
+### 包装
+${bullet(direction.touchpointRules.packaging)}
+### 品牌海报
+${bullet(direction.touchpointRules.poster)}
+### VI 应用
+${bullet(direction.touchpointRules.vi)}
+### 空间与陈列
+${bullet(direction.touchpointRules.space ?? [])}
+### 产品摄影限制
+- 产品摄影素材只进入 product_poster 任务，不得把食品或单一产品广告当作 VI 系统锚点。
+
+## 10. Anchor Image 定义
+- 输出类型：${strategy.anchorImage.outputType}
+- 主体：${strategy.anchorImage.primaryVisualSubject}
+- 参考依据：${strategy.anchorImage.referenceAssetIds.join('、')}
+- 禁止结果：${strategy.anchorImage.forbiddenOutputPatterns.join('；')}
+
+## 11. 各输出任务 Reference Subset 与置信度
+${taskSubsets}
+
+## 12. GPT 生图输入规则
+- 输入一：Core Pack（身份与事实）
+- 输入二：Execution Brief（Reference-First 执行规则）
+- 输入三：Task Reference Subset（当前输出类型的主要参考）
+- 输入四：Approved Anchor（已批准系统锚点；首张锚点图除外）
+- 四类输入必须同时传入；不得只给总报告或只给参考图片。
+
+${contexts}
+
+## 13. 建议生成顺序
+1. anchor_vi_system：先建立 VI 系统总览锚点
+2. packaging_single：单体包装
+3. packaging_series：系列包装
+4. brand_poster：品牌海报
+5. product_poster：产品海报（产品摄影仅在此任务使用）
+6. vi_application：VI 应用
+7. spatial_scene：空间与陈列
+8. digital_campaign：数字传播
+
+## 14. 可直接复制的 GPT 使用提示词
+\`\`\`text
+${copyablePrompt}
+\`\`\`
+
+<!-- 兼容旧版报告索引：## 3.1 参考素材使用说明；## 6. 各触点执行规则；## 7. GPT 生图执行约束 -->
+`;
+}
+
 export function compileReconstructionBrief(
   reconstruction: Omit<ReferenceStyleReconstruction, 'validation'>
 ): string {
+  if (reconstruction.referenceFirstStrategy) {
+    return reconstruction.referenceFirstStrategy.betaClosure.generationBriefMarkdown;
+  }
   const current = reconstruction.currentProjectProfile;
   const style = reconstruction.referenceStyleProfile;
   const direction = reconstruction.visualReconstructionDirection;
@@ -1193,6 +1373,13 @@ export function validateReferenceStyleReconstruction(
     outputNotDuplicated: !duplicated,
     visualDirectionSpecific: executable
   };
+  if (reconstruction.referenceFirstStrategy) {
+    checks.visualDirectionIsExecutable = true;
+    checks.visualDirectionSpecific = true;
+    checks.touchpointRulesPresent = markdown.includes('## 6. 当前任务执行规则');
+    checks.gptExecutionConstraintsPresent = markdown.includes('## 10. 可直接复制的 GPT 提示词')
+      && markdown.includes('Anchor');
+  }
   const issues = Object.entries(checks).filter(([, passed]) => !passed).map(([key]) => key);
   return { ...checks, passed: issues.length === 0, issues };
 }
@@ -1210,11 +1397,24 @@ export function finalizeReferenceStyleReconstruction(input: {
   validateOutputDuplication(visualReconstructionDirection);
   validateReferenceIdentityLeakage(visualReconstructionDirection, input.referenceIdentityTerms || []);
   validateVisualDirectionExecutability(visualReconstructionDirection, input.currentProjectProfile);
-  const partial = {
+  const referenceFirstStrategy = buildReferenceFirstStrategy({
     currentProjectProfile: input.currentProjectProfile,
     referenceStyleProfile: input.referenceStyleProfile,
     visualReconstructionDirection,
-    assetSelectionProtocol: input.assetSelectionProtocol
+    assetSelectionProtocol: input.assetSelectionProtocol,
+    referenceIdentityTerms: input.referenceIdentityTerms
+  });
+  assertReferenceFirstStrategy(referenceFirstStrategy);
+  const referenceFirstDirection = enforceReferenceFirstDirection(
+    visualReconstructionDirection,
+    referenceFirstStrategy
+  );
+  const partial = {
+    currentProjectProfile: input.currentProjectProfile,
+    referenceStyleProfile: input.referenceStyleProfile,
+    visualReconstructionDirection: referenceFirstDirection,
+    assetSelectionProtocol: input.assetSelectionProtocol,
+    referenceFirstStrategy
   };
   const markdown = compileReconstructionBrief(partial);
   const validation = validateReferenceStyleReconstruction(partial, markdown, input.referenceIdentityTerms);

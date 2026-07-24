@@ -38,6 +38,10 @@ import {
   validateDesktopReport
 } from './analysis-contract';
 import type { ProjectStore } from './project-store';
+import {
+  incompleteProjectIdentity,
+  resolveAnalyzedProjectIdentity
+} from './project-identity.ts';
 import type { ProviderCredentials } from './settings-store';
 import {
   assertCurrentProjectProfile,
@@ -131,7 +135,52 @@ const valueArray = (value: unknown): string[] => Array.isArray(value)
   ? [...new Set(value.map((item) => String(item || '').trim()).filter(Boolean))]
   : [];
 
-const incompleteFact = (value: unknown): boolean => /待确认|待补充|未知|未识别|未命名/iu.test(String(value || ''));
+function directionTextArray(value: unknown): string[] {
+  const values: string[] = [];
+  const visit = (item: unknown): void => {
+    if (typeof item === 'string' || typeof item === 'number') {
+      const text = String(item).trim();
+      if (text) values.push(text);
+      return;
+    }
+    if (Array.isArray(item)) {
+      item.forEach(visit);
+      return;
+    }
+    if (!item || typeof item !== 'object') return;
+    const source = item as Record<string, unknown>;
+    const preferred = [
+      source.rule,
+      source.redirection,
+      source.description,
+      source.visualForm,
+      source.transformationLogic
+    ].find((candidate) => typeof candidate === 'string' && candidate.trim());
+    if (preferred) {
+      visit(preferred);
+      return;
+    }
+    Object.values(source).forEach(visit);
+  };
+  visit(value);
+  return [...new Set(values)];
+}
+
+function directionNameValue(value: unknown, brandName: string): string {
+  const source = String(value || '').trim()
+    .replace(/[·｜|:：—–-]/gu, '')
+    .replace(/Reference-First|视觉重构|重构执行方案|执行方案|视觉方向|视觉系统/giu, '')
+    .replace(/\s+/gu, '');
+  const candidate = source || `${brandName}新序`;
+  return [...candidate].slice(0, 8).join('');
+}
+
+function separatedDirectionTextArray(value: unknown): string[] {
+  return [...new Set(directionTextArray(value)
+    .flatMap((item) => item.split(/[、，,；;]/gu).map((part) => part.trim()).filter(Boolean)))];
+}
+
+const incompleteFact = incompleteProjectIdentity;
 
 function styleRuleArray(value: unknown): ReferenceStyleRule[] {
   if (!Array.isArray(value)) return [];
@@ -186,10 +235,10 @@ function visualAnchorValue(value: unknown): VisualAnchor {
   const source = recordValue(value);
   return {
     name: String(source.name || '').trim(),
-    sourceElements: valueArray(source.sourceElements),
+    sourceElements: separatedDirectionTextArray(source.sourceElements),
     transformationLogic: String(source.transformationLogic || '').trim(),
     visualForm: String(source.visualForm || '').trim(),
-    extensionTouchpoints: valueArray(source.extensionTouchpoints),
+    extensionTouchpoints: separatedDirectionTextArray(source.extensionTouchpoints),
     referenceSurfaceSimilarityRisk: source.referenceSurfaceSimilarityRisk === 'medium'
       || source.referenceSurfaceSimilarityRisk === 'high'
       ? source.referenceSurfaceSimilarityRisk
@@ -198,8 +247,14 @@ function visualAnchorValue(value: unknown): VisualAnchor {
 }
 
 function referenceInheritanceValue(value: unknown): ReferenceInheritanceRule[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((item) => {
+  const normalized = Array.isArray(value)
+    ? value
+    : Object.entries(recordValue(value)).map(([level, weight]) => ({
+      level,
+      weight,
+      rule: `采用参考项目的${level}层级规则`
+    }));
+  return normalized.flatMap((item) => {
     const source = recordValue(item);
     const level = source.level;
     if (level !== 'principle' && level !== 'relationship' && level !== 'surface') return [];
@@ -676,13 +731,12 @@ export function createPipelineService(
           packagingStructures: valueArray(raw.packagingStructures),
           touchpointInventory: touchpointInventoryValue(raw.touchpointInventory)
         });
+        const identity = resolveAnalyzedProjectIdentity(project, raw.brandName);
         return {
           schemaVersion: 'current-project-profile-v3',
           projectId: project.id,
-          projectName: project.projectName,
-          brandName: !incompleteFact(project.brandName)
-            ? project.brandName
-            : String(raw.brandName || project.detectedBrandName || ''),
+          projectName: identity.projectName,
+          brandName: identity.brandName,
           industry: !incompleteFact(project.industry)
             ? project.industry
             : String(raw.industry || project.detectedIndustry || ''),
@@ -760,18 +814,18 @@ export function createPipelineService(
         const touchpoints = raw.touchpointRules && typeof raw.touchpointRules === 'object'
           ? raw.touchpointRules as Record<string, unknown>
           : {};
-        const anchor = visualAnchorValue(raw.visualAnchor);
+        const anchor = visualAnchorValue(raw.visualAnchor || raw.visualAnchorDefinition);
         const flexibleColorSystem = flexibleColorSystemValue(raw.flexibleColorSystem);
         const flexibleCompositionSystem = flexibleCompositionSystemValue(raw.flexibleCompositionSystem);
         const direction: VisualReconstructionDirection = {
-          directionName: String(raw.directionName || '').trim(),
-          coreProposition: String(raw.coreProposition || '').trim(),
+          directionName: directionNameValue(raw.directionName, input.currentProjectProfile.brandName),
+          coreProposition: String(raw.coreProposition || raw.coreVisualDirection || '').trim(),
           visualAnchor: [anchor.transformationLogic, anchor.visualForm].filter(Boolean).join('；'),
           visualAnchorDefinition: anchor,
           executionDetailLevel: 'gpt_visual',
           referenceInheritance: referenceInheritanceValue(raw.referenceInheritance),
-          currentProjectIdentityToRetain: valueArray(raw.currentProjectIdentityToRetain),
-          currentVisualElementsToRedesign: valueArray(raw.currentVisualElementsToRedesign),
+          currentProjectIdentityToRetain: directionTextArray(raw.currentProjectIdentityToRetain),
+          currentVisualElementsToRedesign: directionTextArray(raw.currentVisualElementsToRedesign),
           flexibleCompositionSystem,
           compositionSystem: [
             ...flexibleCompositionSystem.fixedPrinciples,
@@ -779,7 +833,7 @@ export function createPipelineService(
             ...flexibleCompositionSystem.seriesConsistencyRules,
             ...flexibleCompositionSystem.prohibitedLayouts.map((item) => `禁止：${item}`)
           ],
-          graphicSystem: valueArray(raw.graphicSystem),
+          graphicSystem: directionTextArray(raw.graphicSystem),
           flexibleColorSystem,
           colorSystem: [
             flexibleColorSystem.identityColorRole,
@@ -789,10 +843,10 @@ export function createPipelineService(
             flexibleColorSystem.saturationGuideline,
             ...flexibleColorSystem.touchpointVariations
           ].filter(Boolean),
-          typographySystem: valueArray(raw.typographySystem),
-          materialSystem: valueArray(raw.materialSystem),
-          lightingSystem: valueArray(raw.lightingSystem),
-          photographySystem: valueArray(raw.photographySystem),
+          typographySystem: directionTextArray(raw.typographySystem),
+          materialSystem: directionTextArray(raw.materialSystem),
+          lightingSystem: directionTextArray(raw.lightingSystem),
+          photographySystem: directionTextArray(raw.photographySystem),
           touchpointRules: {
             packaging: valueArray(touchpoints.packaging),
             poster: valueArray(touchpoints.poster),

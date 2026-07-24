@@ -15,6 +15,10 @@ import {
   validateReferenceStyleProfile,
   validateVisualDirectionExecutability
 } from '../src/main/reference-style-reconstruction.ts';
+import {
+  recoverPersistedProjectIdentity,
+  resolveAnalyzedProjectIdentity
+} from '../src/main/project-identity.ts';
 import type { ProjectRecord, ReferenceTranslationProfile } from '../src/shared/types.ts';
 
 function project(overrides: Partial<ProjectRecord> = {}): ProjectRecord {
@@ -132,9 +136,9 @@ test('reconstruction brief is project-specific, executable and free of reference
     preference: '优先继承留白、哑光材质与柔和侧光'
   });
   assert.equal(result.reconstruction.validation.passed, true);
-  assert.match(result.markdown, /冯烫烫-视觉方案参考风格重构执行文档/);
-  assert.match(result.markdown, /## 6\. 各触点执行规则/);
-  assert.match(result.markdown, /## 7\. GPT 生图执行约束/);
+  assert.match(result.markdown, /冯烫烫-Reference-First生图执行文档/);
+  assert.match(result.markdown, /## 6\. 当前任务执行规则/);
+  assert.match(result.markdown, /## 10\. 可直接复制的 GPT 提示词/);
   assert.doesNotMatch(result.markdown, /PTM-\d+|GPT Execution Core|Creative Authority/);
   const { prohibitedActions: _prohibitedActions, ...executableDirection } =
     result.reconstruction.visualReconstructionDirection;
@@ -234,6 +238,33 @@ test('missing touchpoint fields are deterministically completed from the current
   assert.ok(completed.touchpointRules.poster.length >= 3);
   assert.ok(completed.touchpointRules.vi.length >= 3);
   assert.doesNotThrow(() => validateVisualDirectionExecutability(completed, current));
+});
+
+test('placeholder 未标题 yields to the brand name recognized from visual evidence', () => {
+  const identity = resolveAnalyzedProjectIdentity({
+    projectName: '未标题',
+    brandName: '未标题',
+    detectedProjectName: '未标题',
+    detectedBrandName: '未标题'
+  }, '冯烫烫');
+
+  assert.deepEqual(identity, {
+    projectName: '冯烫烫',
+    brandName: '冯烫烫'
+  });
+});
+
+test('resume repairs a persisted 未标题 profile from confirmed brand evidence', () => {
+  const current = buildCurrentProjectProfile(project(), analysis);
+  const repaired = recoverPersistedProjectIdentity({
+    ...current,
+    projectName: '未标题',
+    brandName: '未标题',
+    confirmedFacts: ['品牌名称为冯烫烫', ...current.confirmedFacts]
+  });
+
+  assert.equal(repaired.projectName, '冯烫烫');
+  assert.equal(repaired.brandName, '冯烫烫');
 });
 
 test('beta correction rejects generic traditional symbol stacking', () => {
@@ -342,6 +373,18 @@ test('beta correction requires flexible color and composition systems', () => {
 
   const compliant = validateBetaContentCorrection({
     ...direction,
+    flexibleColorSystem: {
+      ...direction.flexibleColorSystem,
+      textAndStructureColors: ['核心标题与图形线条统一采用深炭黑色，确保在暖色背景下清晰可读']
+    },
+    colorSystem: [
+      direction.flexibleColorSystem.identityColorRole,
+      ...direction.flexibleColorSystem.backgroundOptions,
+      '核心标题与图形线条统一采用深炭黑色，确保在暖色背景下清晰可读',
+      ...direction.flexibleColorSystem.accentOptions,
+      direction.flexibleColorSystem.saturationGuideline,
+      ...direction.flexibleColorSystem.touchpointVariations
+    ],
     compositionSystem: [
       ...direction.flexibleCompositionSystem.fixedPrinciples,
       ...direction.flexibleCompositionSystem.allowedVariations,
@@ -350,5 +393,6 @@ test('beta correction requires flexible color and composition systems', () => {
       ...direction.flexibleCompositionSystem.prohibitedLayouts.map((item) => `禁止：${item}`)
     ]
   }, current);
+  assert.equal(compliant.colorRulesAreFlexible, true);
   assert.equal(compliant.compositionAllowsVariation, true);
 });

@@ -33,8 +33,10 @@ function levelLabel(value?: string): string {
 
 export function ReferenceTranslationWorkspace({ initialRunId = '', onBack }: Props) {
   const [referenceAssets, setReferenceAssets] = useState<ReferenceAssetSelectionItem[]>([]);
+  const [currentProjectAssets, setCurrentProjectAssets] = useState<ReferenceAssetSelectionItem[]>([]);
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [currentProjectId, setCurrentProjectId] = useState('');
+  const [currentProjectMode, setCurrentProjectMode] = useState<'existing' | 'upload'>('existing');
   const [currentProjectSourcePaths, setCurrentProjectSourcePaths] = useState<string[]>([]);
   const [useIntermediateResults, setUseIntermediateResults] = useState(false);
   const [visualAnalysisPath, setVisualAnalysisPath] = useState('');
@@ -71,6 +73,7 @@ export function ReferenceTranslationWorkspace({ initialRunId = '', onBack }: Pro
       .then((items) => {
         setProjects(items);
         setCurrentProjectId((current) => current || items[0]?.id || '');
+        if (!items.length) setCurrentProjectMode('upload');
       })
       .catch((reason) => setError(cleanError(reason)));
     void window.masterpiece.referenceTranslation.getActive().then((active) => {
@@ -131,7 +134,28 @@ export function ReferenceTranslationWorkspace({ initialRunId = '', onBack }: Pro
     setError('');
     try {
       const chosen = await window.masterpiece.referenceTranslation.chooseProjectSources();
-      if (chosen.length) setCurrentProjectSourcePaths(chosen);
+      if (chosen.length) await prepareCurrentProjectAssets(chosen);
+    } catch (reason) {
+      setError(cleanError(reason));
+    }
+  }
+
+  async function prepareCurrentProjectAssets(paths: string[]) {
+    const sourcePaths = [...currentProjectAssets.map((item) => item.sourcePath), ...paths];
+    if (!sourcePaths.length) return;
+    setError('');
+    try {
+      const inspected = await window.masterpiece.referenceTranslation.inspectAssets(sourcePaths);
+      setCurrentProjectAssets(inspected.items);
+      setCurrentProjectSourcePaths(inspected.items.map((item) => item.sourcePath));
+      setCurrentProjectMode('upload');
+      setCurrentProjectId('');
+      const messages = [];
+      if (inspected.duplicateCount) messages.push(`当前项目已忽略 ${inspected.duplicateCount} 个重复文件`);
+      if (inspected.skipped.length) messages.push(
+        `当前项目已跳过 ${inspected.skipped.length} 个不支持的文件：${inspected.skipped.slice(0, 5).join('、')}${inspected.skipped.length > 5 ? '…' : ''}`
+      );
+      setNotice(messages.join('；'));
     } catch (reason) {
       setError(cleanError(reason));
     }
@@ -140,7 +164,9 @@ export function ReferenceTranslationWorkspace({ initialRunId = '', onBack }: Pro
   async function start() {
     const developerReady = visualAnalysisPath && projectContextPath;
     const userReady = referenceAssets.length > 0
-      && Boolean(currentProjectId || currentProjectSourcePaths.length);
+      && (currentProjectMode === 'existing'
+        ? Boolean(currentProjectId)
+        : currentProjectSourcePaths.length > 0);
     if (busy || (useIntermediateResults ? !developerReady : !userReady)) return;
     setBusy(true);
     setError('');
@@ -158,8 +184,8 @@ export function ReferenceTranslationWorkspace({ initialRunId = '', onBack }: Pro
         })
         : await window.masterpiece.referenceTranslation.runUserInput({
           referenceAssetPaths: referenceAssets.map((item) => item.sourcePath),
-          currentProjectId: currentProjectId || undefined,
-          currentProjectSourcePaths: currentProjectId ? undefined : currentProjectSourcePaths,
+          currentProjectId: currentProjectMode === 'existing' ? currentProjectId || undefined : undefined,
+          currentProjectSourcePaths: currentProjectMode === 'upload' ? currentProjectSourcePaths : undefined,
           referenceStylePreference: preference,
           force: confirmLowConfidenceSelections
         });
@@ -190,6 +216,25 @@ export function ReferenceTranslationWorkspace({ initialRunId = '', onBack }: Pro
       setProfile(result.profile || null);
       setDirection(result.direction || null);
       setReconstruction(result.reconstruction || null);
+    } catch (reason) {
+      setError(cleanError(reason));
+    } finally {
+      setBusy(false);
+      await refreshRuns();
+    }
+  }
+
+  async function resumeAnalysis(run: ReferenceTranslationRunRecord) {
+    setError('');
+    setNotice('');
+    setBusy(true);
+    try {
+      const result = await window.masterpiece.referenceTranslation.resume(run.id);
+      setSelectedRun(result.run);
+      setProfile(result.profile || null);
+      setDirection(result.direction || null);
+      setReconstruction(result.reconstruction || null);
+      setNotice(`继续分析完成；已复用前置结果，从 ${run.error?.stage || '失败阶段'} 恢复。`);
     } catch (reason) {
       setError(cleanError(reason));
     } finally {
@@ -492,8 +537,29 @@ export function ReferenceTranslationWorkspace({ initialRunId = '', onBack }: Pro
           />
 
           <div className="reference-project-field">
-            <strong>选择当前项目</strong>
-            {projects.length ? <>
+            <strong>当前项目视觉方案</strong>
+            <div className="button-row">
+              {projects.length > 0 && <button
+                className={`button ${currentProjectMode === 'existing' ? 'secondary' : 'ghost'}`}
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setCurrentProjectMode('existing');
+                  setCurrentProjectId((current) => current || projects[0]?.id || '');
+                }}
+              >选择已有项目</button>}
+              <button
+                className={`button ${currentProjectMode === 'upload' ? 'secondary' : 'ghost'}`}
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setCurrentProjectMode('upload');
+                  setCurrentProjectId('');
+                }}
+              >上传自己的视觉方案</button>
+            </div>
+
+            {currentProjectMode === 'existing' && projects.length > 0 && <>
               <select value={currentProjectId} disabled={busy} onChange={(event) => setCurrentProjectId(event.target.value)}>
                 {projects.map((project) => <option key={project.id} value={project.id}>
                   {project.projectName} · {project.status === 'completed' ? '已有品牌分析' : '将自动完成分析'}
@@ -506,16 +572,38 @@ export function ReferenceTranslationWorkspace({ initialRunId = '', onBack }: Pro
                 <div><small>分析状态</small><strong>{selectedCurrentProject.status === 'completed' ? '品牌分析可用' : '将先完成品牌分析'}</strong></div>
                 <div><small>Locked Assets</small><strong>{selectedCurrentProject.lockedFacts.length + (selectedCurrentProject.logoLocked ? 1 : 0)} 项</strong></div>
               </div>}
-            </> : <div className="reference-input-row compact">
-              <div>
-                <small>{currentProjectSourcePaths.length
-                  ? `已选择 ${currentProjectSourcePaths.length} 个项目文件`
-                  : '尚无现有项目，请上传项目文档和视觉资产，系统将自动创建并分析项目。'}</small>
+            </>}
+
+            {currentProjectMode === 'upload' && <>
+              <div className="reference-uploader-heading">
+                <strong>上传自己的视觉方案</strong>
+                <small>系统将自动创建当前项目，并从素材中识别品牌、产品、结构与 Locked Assets。</small>
               </div>
-              <button className="button secondary" type="button" disabled={busy} onClick={() => void chooseProjectSources()}>
-                {currentProjectSourcePaths.length ? '重新选择' : '上传项目资料'}
-              </button>
-            </div>}
+              <VisualAssetUploader
+                role="current_project"
+                items={currentProjectAssets.map((item) => ({
+                  id: item.fingerprint,
+                  name: item.name,
+                  extension: item.extension,
+                  bytes: item.sizeBytes,
+                  thumbnailDataUrl: item.thumbnailDataUrl
+                }))}
+                busy={busy}
+                onAddPaths={prepareCurrentProjectAssets}
+                onChooseFiles={() => window.masterpiece.referenceTranslation.chooseProjectSources()}
+                onChooseFolder={() => window.masterpiece.projects.chooseFolder()}
+                onRemove={(fingerprint) => {
+                  const next = currentProjectAssets.filter((item) => item.fingerprint !== fingerprint);
+                  setCurrentProjectAssets(next);
+                  setCurrentProjectSourcePaths(next.map((item) => item.sourcePath));
+                }}
+                onClear={() => {
+                  setCurrentProjectAssets([]);
+                  setCurrentProjectSourcePaths([]);
+                  setNotice('');
+                }}
+              />
+            </>}
           </div>
         </>}
 
@@ -558,7 +646,9 @@ export function ReferenceTranslationWorkspace({ initialRunId = '', onBack }: Pro
           : '系统将自动分析参考方案，并在内部生成 reference-visual-analysis.json 与 project-context.json。普通用户无需准备 JSON。'}</div>
         <button className="button primary full" disabled={busy || (useIntermediateResults
           ? !visualAnalysisPath || !projectContextPath
-          : !referenceAssets.length || !(currentProjectId || currentProjectSourcePaths.length))}
+          : !referenceAssets.length || (currentProjectMode === 'existing'
+            ? !currentProjectId
+            : !currentProjectSourcePaths.length))}
           onClick={() => void start()}>{busy ? '正在生成视觉重构文档…' : '开始生成视觉重构文档'}</button>
       </section>
 
@@ -572,11 +662,20 @@ export function ReferenceTranslationWorkspace({ initialRunId = '', onBack }: Pro
             {run.error ? <div className="reference-error-summary">
               <strong>失败步骤：{run.error.stage}</strong>
               <em>{run.error.message}</em>
-              <small>{run.error.recoverable ? '前置分析与中间结果已保留，可直接重新编译报告。' : '核心分析未完成，需要重新运行分析。'}</small>
+              <small>{run.error.retryFromStage === 'GENERATING_DIRECTION'
+                || run.error.stage === 'GENERATING_DIRECTION'
+                ? '项目画像、参考风格和任务子集已保留，可从视觉方向阶段继续分析。'
+                : run.error.recoverable
+                  ? '前置分析与中间结果已保留，可直接重新编译报告。'
+                  : '核心分析未完成，需要重新运行分析。'}</small>
             </div> : run.lastError && <em>{run.lastError}</em>}
             <div className="button-row">
               {run.status === 'completed' && <button className="button secondary" onClick={() => void openRun(run)}>查看结果</button>}
-              {run.error?.recoverable && <button className="button secondary" onClick={() => void retryReport(run)}>重新编译报告</button>}
+              {run.error?.retryFromStage === 'COMPILING_REPORT' && <button className="button secondary" onClick={() => void retryReport(run)}>重新编译报告</button>}
+              {run.status === 'failed'
+                && (run.error?.retryFromStage === 'GENERATING_DIRECTION'
+                  || run.error?.stage === 'GENERATING_DIRECTION')
+                && <button className="button primary" disabled={busy} onClick={() => void resumeAnalysis(run)}>继续分析</button>}
               {run.status !== 'running' && <button className="button ghost" onClick={() => void window.masterpiece.referenceTranslation.openFolder(run.id)}>查看运行日志</button>}
               {run.status === 'running' && <button className="button danger" onClick={() => void window.masterpiece.referenceTranslation.cancel(run.id)}>取消</button>}
               <button className="button ghost" disabled={run.status === 'running'} onClick={() => void removeRun(run)}>删除</button>

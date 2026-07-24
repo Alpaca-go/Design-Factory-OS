@@ -58,6 +58,8 @@ test('current core pack removes exact duplicates and keeps identity evidence sep
   assert.equal(protocol.currentProjectCorePack.sourceAssetIds.includes('logo-copy'), false);
   assert.equal(protocol.currentCorePackValidation.excludesDuplicateAssets, true);
   assert.equal(protocol.currentCorePackValidation.hasLogoEvidence, true);
+  assert.equal(current.find((item) => item.assetId === 'logo')?.includeInAnalysisEvidencePack, true);
+  assert.equal(current.find((item) => item.assetId === 'logo')?.generationUsage, 'identity');
   assert.doesNotThrow(() => assertAssetSelectionProtocol(protocol));
 });
 
@@ -147,4 +149,18 @@ test('task subsets contain at most four task-matched references and preserve one
       false
     );
   }
+});
+
+test('VI overview with packaging as a secondary role is a compatible packaging reference', () => {
+  const decisions = createFallbackReferenceDecisions([
+    asset('vi', 'vi-application-overview.png')
+  ]);
+  assert.ok(decisions[0]?.secondaryRoles?.includes('packaging'));
+  const master = buildReferenceMasterSet(decisions);
+  const packaging = buildTaskReferenceSubsets(master).subsets
+    .find((item) => item.outputType === 'packaging_single')!;
+
+  assert.equal(packaging.matchLevel, 'compatible');
+  assert.match(packaging.selectionReason, /兼容参考/);
+  assert.doesNotMatch(packaging.selectionReason, /精确匹配/);
 });

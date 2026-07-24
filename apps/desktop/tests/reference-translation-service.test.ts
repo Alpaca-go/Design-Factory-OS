@@ -324,13 +324,39 @@ test('formal user flow analyzes reference assets and generates internal structur
     assert.equal(context.currentProjectProfile.industry, '茶饮 / 现制饮品');
     assert.deepEqual(context.currentProjectProfile.lockedAssets, currentProfile.lockedAssets);
     assert.equal(result.reconstruction?.validation.passed, true);
-    assert.match(result.run.reportFilename || '', /视觉方案参考风格重构执行文档\.md$/);
+    assert.match(result.run.reportFilename || '', /Reference-First生图执行文档\.md$/);
     const brief = await fs.readFile(path.join(runRoot, result.run.reportFilename!), 'utf8');
-    assert.match(brief, /## 7\. GPT 生图执行约束/);
-    assert.match(brief, /## 3\.1 参考素材使用说明/);
-    assert.match(brief, /Anchor Image/);
+    assert.match(brief, /## 10\. 可直接复制的 GPT 提示词/);
+    assert.match(brief, /Generation Identity Pack/);
+    assert.doesNotMatch(brief, /Analysis Evidence Pack：|内部 ID|UUID/);
     assert.doesNotMatch(brief, /PTM-\d+/);
-    assert.match(brief, /不得复制参考身份：参考茶研/);
+    assert.match(brief, /不得复制参考品牌身份/);
+    assert.match(brief, /目标用户：/);
+    assert.match(brief, /品牌定位：/);
+    assert.match(brief, /Locked Assets：/);
+    const deliveredBrief = path.join(currentRoot, 'outputs', result.run.reportFilename!);
+    const deliveredAudit = path.join(
+      currentRoot,
+      'outputs',
+      '当前茶饮项目-参考主导视觉重构分析审计报告.md'
+    );
+    await fs.access(deliveredBrief);
+    const audit = await fs.readFile(deliveredAudit, 'utf8');
+    assert.match(audit, /## 1\. 项目锁定信息/);
+    assert.match(audit, /## 2\. 参考方案风格摘要/);
+    assert.match(audit, /## 3\. 素材筛选协议/);
+    assert.match(audit, /## 4\. 当前项目风格应用策略/);
+    assert.match(audit, /## 5\. 重构后的核心视觉方向/);
+    assert.match(audit, /主体：将原叶舒展、冷泡水流和杯口弧线整合为连续曲线路径/);
+    assert.match(audit, /核心命题：以云岭茶集的原叶茶饮为核心/);
+    assert.match(audit, /禁止事项：不得复制参考身份：参考茶研/);
+    assert.match(audit, /目标用户：重视品质与效率的都市白领用户/);
+    assert.match(audit, /暖米白承担大面积背景/);
+    await fs.rm(deliveredBrief);
+    await fs.rm(deliveredAudit);
+    assert.equal(await service.ensureReportDelivery(result.run.id), path.join(currentRoot, 'outputs'));
+    await fs.access(deliveredBrief);
+    await fs.access(deliveredAudit);
     const { prohibitedActions: _prohibitedActions, ...executableDirection } =
       result.reconstruction!.visualReconstructionDirection;
     assert.doesNotMatch(JSON.stringify(executableDirection), /参考茶研/);
@@ -353,6 +379,53 @@ test('formal user flow analyzes reference assets and generates internal structur
       await fs.access(path.join(runRoot, filename));
     }
     await fs.access(path.join(runRoot, 'task-reference-subsets', 'anchor.json'));
+    await fs.access(path.join(runRoot, 'task-reference-subsets', 'anchor_vi_system.json'));
+    for (const filename of [
+      'current-project/analysis-evidence-pack.json',
+      'current-project/generation-identity-pack.json',
+      'current-project/evidence-bound-facts.json',
+      'current-project/observed-copy.json',
+      'reference/asset-classifications.json',
+      'reference/signature-graphics.json',
+      'tasks/anchor_vi_system.json',
+      'reports/analysis-audit-report.md',
+      'reports/generation-brief-anchor-vi-system.md',
+      'validation/final-validation.json'
+    ]) {
+      await fs.access(path.join(runRoot, filename));
+    }
+    for (const filename of [
+      'current-project-core-pack-readable.json',
+      'replaceable-legacy-visuals.json',
+      'reference-master-set-readable.json',
+      'task-reference-confidence.json',
+      'reference-first-permission-matrix.json',
+      'system-anchor.json',
+      'project-graphic-anchor.json',
+      'reference-first-strategy.json',
+      'report-validation.json',
+      'generation-context.json'
+    ]) {
+      await fs.access(path.join(runRoot, 'intermediate', filename));
+    }
+    const completedRun = JSON.parse(await fs.readFile(path.join(runRoot, 'run.json'), 'utf8'));
+    await fs.writeFile(path.join(runRoot, 'run.json'), JSON.stringify({
+      ...completedRun,
+      status: 'failed',
+      stage: 'FAILED',
+      error: {
+        code: 'MARKDOWN_VALIDATION_FAILED',
+        message: '模拟报告校验失败',
+        stage: 'COMPILING_REPORT',
+        recoverable: true,
+        retryFromStage: 'COMPILING_REPORT'
+      }
+    }), 'utf8');
+    const recompiled = await service.retryReport(result.run.id);
+    assert.equal(recompiled.run.status, 'completed');
+    assert.match(recompiled.reportMarkdown!, /Reference-First生图执行文档/);
+    assert.match(recompiled.reportMarkdown!, /Generation Identity Pack/);
+    await fs.access(path.join(runRoot, 'reports', 'analysis-audit-report.md'));
 
     pipeline.generateVisualReconstructionDecision = async () => {
       throw Object.assign(new Error('核心视觉方向不可执行：posterSpecific（缺少：标题）'), {
@@ -388,6 +461,25 @@ test('formal user flow analyzes reference assets and generates internal structur
       'structured-attempts.json'
     ), 'utf8'));
     assert.equal(failureEvidence.step, 'visual-reconstruction-decision');
+    pipeline.generateVisualReconstructionDecision = async () => ({
+      value: visualDirection,
+      provider: 'test',
+      model: 'test-resume',
+      durationMs: 1,
+      modelCallCount: 1
+    });
+    const resumed = await service.resume(failed!.id);
+    assert.equal(resumed.run.status, 'completed');
+    assert.equal(resumed.run.resumedStageCount, 1);
+    assert.equal(resumed.run.projectId, currentProject.id);
+    assert.equal(resumed.reconstruction?.referenceFirstStrategy?.reportValidation.passed, true);
+    await fs.access(path.join(
+      dataPath,
+      'reference-translation-v1',
+      failed!.id,
+      'logs',
+      'resume-model-calls.json'
+    ));
     assert.equal(failureEvidence.attempts[0].validationError.details.poster[0], '标题');
   } finally {
     await fs.rm(temporary, { recursive: true, force: true });

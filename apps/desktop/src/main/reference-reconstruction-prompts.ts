@@ -93,6 +93,77 @@ export function buildVisualReconstructionDecisionPrompt(input: {
   referenceStyleProfile: ReferenceStyleProfile;
   preference?: string;
 }): string {
+  const referenceFirstPrompt = `你正在执行 Reference-First Visual Reconstruction Decision。
+
+CURRENT_PROJECT_PROFILE:
+${JSON.stringify(input.currentProjectProfile, null, 2)}
+
+REFERENCE_STYLE_PROFILE:
+${JSON.stringify(input.referenceStyleProfile, null, 2)}
+
+USER_STYLE_PREFERENCE:
+${input.preference?.trim() || '无'}
+
+权限规则：
+1. 当前项目只锁定品牌名称、Logo 图形、Logo 字标、行业、产品事实、真实包装结构、明确 Locked Assets 和用户明确保留文案。
+2. 当前项目既有色彩、版式、标题与正文字体、辅助图形、材质、摄影、灯光、空间、VI 和陈列均默认可替换；不得自动保留旧红黑白配色。
+3. 参考项目必须主导色彩关系、版式骨架、字体层级、材质、摄影、陈列和跨触点统一方式。
+4. 禁止复制参考项目的品牌名称、Logo、Slogan、产品名、行业语义和可识别专属符号。
+5. 不得在当前项目旧视觉与参考视觉之间折中。
+6. System Anchor 优先于 Project Graphic Anchor；本步骤的 visualAnchor 是 secondary 项目图形锚点。
+7. VI 系统锚点不得是食品或单一产品广告；产品摄影只服务 product_poster。
+
+必须严格输出下面这个 JSON 结构。字段类型不可改变：标为数组的字段必须输出字符串数组，不得改为对象；字段名不得新增、翻译或替换。
+{
+  "directionName": "2至8个汉字的项目专属方向名，不得包含视觉重构、执行方案、Reference-First等通用词",
+  "coreProposition": "一句话，必须原样包含当前品牌名和至少一个当前核心产品名",
+  "visualAnchor": {
+    "name": "2至8个汉字的secondary项目图形锚点名",
+    "sourceElements": ["至少两个来自 CURRENT_PROJECT_PROFILE.visualSources 不同类别的原文值"],
+    "transformationLogic": "至少30字，描述轮廓、动作、曲线、路径、纹理、切片或结构如何转化",
+    "visualForm": "至少30字，描述GPT可以直接画出的主体、轮廓、路径、纹理、结构与层次",
+    "extensionTouchpoints": ["至少三个当前项目真实触点"],
+    "referenceSurfaceSimilarityRisk": "low"
+  },
+  "executionDetailLevel": "gpt_visual",
+  "referenceInheritance": [
+    {"level": "principle", "weight": 1, "rule": "采用参考系统组织原则"},
+    {"level": "relationship", "weight": 0.8, "rule": "采用参考视觉关系"},
+    {"level": "surface", "weight": 0.35, "rule": "表层仅作弱参考且不得复制身份"}
+  ],
+  "currentProjectIdentityToRetain": ["只列当前品牌名、Logo、行业、产品事实、包装结构、Locked Assets和明确保留文案"],
+  "currentVisualElementsToRedesign": ["旧色彩系统", "旧版式系统", "旧字体系统（Logo字标除外）", "旧图形系统", "旧材质系统", "旧摄影与灯光系统", "旧空间与陈列系统"],
+  "flexibleCompositionSystem": {
+    "fixedPrinciples": ["至少一条参考主导的版式骨架原则"],
+    "allowedVariations": ["至少两条不同触点允许的构图变化"],
+    "seriesConsistencyRules": ["至少一条跨触点一致性规则"],
+    "prohibitedLayouts": ["至少一条禁止版式"]
+  },
+  "graphicSystem": ["至少一条包含轮廓、曲线、路径、纹理、切片或结构的可画规则"],
+  "flexibleColorSystem": {
+    "identityColorRole": "参考色彩关系中的识别角色，不写固定百分比",
+    "backgroundOptions": ["至少一个参考主导的背景策略"],
+    "textAndStructureColors": ["至少一个文字与结构色策略"],
+    "accentOptions": ["至少一个强调色策略"],
+    "saturationGuideline": "饱和度关系规则，不写精确百分比",
+    "touchpointVariations": ["至少两条不同触点色彩变化"]
+  },
+  "typographySystem": ["至少一条参考主导的标题、正文和说明层级规则"],
+  "materialSystem": ["至少一条包含材质、纸张、金属、哑光或高光等具体词的规则"],
+  "lightingSystem": ["至少一条包含灯光、高光、阴影或渲染关系的规则"],
+  "photographySystem": ["至少一条包含摄影、镜头、景别或景深等具体词的规则"],
+  "touchpointRules": {
+    "packaging": ["至少4条，合计覆盖背景与色彩、Logo安全区、产品摄影、信息层级、辅助图形、包装材质和系列变量"],
+    "poster": ["至少3条，合计覆盖主体比例、标题与留白、镜头景别、背景光影、辅助图形和系列变化"],
+    "vi": ["至少3条，合计覆盖母版或网格、色彩系统、图形系统、Logo安全区、信息层级和触点变量"],
+    "space": ["至少1条真实空间或陈列规则"]
+  },
+  "prohibitedActions": ["只列参考身份禁用项、当前Locked Assets和Reference-First禁令"]
+}
+
+特别禁止输出 coreVisualDirection、visualAnchorDefinition、primaryColor、primaryRule、coreStructure、hierarchyMapping 等替代字段。
+只输出完整 JSON，不要 Markdown，不要解释。`;
+  return referenceFirstPrompt;
   return `你正在执行独立的 Visual Reconstruction Decision。
 只能使用下面两个干净 JSON 和可选偏好，不得假设或引用任何上游 Markdown 报告。
 

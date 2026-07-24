@@ -3,7 +3,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 import type {
+  AssetSelectionProtocolResult,
   CurrentProjectAssetDecision,
+  CurrentProjectProfile,
   PublicSettings,
   ReferenceAssetDecision,
   ReferenceLedDirection,
@@ -14,6 +16,8 @@ import type {
   ReferenceTranslationResult,
   ReferenceTranslationRunRecord,
   ReferenceStyleReconstruction,
+  ReferenceFirstStrategy,
+  ReferenceStyleProfile,
   ReferenceTranslationStage,
   StartReferenceTranslationInput,
   StartReferenceTranslationUserInput
@@ -38,6 +42,7 @@ import {
   finalizeReferenceStyleReconstruction,
   validateReferenceStyleReconstruction
 } from './reference-style-reconstruction.ts';
+import { recoverPersistedProjectIdentity } from './project-identity.ts';
 // Reference-Led Visual Direction 引擎：离线确定性运行，零模型调用。
 import { runReferenceTranslation } from '../../../../src/reference-translation/run-reference-translation.js';
 
@@ -60,6 +65,62 @@ async function readJson<T>(filename: string): Promise<T> {
 async function writeJson(filename: string, value: unknown): Promise<void> {
   const result = await atomicWriteJsonWithRetry(filename, value);
   if (!result.success) throw Object.assign(new Error(result.errorMessage), { code: result.errorCode });
+}
+
+async function persistReferenceFirstBetaArtifacts(
+  root: string,
+  strategy: ReferenceFirstStrategy,
+  protocol: AssetSelectionProtocolResult,
+  projectName: string,
+  deliveryDir?: string
+): Promise<{ auditFilename: string; generationFilename: string }> {
+  const closure = strategy.betaClosure;
+  const currentDir = path.join(root, 'current-project');
+  const referenceDir = path.join(root, 'reference');
+  const tasksDir = path.join(root, 'tasks');
+  const anchorsDir = path.join(root, 'anchors');
+  const reportsDir = path.join(root, 'reports');
+  const validationDir = path.join(root, 'validation');
+  await Promise.all([
+    currentDir,
+    referenceDir,
+    tasksDir,
+    anchorsDir,
+    reportsDir,
+    validationDir,
+    ...(deliveryDir ? [deliveryDir] : [])
+  ]
+    .map((directory) => fs.mkdir(directory, { recursive: true })));
+  const auditFilename = `${sanitizeFilenamePart(projectName)}-参考主导视觉重构分析审计报告.md`;
+  const generationFilename = `${sanitizeFilenamePart(projectName)}-Reference-First生图执行文档.md`;
+  await Promise.all([
+    writeJson(path.join(currentDir, 'asset-decisions.json'), closure.currentProjectAssetDecisions),
+    writeJson(path.join(currentDir, 'analysis-evidence-pack.json'), closure.analysisEvidencePack),
+    writeJson(path.join(currentDir, 'generation-identity-pack.json'), closure.generationIdentityPack),
+    writeJson(path.join(currentDir, 'evidence-bound-facts.json'), strategy.evidenceBoundFacts),
+    writeJson(path.join(currentDir, 'observed-copy.json'), closure.observedCopy),
+    writeJson(path.join(currentDir, 'legacy-visual-observations.json'), closure.legacyVisualObservations),
+    writeJson(path.join(referenceDir, 'master-set.json'), protocol.referenceMasterSet),
+    writeJson(path.join(referenceDir, 'asset-classifications.json'), protocol.referenceAssetDecisions),
+    writeJson(path.join(referenceDir, 'style-carrier-ranking.json'), closure.styleCarrierRanking),
+    writeJson(path.join(referenceDir, 'signature-graphics.json'), closure.referenceSignatureGraphics),
+    writeJson(path.join(referenceDir, 'graphic-structures.json'), closure.referenceGraphicStructures),
+    ...protocol.taskReferenceSubsets.map((subset) =>
+      writeJson(path.join(tasksDir, `${subset.outputType}.json`), subset)),
+    writeJson(path.join(anchorsDir, 'system-anchor.json'), strategy.systemAnchor),
+    writeJson(path.join(anchorsDir, 'project-graphic-anchor.json'), strategy.projectGraphicAnchor),
+    writeJson(path.join(validationDir, 'generation-identity-pack-validation.json'), closure.generationIdentityPackValidation),
+    writeJson(path.join(validationDir, 'final-validation.json'), closure.finalValidation),
+    fs.writeFile(path.join(reportsDir, 'analysis-audit-report.md'), closure.analysisAuditMarkdown, 'utf8'),
+    fs.writeFile(path.join(reportsDir, 'generation-brief-anchor-vi-system.md'), closure.generationBriefMarkdown, 'utf8'),
+    fs.writeFile(path.join(root, auditFilename), closure.analysisAuditMarkdown, 'utf8'),
+    fs.writeFile(path.join(root, generationFilename), closure.generationBriefMarkdown, 'utf8'),
+    ...(deliveryDir ? [
+      fs.writeFile(path.join(deliveryDir, auditFilename), closure.analysisAuditMarkdown, 'utf8'),
+      fs.writeFile(path.join(deliveryDir, generationFilename), closure.generationBriefMarkdown, 'utf8')
+    ] : [])
+  ]);
+  return { auditFilename, generationFilename };
 }
 
 async function persistStructuredFailureEvidence(root: string, error: unknown): Promise<void> {
@@ -425,7 +486,9 @@ export function createReferenceTranslationService(
         'CURRENT_PROJECT_CONTEXT_INCOMPLETE',
         'REFERENCE_STYLE_INSUFFICIENT',
         'REFERENCE_BRAND_CONTAMINATION',
-        'RECONSTRUCTION_QUALITY_FAILED'
+        'RECONSTRUCTION_QUALITY_FAILED',
+        'REFERENCE_FIRST_LEGACY_STYLE_NOT_SUPPRESSED',
+        'REFERENCE_FIRST_REPORT_VALIDATION_FAILED'
       ].includes(code) ? code as ReferenceTranslationError['code'] : null;
       const structuredError: ReferenceTranslationError = {
         code: cancelled ? 'CANCELLED'
@@ -519,7 +582,8 @@ export function createReferenceTranslationService(
       totalAssetCount: referenceAssetPaths.length,
       analyzedAssetCount: 0,
       reportFilename: null,
-      error: null
+      error: null,
+      apiProfileId
     };
     await writeJson(await recordPath(runId), initialRecord);
     await publishProgress(runId, targetProjectId, createdAt, 'PREPARING_ASSETS', {
@@ -530,6 +594,12 @@ export function createReferenceTranslationService(
     try {
       const currentProject = existingProject || await dependencies.projects.create({
         sourcePaths: currentProjectSourcePaths,
+        apiProfileId
+      });
+      await writeJson(await recordPath(runId), {
+        ...(await getRun(runId)),
+        projectId: currentProject.id,
+        projectContextFilename: currentProject.projectName,
         apiProfileId
       });
       active.pipelineProjectId = currentProject.id;
@@ -625,7 +695,9 @@ export function createReferenceTranslationService(
             : '全部自动筛选决定置信度不低于 0.8'
         }),
         ...assetSelectionProtocol.taskReferenceSubsets.map((subset) =>
-          writeJson(path.join(taskSubsetDir, subsetFilename[subset.outputType]!), subset))
+          writeJson(path.join(taskSubsetDir, subsetFilename[subset.outputType]!), subset)),
+        ...assetSelectionProtocol.taskReferenceSubsets.map((subset) =>
+          writeJson(path.join(taskSubsetDir, `${subset.outputType}.json`), subset))
       ]);
       if (!input.force && (lowConfidenceCurrent || lowConfidenceReference)) {
         throw Object.assign(
@@ -721,12 +793,30 @@ export function createReferenceTranslationService(
         assetSelectionProtocol,
         referenceIdentityTerms
       });
+      const referenceFirst = finalized.reconstruction.referenceFirstStrategy!;
       await publishProgress(runId, currentProject.id, createdAt, 'VALIDATING_REPORT');
-      const reportFilename = `${sanitizeFilenamePart(currentProjectProfile.projectName)}-视觉方案参考风格重构执行文档.md`;
+      const reportFilename = `${sanitizeFilenamePart(currentProjectProfile.projectName)}-Reference-First生图执行文档.md`;
+      await persistReferenceFirstBetaArtifacts(
+        root,
+        referenceFirst,
+        assetSelectionProtocol,
+        currentProjectProfile.projectName,
+        (await dependencies.projects.paths(currentProjectProfile.projectId)).outputs
+      );
       await Promise.all([
         writeJson(path.join(intermediateDir, 'visual-reconstruction-direction.json'), decisionResult.value),
         writeJson(path.join(intermediateDir, 'quality-validation.json'), finalized.reconstruction.validation),
         writeJson(path.join(intermediateDir, 'execution-brief-validation.json'), finalized.reconstruction.validation),
+        writeJson(path.join(intermediateDir, 'current-project-core-pack-readable.json'), referenceFirst.currentProjectReadableAssets),
+        writeJson(path.join(intermediateDir, 'replaceable-legacy-visuals.json'), referenceFirst.currentProjectVisualPermissions.replaceableLegacyVisuals),
+        writeJson(path.join(intermediateDir, 'reference-master-set-readable.json'), referenceFirst.referenceReadableAssets),
+        writeJson(path.join(intermediateDir, 'task-reference-confidence.json'), referenceFirst.taskReferenceConfidence),
+        writeJson(path.join(intermediateDir, 'reference-first-permission-matrix.json'), referenceFirst.permissionMatrix),
+        writeJson(path.join(intermediateDir, 'system-anchor.json'), referenceFirst.systemAnchor),
+        writeJson(path.join(intermediateDir, 'project-graphic-anchor.json'), referenceFirst.projectGraphicAnchor),
+        writeJson(path.join(intermediateDir, 'reference-first-strategy.json'), referenceFirst),
+        writeJson(path.join(intermediateDir, 'report-validation.json'), referenceFirst.reportValidation),
+        writeJson(path.join(intermediateDir, 'generation-context.json'), referenceFirst.generationContexts),
         writeJson(await reconstructionPath(runId), finalized.reconstruction),
         fs.writeFile(path.join(root, reportFilename), finalized.markdown, 'utf8'),
         writeJson(path.join(root, 'logs', 'model-calls.json'), {
@@ -784,6 +874,13 @@ export function createReferenceTranslationService(
         analyzedAssetCount: referenceSummary.totalFiles,
         totalAssetCount: referenceSummary.totalFiles,
         reportFilename,
+        projectId: currentProject.id,
+        apiProfileId,
+        modelCallCount: currentSelectionResult.modelCallCount
+          + referenceSelectionResult.modelCallCount
+          + currentFactsResult.modelCallCount
+          + referenceStyleResult.modelCallCount
+          + decisionResult.modelCallCount,
         error: null,
         lastError: null
       };
@@ -802,6 +899,8 @@ export function createReferenceTranslationService(
         || (error as { code?: string }).code === 'CANCELLED';
       const sourceCode = String((error as { code?: string }).code || '');
       const stage = active?.progress.stage || 'FAILED';
+      const canResumeDirection = stage === 'GENERATING_DIRECTION'
+        && sourceCode === 'VISUAL_DIRECTION_NOT_EXECUTABLE';
       const structuredError: ReferenceTranslationError = {
         code: cancelled ? 'CANCELLED'
           : sourceCode === 'CURRENT_CORE_PACK_INCOMPLETE' ? 'CURRENT_CORE_PACK_INCOMPLETE'
@@ -818,13 +917,18 @@ export function createReferenceTranslationService(
                   : sourceCode === 'RECONSTRUCTION_OUTPUT_DUPLICATED' ? 'RECONSTRUCTION_OUTPUT_DUPLICATED'
                     : sourceCode === 'VISUAL_DIRECTION_NOT_EXECUTABLE' ? 'VISUAL_DIRECTION_NOT_EXECUTABLE'
                 : sourceCode === 'RECONSTRUCTION_QUALITY_FAILED' ? 'RECONSTRUCTION_QUALITY_FAILED'
+                  : sourceCode === 'REFERENCE_FIRST_LEGACY_STYLE_NOT_SUPPRESSED'
+                    ? 'REFERENCE_FIRST_LEGACY_STYLE_NOT_SUPPRESSED'
+                    : sourceCode === 'REFERENCE_FIRST_REPORT_VALIDATION_FAILED'
+                      ? 'REFERENCE_FIRST_REPORT_VALIDATION_FAILED'
           : stage === 'PREPARING_ASSETS' ? 'REFERENCE_ASSET_PREPARATION_FAILED'
             : stage === 'ANALYZING_REFERENCE' ? 'REFERENCE_ANALYSIS_FAILED'
               : stage === 'LOADING_PROJECT_CONTEXT' ? 'PROJECT_CONTEXT_LOAD_FAILED'
                 : 'PROJECT_MAPPING_FAILED',
         message: cancelled ? '用户已取消参考转译' : (error as Error).message,
         stage,
-        recoverable: false
+        recoverable: canResumeDirection,
+        retryFromStage: canResumeDirection ? 'GENERATING_DIRECTION' : undefined
       };
       const current = await getRun(runId).catch(() => initialRecord);
       if (current.error) throw error;
@@ -855,6 +959,256 @@ export function createReferenceTranslationService(
 
   async function readReport(runId: string): Promise<string> {
     return fs.readFile(await reportPath(runId), 'utf8');
+  }
+
+  async function ensureReportDelivery(runId: string): Promise<string> {
+    const root = await runRoot(runId);
+    if (!dependencies) return root;
+    const record = await getRun(runId);
+    if (!record.projectId) return root;
+    const projectPaths = await dependencies.projects.paths(record.projectId).catch(() => null);
+    if (!projectPaths) return root;
+    await fs.mkdir(projectPaths.outputs, { recursive: true });
+
+    if (record.reportFilename) {
+      const generationSource = path.join(root, record.reportFilename);
+      await fs.copyFile(
+        generationSource,
+        path.join(projectPaths.outputs, path.basename(generationSource))
+      ).catch(() => {});
+    }
+
+    const auditFilename = `${sanitizeFilenamePart(record.projectContextFilename || '当前项目')}-参考主导视觉重构分析审计报告.md`;
+    for (const source of [
+      path.join(root, auditFilename),
+      path.join(root, 'reports', 'analysis-audit-report.md')
+    ]) {
+      try {
+        await fs.copyFile(source, path.join(projectPaths.outputs, auditFilename));
+        break;
+      } catch {
+        // Older runs may not contain a separated audit report.
+      }
+    }
+    return projectPaths.outputs;
+  }
+
+  async function loadPersistedAssetSelectionProtocol(
+    runId: string,
+    projectId: string
+  ): Promise<AssetSelectionProtocolResult> {
+    if (!dependencies) throw new Error('正式用户流程尚未连接项目分析服务');
+    const root = await runRoot(runId);
+    const [project, currentDecisions, referenceDecisions] = await Promise.all([
+      dependencies.projects.get(projectId),
+      readJson<CurrentProjectAssetDecision[]>(path.join(root, 'current-project-asset-decisions.json')),
+      readJson<ReferenceAssetDecision[]>(path.join(root, 'reference-asset-decisions.json'))
+    ]);
+    return assembleAssetSelectionProtocol(project, currentDecisions, referenceDecisions);
+  }
+
+  async function resume(runId: string, requestedApiProfileId?: string): Promise<ReferenceTranslationResult> {
+    if (!dependencies) throw new Error('正式用户流程尚未连接项目分析服务');
+    if (active) throw new Error('当前已有分析任务正在运行，请等待完成后再继续分析。');
+    const record = await getRun(runId);
+    if (record.status === 'completed') {
+      const reconstruction = await getReconstruction(runId);
+      return {
+        run: record,
+        reportMarkdown: await readReport(runId),
+        reconstruction,
+        assetSelectionProtocol: reconstruction.assetSelectionProtocol
+      };
+    }
+    if (record.error?.recoverable && record.error.retryFromStage === 'COMPILING_REPORT') {
+      return retryReport(runId);
+    }
+    const failedStage = record.error?.retryFromStage || record.error?.stage;
+    if (failedStage !== 'GENERATING_DIRECTION') {
+      throw new Error('该任务没有可复用的方向生成 Checkpoint，需要重新开始分析。');
+    }
+
+    const root = await runRoot(runId);
+    const intermediateDir = path.join(root, 'intermediate');
+    const [persistedCurrentProjectProfile, referenceStyleProfile] = await Promise.all([
+      readJson<CurrentProjectProfile>(path.join(intermediateDir, 'current-project-profile.json')),
+      readJson<ReferenceStyleProfile>(path.join(intermediateDir, 'reference-style-profile.json'))
+    ]);
+    const currentProjectProfile = recoverPersistedProjectIdentity(persistedCurrentProjectProfile);
+    if (currentProjectProfile !== persistedCurrentProjectProfile) {
+      await writeJson(path.join(intermediateDir, 'current-project-profile.json'), currentProjectProfile);
+      await writeJson(path.join(root, 'input', 'project-context.json'), {
+        schemaVersion: 'project-context-v2',
+        currentProjectProfile
+      });
+    }
+    const project = await dependencies.projects.get(currentProjectProfile.projectId).catch(() => null);
+    if (!project) throw new Error('继续分析所需的当前项目已不存在，无法复用失败任务。');
+    const settings = await readSettings();
+    const apiProfileId = requestedApiProfileId
+      || record.apiProfileId
+      || project.apiProfileId
+      || settings.defaultProfileId
+      || undefined;
+    if (!apiProfileId) throw new Error('请先在设置中配置并启用 API Profile。');
+
+    const assetSelectionProtocol = await loadPersistedAssetSelectionProtocol(
+      runId,
+      currentProjectProfile.projectId
+    );
+    const resumedAt = new Date().toISOString();
+    active = {
+      progress: {
+        jobId: runId,
+        projectId: currentProjectProfile.projectId,
+        jobType: 'reference_translation',
+        status: 'running',
+        stage: 'GENERATING_DIRECTION',
+        stageIndex: STAGE_META.GENERATING_DIRECTION.index,
+        stageCount: 11,
+        progress: STAGE_META.GENERATING_DIRECTION.progress,
+        analyzedAssetCount: record.analyzedAssetCount,
+        totalAssetCount: record.totalAssetCount,
+        startedAt: resumedAt,
+        updatedAt: resumedAt,
+        message: '正在从已保存的项目画像与参考风格继续生成视觉方向'
+      },
+      pipelineProjectId: currentProjectProfile.projectId,
+      cancelled: false
+    };
+    await writeJson(await recordPath(runId), {
+      ...record,
+      status: 'running',
+      completedAt: undefined,
+      lastError: null,
+      error: null,
+      stage: 'GENERATING_DIRECTION',
+      progress: STAGE_META.GENERATING_DIRECTION.progress,
+      projectId: currentProjectProfile.projectId,
+      projectContextFilename: currentProjectProfile.projectName,
+      apiProfileId
+    });
+
+    try {
+      await publishProgress(
+        runId,
+        currentProjectProfile.projectId,
+        resumedAt,
+        'GENERATING_DIRECTION',
+        { analyzed: record.analyzedAssetCount, total: record.totalAssetCount }
+      );
+      const decisionResult = await dependencies.pipeline.generateVisualReconstructionDecision({
+        projectId: currentProjectProfile.projectId,
+        apiProfileId,
+        currentProjectProfile,
+        referenceStyleProfile,
+        preference: record.preference
+      });
+      assertNotCancelled();
+      await publishProgress(runId, currentProjectProfile.projectId, resumedAt, 'COMPILING_REPORT');
+      const finalized = finalizeReferenceStyleReconstruction({
+        currentProjectProfile,
+        referenceStyleProfile,
+        visualReconstructionDirection: decisionResult.value,
+        assetSelectionProtocol,
+        referenceIdentityTerms: referenceStyleProfile.excludedIdentityTerms
+      });
+      const referenceFirst = finalized.reconstruction.referenceFirstStrategy!;
+      await publishProgress(runId, currentProjectProfile.projectId, resumedAt, 'VALIDATING_REPORT');
+      const reportFilename = `${sanitizeFilenamePart(currentProjectProfile.projectName)}-Reference-First生图执行文档.md`;
+      await persistReferenceFirstBetaArtifacts(
+        root,
+        referenceFirst,
+        assetSelectionProtocol,
+        currentProjectProfile.projectName,
+        (await dependencies.projects.paths(currentProjectProfile.projectId)).outputs
+      );
+      await Promise.all([
+        writeJson(path.join(intermediateDir, 'visual-reconstruction-direction.json'), decisionResult.value),
+        writeJson(path.join(intermediateDir, 'quality-validation.json'), finalized.reconstruction.validation),
+        writeJson(path.join(intermediateDir, 'execution-brief-validation.json'), finalized.reconstruction.validation),
+        writeJson(path.join(intermediateDir, 'current-project-core-pack-readable.json'), referenceFirst.currentProjectReadableAssets),
+        writeJson(path.join(intermediateDir, 'replaceable-legacy-visuals.json'), referenceFirst.currentProjectVisualPermissions.replaceableLegacyVisuals),
+        writeJson(path.join(intermediateDir, 'reference-master-set-readable.json'), referenceFirst.referenceReadableAssets),
+        writeJson(path.join(intermediateDir, 'task-reference-confidence.json'), referenceFirst.taskReferenceConfidence),
+        writeJson(path.join(intermediateDir, 'reference-first-permission-matrix.json'), referenceFirst.permissionMatrix),
+        writeJson(path.join(intermediateDir, 'system-anchor.json'), referenceFirst.systemAnchor),
+        writeJson(path.join(intermediateDir, 'project-graphic-anchor.json'), referenceFirst.projectGraphicAnchor),
+        writeJson(path.join(intermediateDir, 'reference-first-strategy.json'), referenceFirst),
+        writeJson(path.join(intermediateDir, 'report-validation.json'), referenceFirst.reportValidation),
+        writeJson(path.join(intermediateDir, 'generation-context.json'), referenceFirst.generationContexts),
+        writeJson(await reconstructionPath(runId), finalized.reconstruction),
+        fs.writeFile(path.join(root, reportFilename), finalized.markdown, 'utf8'),
+        writeJson(path.join(root, 'logs', 'resume-model-calls.json'), {
+          terminalStatus: 'completed',
+          resumedFromStage: 'GENERATING_DIRECTION',
+          provider: decisionResult.provider,
+          model: decisionResult.model,
+          modelCallCount: decisionResult.modelCallCount,
+          durationMs: decisionResult.durationMs
+        })
+      ]);
+      const completed: ReferenceTranslationRunRecord = {
+        ...record,
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        durationMs: (record.durationMs || 0) + Math.max(0, Date.now() - new Date(resumedAt).getTime()),
+        projectId: currentProjectProfile.projectId,
+        projectContextFilename: currentProjectProfile.projectName,
+        stage: 'COMPLETED',
+        progress: 100,
+        reportFilename,
+        apiProfileId,
+        modelCallCount: (record.modelCallCount || 0) + decisionResult.modelCallCount,
+        resumedStageCount: (record.resumedStageCount || 0) + 1,
+        error: null,
+        lastError: null
+      };
+      await writeJson(await recordPath(runId), completed);
+      await publishProgress(runId, currentProjectProfile.projectId, resumedAt, 'COMPLETED');
+      return {
+        run: completed,
+        reportMarkdown: finalized.markdown,
+        reconstruction: finalized.reconstruction,
+        assetSelectionProtocol
+      };
+    } catch (error) {
+      await persistStructuredFailureEvidence(root, error).catch(() => {});
+      const cancelled = active?.cancelled || (error as { code?: string }).code === 'CANCELLED';
+      const failed: ReferenceTranslationRunRecord = {
+        ...record,
+        status: cancelled ? 'cancelled' : 'failed',
+        completedAt: new Date().toISOString(),
+        projectId: currentProjectProfile.projectId,
+        projectContextFilename: currentProjectProfile.projectName,
+        stage: cancelled ? 'CANCELLED' : 'FAILED',
+        progress: 100,
+        lastError: cancelled ? '用户已取消继续分析' : (error as Error).message,
+        error: cancelled ? {
+          code: 'CANCELLED',
+          message: '用户已取消继续分析',
+          stage: 'CANCELLED',
+          recoverable: false
+        } : {
+          code: (error as { code?: ReferenceTranslationError['code'] }).code
+            || 'VISUAL_DIRECTION_NOT_EXECUTABLE',
+          message: (error as Error).message,
+          stage: 'GENERATING_DIRECTION',
+          recoverable: true,
+          retryFromStage: 'GENERATING_DIRECTION'
+        }
+      };
+      await writeJson(await recordPath(runId), failed).catch(() => {});
+      await publishProgress(
+        runId,
+        currentProjectProfile.projectId,
+        resumedAt,
+        cancelled ? 'CANCELLED' : 'FAILED'
+      ).catch(() => {});
+      throw error;
+    } finally {
+      active = null;
+    }
   }
 
   async function retryReport(runId: string): Promise<ReferenceTranslationResult> {
@@ -890,7 +1244,9 @@ export function createReferenceTranslationService(
           currentProjectProfile: reconstruction.currentProjectProfile,
           referenceStyleProfile: reconstruction.referenceStyleProfile,
           styleApplicationPlan: reconstruction.styleApplicationPlan,
-          visualReconstructionDirection: reconstruction.visualReconstructionDirection
+          visualReconstructionDirection: reconstruction.visualReconstructionDirection,
+          assetSelectionProtocol: reconstruction.assetSelectionProtocol,
+          referenceFirstStrategy: reconstruction.referenceFirstStrategy
         };
         reportMarkdown = compileReconstructionBrief(partial);
         const validation = validateReferenceStyleReconstruction(
@@ -904,13 +1260,24 @@ export function createReferenceTranslationService(
         );
         nextReconstruction = { ...partial, validation };
         await writeJson(await reconstructionPath(runId), nextReconstruction);
+        if (partial.referenceFirstStrategy && partial.assetSelectionProtocol) {
+          await persistReferenceFirstBetaArtifacts(
+            await runRoot(runId),
+            partial.referenceFirstStrategy,
+            partial.assetSelectionProtocol,
+            partial.currentProjectProfile.projectName,
+            dependencies
+              ? (await dependencies.projects.paths(partial.currentProjectProfile.projectId)).outputs
+              : undefined
+          );
+        }
       } else {
         reportMarkdown = compileReferenceTranslationMarkdown({ profile: profile!, projectContext, direction: direction! });
       }
       await publishProgress(runId, record.projectId || 'unknown', startedAt, 'VALIDATING_REPORT');
       if (!reconstruction) validateMarkdownReport('reference_translation', reportMarkdown, { profile: profile!, direction });
       const filename = record.reportFilename || (nextReconstruction
-        ? `${sanitizeFilenamePart(nextReconstruction.currentProjectProfile.projectName)}-视觉方案参考风格重构执行文档.md`
+        ? `${sanitizeFilenamePart(nextReconstruction.currentProjectProfile.projectName)}-Reference-First生图执行文档.md`
         : 'report.md');
       await fs.writeFile(path.join(await runRoot(runId), filename), reportMarkdown, 'utf8');
       const completed: ReferenceTranslationRunRecord = {
@@ -976,6 +1343,8 @@ export function createReferenceTranslationService(
     getDirection,
     getReconstruction,
     readReport,
+    ensureReportDelivery,
+    resume,
     retryReport,
     cancel,
     inspectAssets: inspectReferenceAssets,

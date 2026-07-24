@@ -17,9 +17,9 @@ export function buildCurrentProjectAssetSelectionPrompt(
   project: ProjectRecord,
   assets: ProjectAsset[]
 ): string {
-  return `你正在执行 Current Project Core Pack Selector。
-目标是保留当前品牌身份、产品事实、Logo/品牌字形、包装与产品结构、真实触点和 Locked Assets 的证据。
-旧视觉风格只能标记为 legacy_visual_style_only，绝不能作为新输出的风格依据。参考项目资产不得混入。
+  return `你正在执行 Current Project Analysis/Generation Pack Selector。
+必须把分析证据包与生图身份包分开：分析包可以观察旧视觉；生图身份包只保留品牌身份、产品事实、真实结构和 Locked Assets。
+旧视觉风格绝不能进入生图身份包或作为新输出的风格依据。带旧贴图的包装结构只能使用 structure_only。
 
 项目元数据：
 ${JSON.stringify({
@@ -40,7 +40,11 @@ ${JSON.stringify(manifest(assets), null, 2)}
   "assetId":"清单中的 ID",
   "filename":"清单中的文件名",
   "role":"logo_evidence | logo_typography_evidence | brand_name_evidence | product_fact_evidence | packaging_structure_evidence | product_structure_evidence | touchpoint_evidence | locked_asset_evidence | brand_copy_evidence | spatial_structure_evidence | legacy_visual_style_only | duplicate | irrelevant | uncertain",
+  "roles":["允许同一资产具有多个上述角色"],
   "keepInCorePack":true,
+  "includeInAnalysisEvidencePack":true,
+  "includeInGenerationIdentityPack":false,
+  "generationUsage":"identity | product | structure_only | locked_asset | exclude",
   "keepReason":"基于可观察内容的理由",
   "extractedFacts":["只写明确事实"],
   "lockedEvidence":["不可修改的身份或结构证据"],
@@ -50,7 +54,8 @@ ${JSON.stringify(manifest(assets), null, 2)}
   "requiresHumanReview":false
 }]}
 
-duplicate、irrelevant、legacy_visual_style_only 必须 keepInCorePack=false。
+duplicate、irrelevant 不得进入任一包。legacy_visual_style_only 可以进入分析包，但不得进入生图身份包。
+从旧视觉中观察到的 Slogan 不得自动视为 Locked Asset 或保留文案。
 legacyStyleShouldInfluenceOutput 永远为 false。
 ${JSON_ONLY}`;
 }
@@ -67,6 +72,8 @@ ${JSON.stringify(manifest(assets), null, 2)}
   "assetId":"清单中的 ID",
   "filename":"清单中的文件名",
   "role":"system_overview | packaging | packaging_detail | poster | vi_application | material_detail | typography_detail | graphic_detail | spatial | display_layout | photography_style | brand_strategy_text | pure_text_slide | duplicate | irrelevant | uncertain",
+  "primaryRole":"与 role 相同的主角色",
+  "secondaryRoles":["该图明确包含的其他角色；例如 VI 总览可同时包含 packaging、display_layout、typography_detail"],
   "styleCarrierStrength":"high | medium | low",
   "includeInMasterSet":true,
   "eligibleOutputTypes":["anchor_vi_system | packaging_single | packaging_series | brand_poster | product_poster | vi_application | spatial_scene | digital_campaign"],

@@ -58,6 +58,25 @@ const ROLE_CARRIERS: Partial<Record<ReferenceAssetRole, StyleCarrierCategory[]>>
   photography_style: ['photography']
 };
 
+const DIRECT_ROLES: Record<GenerationOutputType, ReferenceAssetRole[]> = {
+  anchor_vi_system: ['system_overview'],
+  packaging_single: ['packaging', 'packaging_detail'],
+  packaging_series: ['packaging', 'packaging_detail'],
+  brand_poster: ['poster'],
+  product_poster: ['photography_style'],
+  vi_application: ['vi_application'],
+  spatial_scene: ['spatial'],
+  digital_campaign: ['poster']
+};
+
+function secondaryRolesFor(role: ReferenceAssetRole): ReferenceAssetRole[] {
+  if (role === 'system_overview') return ['vi_application', 'packaging', 'display_layout', 'typography_detail', 'material_detail'];
+  if (role === 'vi_application') return ['system_overview', 'packaging', 'display_layout', 'typography_detail', 'material_detail'];
+  if (role === 'poster') return ['typography_detail', 'graphic_detail', 'photography_style'];
+  if (role === 'packaging') return ['packaging_detail', 'typography_detail', 'graphic_detail', 'material_detail'];
+  return [];
+}
+
 function boundedConfidence(value: unknown, fallback: number): number {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? Math.max(0, Math.min(1, numeric)) : fallback;
@@ -162,7 +181,15 @@ export function createFallbackCurrentProjectDecisions(
       assetId: asset.id,
       filename: asset.originalName,
       role,
+      roles: [role],
       keepInCorePack: !['duplicate', 'irrelevant', 'legacy_visual_style_only'].includes(role),
+      includeInAnalysisEvidencePack: !['duplicate', 'irrelevant'].includes(role),
+      includeInGenerationIdentityPack: !['duplicate', 'irrelevant', 'legacy_visual_style_only', 'touchpoint_evidence', 'spatial_structure_evidence'].includes(role),
+      generationUsage: role === 'logo_evidence' || role === 'logo_typography_evidence' || role === 'brand_name_evidence'
+        ? 'identity'
+        : role === 'product_fact_evidence' ? 'product'
+          : ['packaging_structure_evidence', 'product_structure_evidence'].includes(role) ? 'structure_only'
+            : role === 'locked_asset_evidence' ? 'locked_asset' : 'exclude',
       keepReason: duplicateOf
         ? `与 ${duplicateOf} 内容重复`
         : uncertain ? '文件名不足以判定角色，保留并标记人工复核' : '包含当前项目事实或结构证据',
@@ -186,6 +213,8 @@ export function createFallbackReferenceDecisions(assets: ProjectAsset[]): Refere
       assetId: asset.id,
       filename: asset.originalName,
       role,
+      primaryRole: role,
+      secondaryRoles: secondaryRolesFor(role),
       styleCarrierStrength: role === 'system_overview' ? 'high' : role === 'duplicate' ? 'low' : 'medium',
       includeInMasterSet: role !== 'duplicate',
       eligibleOutputTypes: ROLE_OUTPUTS[role] || [],
@@ -213,8 +242,13 @@ export function normalizeCurrentProjectDecisions(
       ...item,
       filename: base.filename,
       role,
+      roles: unique((item.roles || [role]) as string[]) as CurrentProjectAssetRole[],
       keepInCorePack: !['duplicate', 'irrelevant', 'legacy_visual_style_only'].includes(role)
         && Boolean(item.keepInCorePack),
+      includeInAnalysisEvidencePack: !['duplicate', 'irrelevant'].includes(role),
+      includeInGenerationIdentityPack: !['duplicate', 'irrelevant', 'legacy_visual_style_only', 'touchpoint_evidence', 'spatial_structure_evidence'].includes(role)
+        && Boolean(item.keepInCorePack),
+      generationUsage: item.generationUsage || base.generationUsage,
       extractedFacts: unique(item.extractedFacts || []),
       lockedEvidence: unique(item.lockedEvidence || []),
       legacyStyleShouldInfluenceOutput: false,
@@ -239,6 +273,8 @@ export function normalizeReferenceDecisions(
       ...item,
       filename: base.filename,
       role,
+      primaryRole: role,
+      secondaryRoles: unique((item.secondaryRoles || base.secondaryRoles || secondaryRolesFor(role)) as string[]) as ReferenceAssetRole[],
       includeInMasterSet: !['duplicate', 'irrelevant', 'pure_text_slide', 'brand_strategy_text'].includes(role)
         && Boolean(item.includeInMasterSet),
       eligibleOutputTypes: unique(item.eligibleOutputTypes || ROLE_OUTPUTS[role] || []) as GenerationOutputType[],
@@ -366,6 +402,25 @@ export function buildReferenceMasterSet(decisions: ReferenceAssetDecision[]): Re
       confidence: Math.min(0.95, support.reduce((sum, item) => sum + item.confidence, 0) / Math.max(1, support.length))
     });
   }
+  const primary = styleCarriers
+    .filter((item) => item.priority === 'primary')
+    .sort((a, b) => b.confidence - a.confidence);
+  if (primary.length > 6) {
+    for (const item of primary.slice(6)) {
+      item.priority = 'secondary';
+      item.mustBeVisibleInOutput = false;
+    }
+  }
+  if (primary.length < 4) {
+    const promotable = styleCarriers
+      .filter((item) => item.priority !== 'primary')
+      .sort((a, b) => b.confidence - a.confidence)
+      .slice(0, Math.max(0, Math.min(4, styleCarriers.length) - primary.length));
+    for (const item of promotable) {
+      item.priority = 'primary';
+      item.mustBeVisibleInOutput = true;
+    }
+  }
   return {
     assetIds: selected.map((item) => item.assetId),
     decisions: selected,
@@ -415,12 +470,25 @@ export function buildTaskReferenceSubsets(master: ReferenceMasterSet): {
 } {
   const primaryCarriers = master.styleCarriers.filter((item) => item.priority === 'primary');
   const subsets = OUTPUT_TYPES.map((outputType) => {
-    const matched = master.decisions.filter((item) => item.eligibleOutputTypes.includes(outputType));
+    const exact = master.decisions.filter((item) => DIRECT_ROLES[outputType].includes(item.primaryRole || item.role));
+    const compatible = master.decisions.filter((item) =>
+      !exact.includes(item)
+      && item.eligibleOutputTypes.includes(outputType)
+      && (item.secondaryRoles || []).some((role) => DIRECT_ROLES[outputType].includes(role)));
+    const inferred = master.decisions.filter((item) =>
+      !exact.includes(item) && !compatible.includes(item) && item.eligibleOutputTypes.includes(outputType));
+    const matched = exact.length ? exact : compatible.length ? compatible : inferred;
     const pool = matched.length ? matched : master.decisions;
     const selected = pool.slice(0, master.assetIds.length === 1 ? 1 : 4);
     const primary = selected.find((item) => item.styleCarrierStrength === 'high') || selected[0];
     const covered = primaryCarriers.filter((carrier) =>
       selected.some((item) => carrier.supportingAssetIds.includes(item.assetId)));
+    const matchLevel = exact.length ? 'exact'
+      : compatible.length ? 'compatible'
+        : inferred.length ? 'inferred' : 'insufficient';
+    const confidence = selected.length
+      ? selected.reduce((sum, item) => sum + item.confidence, 0) / selected.length
+      : 0;
     return {
       outputType,
       selectedAssetIds: selected.map((item) => item.assetId),
@@ -428,12 +496,18 @@ export function buildTaskReferenceSubsets(master: ReferenceMasterSet): {
       supportingReferenceAssetIds: selected.filter((item) => item.assetId !== primary?.assetId).map((item) => item.assetId),
       coveredPrimaryStyleCarrierIds: covered.map((item) => item.id),
       missingStyleCarrierIds: primaryCarriers.filter((item) => !covered.includes(item)).map((item) => item.id),
-      selectionReason: matched.length
-        ? `选择与 ${outputType} 直接匹配且能覆盖主要风格载体的参考`
-        : `缺少直接匹配参考，使用母集中最强证据降级支持 ${outputType}`,
-      confidence: selected.length
-        ? selected.reduce((sum, item) => sum + item.confidence, 0) / selected.length
-        : 0
+      selectionReason: matchLevel === 'exact'
+        ? `选择主角色与 ${outputType} 精确匹配并覆盖主要风格载体的参考`
+        : matchLevel === 'compatible'
+          ? `选择包含 ${outputType} 对应触点与主要风格证据的兼容参考`
+          : matchLevel === 'inferred'
+            ? `没有同类或兼容参考，使用其他触点证据推导 ${outputType}`
+            : `参考证据不足，当前仅保留最强证据并等待人工确认`,
+      confidence,
+      matchLevel,
+      requiresHumanReview: matchLevel === 'inferred' || matchLevel === 'insufficient' || confidence < 0.8,
+      coveredStyleCarrierIds: covered.map((item) => item.id),
+      missingEvidence: matchLevel === 'exact' ? [] : [`缺少 ${outputType} 的主角色精确参考`]
     } satisfies TaskReferenceSubset;
   });
   const validations = subsets.map((subset) => {

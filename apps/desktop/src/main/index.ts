@@ -245,12 +245,17 @@ function registerIpc(): void {
   ipcMain.handle('reference-translation:get-direction', (_event, runId: string) => referenceTranslation.getDirection(runId));
   ipcMain.handle('reference-translation:get-reconstruction', (_event, runId: string) => referenceTranslation.getReconstruction(runId));
   ipcMain.handle('reference-translation:read-report', (_event, runId: string) => referenceTranslation.readReport(runId));
+  ipcMain.handle('reference-translation:resume', (
+    _event,
+    runId: string,
+    apiProfileId?: string
+  ) => referenceTranslation.resume(runId, apiProfileId));
   ipcMain.handle('reference-translation:retry-report', (_event, runId: string) => referenceTranslation.retryReport(runId));
   ipcMain.handle('reference-translation:cancel', (_event, runId: string) => referenceTranslation.cancel(runId));
   ipcMain.handle('reference-translation:remove', (_event, runId: string) => referenceTranslation.remove(runId));
   ipcMain.handle('reference-translation:open-folder', async (_event, runId: string) => {
-    const root = await referenceTranslation.runRoot(runId);
-    const result = await shell.openPath(root);
+    const outputPath = await referenceTranslation.ensureReportDelivery(runId);
+    const result = await shell.openPath(outputPath);
     if (result) throw new Error(result);
   });
 }

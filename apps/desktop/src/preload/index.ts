@@ -75,6 +75,7 @@ const api: DesktopApi = {
     getDirection: (runId) => ipcRenderer.invoke('reference-translation:get-direction', runId),
     getReconstruction: (runId) => ipcRenderer.invoke('reference-translation:get-reconstruction', runId),
     readReport: (runId) => ipcRenderer.invoke('reference-translation:read-report', runId),
+    resume: (runId, apiProfileId) => ipcRenderer.invoke('reference-translation:resume', runId, apiProfileId),
     retryReport: (runId) => ipcRenderer.invoke('reference-translation:retry-report', runId),
     cancel: (runId) => ipcRenderer.invoke('reference-translation:cancel', runId),
     remove: (runId) => ipcRenderer.invoke('reference-translation:remove', runId),
