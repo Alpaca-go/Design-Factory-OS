@@ -7,6 +7,10 @@ import {
   buildReferenceStyleReconstruction,
   completeVisualDirectionTouchpoints,
   generateVisualReconstructionDirection,
+  normalizeDirectionForGptVisual,
+  normalizeGptVisualRule,
+  normalizeProjectTouchpointClassification,
+  validateBetaContentCorrection,
   validateOutputDuplication,
   validateReferenceStyleProfile,
   validateVisualDirectionExecutability
@@ -230,4 +234,121 @@ test('missing touchpoint fields are deterministically completed from the current
   assert.ok(completed.touchpointRules.poster.length >= 3);
   assert.ok(completed.touchpointRules.vi.length >= 3);
   assert.doesNotThrow(() => validateVisualDirectionExecutability(completed, current));
+});
+
+test('beta correction rejects generic traditional symbol stacking', () => {
+  const current = buildCurrentProjectProfile(project(), analysis);
+  const style = buildReferenceStyleProfile(profile, ['护肤参考牌']);
+  const direction = generateVisualReconstructionDirection(current, style);
+  const validation = validateBetaContentCorrection({
+    ...direction,
+    visualAnchor: '将砂锅与印章组合为圆形徽章，作为包装、海报与菜单的核心图形。',
+    graphicSystem: ['砂锅加印章形成传统餐饮徽章。']
+  }, current);
+  assert.equal(validation.noGenericTraditionalSymbolStacking, false);
+});
+
+test('gpt visual mode rewrites production parameters to relationship-level language', () => {
+  assert.equal(
+    normalizeGptVisualRule('使用 100mm 微距镜头、F2.8、4000K 和 3:1 光比，Logo 保留 2 厘米安全距。'),
+    '使用 近距离特写、浅景深、暖光 和 受控明暗层次，Logo 保留 清晰安全区安全距。'
+  );
+  const current = buildCurrentProjectProfile(project(), analysis);
+  const style = buildReferenceStyleProfile(profile, ['护肤参考牌']);
+  const normalized = normalizeDirectionForGptVisual({
+    ...generateVisualReconstructionDirection(current, style),
+    photographySystem: ['100mm 微距镜头，F2.8，4000K，3:1 光比。']
+  });
+  assert.doesNotMatch(JSON.stringify(normalized), /100mm|F2\.8|4000K|3:1/iu);
+});
+
+test('touchpoint inventory separates packaging, service materials and VI applications', () => {
+  const current = buildCurrentProjectProfile(project(), [
+    analysis,
+    '- 包装结构：主餐打包盒；调料包。',
+    '- 服务物料：筷子套；纸巾。',
+    '- VI 应用：工作服；菜单。'
+  ].join('\n'));
+  assert.ok(current.touchpointInventory.primaryPackaging.includes('主餐打包盒'));
+  assert.ok(current.touchpointInventory.primaryPackaging.includes('现有方形餐盒结构'));
+  assert.ok(current.touchpointInventory.secondaryPackaging.includes('调料包'));
+  assert.deepEqual(current.touchpointInventory.serviceMaterials, ['筷子套', '纸巾']);
+  assert.ok(current.touchpointInventory.viApplications.includes('工作服'));
+  assert.ok(current.touchpointInventory.viApplications.includes('菜单'));
+});
+
+test('project touchpoint normalization repairs duplicated classifications from real model output', () => {
+  const normalized = normalizeProjectTouchpointClassification({
+    packagingStructures: ['外卖手提袋', '陶瓷碗', '砂锅', '筷子套', '纸巾', '佐料包装袋'],
+    touchpointInventory: {
+      primaryPackaging: ['外卖手提袋', '堂食碗具'],
+      secondaryPackaging: ['佐料/调料包装袋'],
+      serviceMaterials: ['纸巾', '筷子套'],
+      viApplications: ['宣传海报', '贴纸'],
+      spatialTouchpoints: ['门店招牌'],
+      digitalTouchpoints: []
+    }
+  });
+  assert.deepEqual(normalized.packagingStructures, [
+    '外卖手提袋',
+    '陶瓷碗',
+    '砂锅',
+    '佐料包装袋',
+    '堂食碗具',
+    '佐料/调料包装袋'
+  ]);
+  assert.deepEqual(normalized.touchpointInventory.serviceMaterials, ['纸巾', '筷子套']);
+  assert.deepEqual(normalized.touchpointInventory.viApplications, ['宣传海报', '贴纸']);
+  assert.doesNotMatch(
+    JSON.stringify([
+      normalized.packagingStructures,
+      normalized.touchpointInventory.primaryPackaging,
+      normalized.touchpointInventory.secondaryPackaging
+    ]),
+    /筷子套|纸巾|宣传海报|贴纸/u
+  );
+});
+
+test('project profile validation reports concrete misplaced touchpoints', () => {
+  const current = buildCurrentProjectProfile(project(), analysis);
+  assert.throws(
+    () => assertCurrentProjectProfile({
+      ...current,
+      packagingStructures: [...current.packagingStructures, '筷子套', '纸巾']
+    }),
+    (error: Error & { details?: { packagingAndTouchpointsSeparated?: string[] } }) => {
+      assert.deepEqual(error.details?.packagingAndTouchpointsSeparated, ['筷子套', '纸巾']);
+      return true;
+    }
+  );
+});
+
+test('beta correction requires flexible color and composition systems', () => {
+  const current = buildCurrentProjectProfile(project(), analysis);
+  const style = buildReferenceStyleProfile(profile, ['护肤参考牌']);
+  const direction = generateVisualReconstructionDirection(current, style);
+  const rigid = validateBetaContentCorrection({
+    ...direction,
+    colorSystem: ['主背景统一使用高饱和暖橙，覆盖面积 60%。'],
+    compositionSystem: ['所有海报固定使用同一母版构图。'],
+    flexibleCompositionSystem: {
+      ...direction.flexibleCompositionSystem,
+      allowedVariations: []
+    }
+  }, current);
+  assert.equal(rigid.colorRulesAreFlexible, false);
+  assert.equal(rigid.compositionAllowsVariation, false);
+  assert.equal(rigid.noUnnecessaryProductionParameters, false);
+
+  const compliant = validateBetaContentCorrection({
+    ...direction,
+    compositionSystem: [
+      ...direction.flexibleCompositionSystem.fixedPrinciples,
+      ...direction.flexibleCompositionSystem.allowedVariations,
+      '统一的光影方向与背景留白策略。',
+      '跨触点视觉依赖动势方向与色彩角色分配的统一，而非固定画面母版。',
+      ...direction.flexibleCompositionSystem.prohibitedLayouts.map((item) => `禁止：${item}`)
+    ]
+  }, current);
+  assert.equal(compliant.compositionAllowsVariation, true);
 });

@@ -181,7 +181,7 @@ test('formal user flow analyzes reference assets and generates internal structur
       confidence: 0.9
     });
     const currentProfile: CurrentProjectProfile = {
-      schemaVersion: 'current-project-profile-v2',
+      schemaVersion: 'current-project-profile-v3',
       projectId: currentProject.id,
       projectName: currentProject.projectName,
       brandName: currentProject.brandName,
@@ -194,10 +194,26 @@ test('formal user flow analyzes reference assets and generates internal structur
       packagingStructures: ['现有饮品杯与手提包装结构'],
       lockedAssets: ['当前项目原始 Logo', 'logo.png', '品牌名称不可更改'],
       confirmedFacts: ['品牌名称不可更改'],
-      sourceArtifactIds: ['project:test', 'visual-001']
+      sourceArtifactIds: ['project:test', 'visual-001'],
+      visualSources: {
+        productForms: ['原叶舒展', '杯口弧线'],
+        cookingActions: ['冷泡注水'],
+        sensorySignals: ['茶汤透亮'],
+        consumptionActions: ['手持饮用'],
+        brandNameSemantics: ['云岭', '茶集'],
+        spatialObjects: ['饮品杯', '门店菜单']
+      },
+      touchpointInventory: {
+        primaryPackaging: ['现有饮品杯与手提包装结构'],
+        secondaryPackaging: [],
+        serviceMaterials: [],
+        viApplications: ['菜单', '工作服'],
+        spatialTouchpoints: ['门店招牌', '菜单墙'],
+        digitalTouchpoints: ['数字模板']
+      }
     };
     const referenceStyle: ReferenceStyleProfile = {
-      schemaVersion: 'reference-style-profile-v2',
+      schemaVersion: 'reference-style-profile-v3',
       overallTemperament: [styleRule('整体保持克制、温暖与具有呼吸感的现代气质。')],
       colorSystem: [styleRule('暖米白承担大面积背景，低饱和暖色形成重点，深色文字建立对比。')],
       compositionSystem: [styleRule('主体居中偏下并保留大面积上方留白，信息集中于稳定网格。')],
@@ -216,11 +232,39 @@ test('formal user flow analyzes reference assets and generates internal structur
       directionName: '茶香留白',
       coreProposition: '以云岭茶集的原叶茶饮为核心，在都市日常场景中建立温暖克制的现代茶饮视觉。',
       visualAnchor: '将原叶舒展、冷泡水流和杯口弧线整合为连续曲线路径，连接产品近景、包装裁切、海报动线与菜单分区。',
+      visualAnchorDefinition: {
+        name: '茶流成形',
+        sourceElements: ['原叶舒展', '冷泡注水', '杯口弧线'],
+        transformationLogic: '将原叶舒展、冷泡注水和杯口弧线提炼为连续曲线路径。',
+        visualForm: '连续曲线连接产品近景、包装裁切、海报动线与菜单分区。',
+        extensionTouchpoints: ['包装', '海报', 'VI 应用', '空间'],
+        referenceSurfaceSimilarityRisk: 'low'
+      },
+      executionDetailLevel: 'gpt_visual',
+      referenceInheritance: [
+        { level: 'principle', weight: 1, rule: '继承清晰层级原则。' },
+        { level: 'relationship', weight: 0.8, rule: '继承暖色与中性色关系。' },
+        { level: 'surface', weight: 0.35, rule: '表层颜色和字体仅作弱参考。' }
+      ],
       currentProjectIdentityToRetain: ['云岭茶集', '茶饮 / 现制饮品', '原叶茶饮', '当前项目原始 Logo'],
       currentVisualElementsToRedesign: ['背景色面积', '构图网格', '辅助图形与摄影表现'],
-      compositionSystem: ['产品主体占画面约三分之一并位于视觉中心下方，上方保留标题和呼吸空间。'],
+      flexibleCompositionSystem: {
+        fixedPrinciples: ['产品始终是第一视觉主体并保留稳定信息区。'],
+        allowedVariations: ['海报可采用偏心构图。', '系列可通过近景、俯拍和局部裁切变化。'],
+        seriesConsistencyRules: ['以曲线路径和信息层级维持系列一致。'],
+        prohibitedLayouts: ['标题覆盖产品主体']
+      },
+      compositionSystem: ['产品始终是第一视觉主体并保留稳定信息区。', '海报可采用偏心构图。', '系列可通过近景、俯拍和局部裁切变化。'],
       graphicSystem: ['从茶叶舒展、水流和杯口轮廓提取连续细线曲线，不使用参考项目专属符号。'],
-      colorSystem: ['暖米白作为主背景，当前品牌色仅作小面积识别重点，深炭灰承担文字层级。'],
+      flexibleColorSystem: {
+        identityColorRole: '当前品牌色承担识别重点，不要求大面积满铺。',
+        backgroundOptions: ['包装可选暖米白背景。', '海报按主体对比调整暖色面积。'],
+        textAndStructureColors: ['深炭灰承担文字和结构层级。'],
+        accentOptions: ['少量冷中性色平衡空间层次。'],
+        saturationGuideline: '保持暖色识别与中性色缓冲的关系。',
+        touchpointVariations: ['包装优先信息清晰。', '海报可强化情绪色。', '空间按材质调整色彩。']
+      },
+      colorSystem: ['当前品牌色承担识别重点，不要求大面积满铺。', '包装可选暖米白背景，海报按主体对比调整暖色面积。', '少量冷中性色平衡空间层次。'],
       typographySystem: ['品牌标题、产品名称和说明信息形成三级字号与字重关系。'],
       materialSystem: ['包装使用哑光纸张、细腻压纹与局部压凹工艺。'],
       lightingSystem: ['摄影和渲染使用柔和侧逆光、受控阴影与自然高光。'],

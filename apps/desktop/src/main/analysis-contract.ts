@@ -3,6 +3,7 @@ import { isUsableProjectName } from './project-intake.ts';
 import { validateReferenceTranslationMarkdown, type ReportType } from './reference-translation-report.ts';
 
 const WINDOWS_FORBIDDEN = /[<>:"/\\|?*\u0000-\u001F]/g;
+const ASSET_DECISIONS = new Set(['保留', '升级', '替换', '删除', '新增']);
 
 export function sanitizeFilenamePart(value: string): string {
   const safe = String(value || '')
@@ -69,8 +70,19 @@ export function validateVisualUpgradeMarkdown(markdown: string): void {
   const missing = required.filter((heading) => !markdown.includes(heading));
   if (missing.length) throw new Error(`Markdown 校验失败：缺少章节 ${missing.join('、')}`);
   if (!markdown.includes('唯一视觉升级命题')) throw new Error('Markdown 校验失败：缺少唯一视觉升级命题');
-  if (!['保留', '升级', '替换', '删除', '新增'].every((action) => markdown.includes(action))) {
-    throw new Error('Markdown 校验失败：资产决策未覆盖保留、升级、替换、删除、新增');
+  const decisionSection = markdown.match(/## 3\.\s*视觉资产决策([\s\S]*?)(?=\n## 4\.|$)/u)?.[1] || '';
+  const decisionRows = decisionSection.split(/\r?\n/u).flatMap((line) => {
+    if (!/^\s*\|.*\|\s*$/u.test(line) || /^\s*\|[\s:|-]+\|\s*$/u.test(line)) return [];
+    const cells = line.split('|').slice(1, -1).map((cell) => cell.replace(/\*\*/gu, '').trim());
+    if (cells[0] === '视觉资产' || cells.length < 2) return [];
+    return [{ asset: cells[0] || '', decision: cells[1] || '' }];
+  });
+  if (!decisionRows.length) {
+    throw new Error('Markdown 校验失败：视觉资产决策表为空或格式无效');
+  }
+  const invalid = decisionRows.filter((row) => !ASSET_DECISIONS.has(row.decision));
+  if (invalid.length) {
+    throw new Error(`Markdown 校验失败：资产决策值无效 ${invalid.map((row) => `${row.asset}:${row.decision}`).join('、')}`);
   }
 }
 

@@ -1,5 +1,10 @@
 import type {
+  BetaContentValidation,
   CurrentProjectProfile,
+  CurrentProjectVisualSources,
+  FlexibleColorSystem,
+  FlexibleCompositionSystem,
+  ProjectTouchpointInventory,
   ProjectRecord,
   ReconstructionQualityValidation,
   ReferenceStyleProfile,
@@ -7,6 +12,7 @@ import type {
   ReferenceStyleRule,
   ReferenceTranslationProfile,
   StyleApplicationPlan,
+  VisualAnchor,
   VisualReconstructionDirection
 } from '../shared/types.ts';
 
@@ -18,6 +24,28 @@ const INTERNAL_CONTENT = /GPT Execution Core|Creative Authority|runtime protocol
 const FIXED_WRAPPER = /通过可重复的节奏、密度和对比关系形成|通过网格、留白与信息区之间的稳定关系组织|将可识别形态抽象为可缩放、裁切和组合的图形语法|通过材质表面、光线方向与影像景深共同形成|通过母版结构与变量替换在不同触点延展/iu;
 const PEOPLE_TERMS = /用户|人群|消费者|顾客|客户|客群|上班族|家庭|亲子|年轻|年龄|岁|人群|食客|游客|学生|白领|居民|从业者/iu;
 const OFFERING_ADVICE = /需|建议|应|通过|呈现|强调|优先|避免|替代|升级|摄影|色彩|构图|字号|材质|灯光/iu;
+const LOW_SPECIFICITY_STACKS = [
+  { pattern: /牛头[\s\S]{0,12}脸谱|脸谱[\s\S]{0,12}牛头/iu, terms: ['牛头', '脸谱'] },
+  { pattern: /砂锅[\s\S]{0,12}印章|印章[\s\S]{0,12}砂锅/iu, terms: ['砂锅', '印章'] },
+  { pattern: /辣椒[\s\S]{0,12}火焰|火焰[\s\S]{0,12}辣椒/iu, terms: ['辣椒', '火焰'] },
+  { pattern: /传统纹样[\s\S]{0,12}书法|书法[\s\S]{0,12}传统纹样/iu, terms: ['传统纹样', '书法'] },
+  { pattern: /城市地标[\s\S]{0,12}红色徽章|红色徽章[\s\S]{0,12}城市地标/iu, terms: ['城市地标', '红色徽章'] }
+];
+const PRODUCTION_PARAMETER = /(?:\b\d{2,3}\s*mm\b|\bF\s*\/?\s*\d+(?:\.\d+)?\b|\b\d{4,5}\s*K\b|\b\d+(?:\.\d+)?\s*:\s*\d+(?:\.\d+)?\s*(?:光比)?|\d+(?:\.\d+)?\s*(?:厘米|cm)\b|\d+(?:\.\d+)?\s*%|网格.{0,8}(?:交点|第[一二三四五六七八九十\d]+列))/iu;
+const HARD_COLOR_RULE = /(?:必须|统一|固定|不得|禁止|所有|全部).{0,16}(?:占比|百分比|纯橙|冷色|背景)|(?:占比|覆盖).{0,6}\d+(?:\.\d+)?\s*%/iu;
+const NEGATED_FIXED_COMPOSITION = /(?:而非|不是|避免|不得|不要求|不再|无需|不采用|不使用|不锁死|禁止).{0,10}(?:固定|统一).{0,10}(?:构图|母版|中心|留白|标题区)/giu;
+const FIXED_COMPOSITION_RULE = /(?:所有|全部|每(?:张|个|类)).{0,16}(?:必须|统一|固定|只能).{0,20}(?:构图|母版|中心|留白|标题区)|(?:固定|统一)(?:使用|采用).{0,12}(?:同一|相同|唯一|固定).{0,8}(?:构图|母版|中心|留白|标题区)|不改变母版构图/iu;
+
+export const REFERENCE_INHERITANCE_WEIGHTS = {
+  principle: 1,
+  relationship: 0.8,
+  surface: 0.35
+} as const;
+
+function hasRigidCompositionRule(values: string[]): boolean {
+  const normalized = values.join('\n').replace(NEGATED_FIXED_COMPOSITION, '');
+  return FIXED_COMPOSITION_RULE.test(normalized);
+}
 
 const unique = (values: string[]) => [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 const clampRules = (rules: ReferenceStyleRule[]) => rules.slice(0, 4);
@@ -67,6 +95,118 @@ function inferTouchpoints(markdown: string, assets: string[]): string[] {
   return catalog.filter(([, pattern]) => pattern.test(source)).map(([name]) => name);
 }
 
+function buildVisualSourcesFromReport(
+  lines: string[],
+  coreProducts: string[],
+  brandName: string,
+  usageScenarios: string[]
+): CurrentProjectVisualSources {
+  return {
+    productForms: unique([
+      ...labeledValues(lines, '产品形态|产品外形|内容物|核心视觉对象'),
+      ...coreProducts
+    ]),
+    cookingActions: labeledValues(lines, '制作动作|烹饪动作|生产动作|服务动作|使用动作'),
+    sensorySignals: labeledValues(lines, '感官信号|感官体验|温度感|触感|气味|声音'),
+    consumptionActions: unique([
+      ...labeledValues(lines, '消费动作|使用行为|互动动作'),
+      ...usageScenarios
+    ]),
+    brandNameSemantics: labeledValues(lines, '品牌名称语义|品牌名语义|命名语义').length
+      ? labeledValues(lines, '品牌名称语义|品牌名语义|命名语义')
+      : [brandName],
+    spatialObjects: labeledValues(lines, '空间物件|场景物件|空间对象|真实物件')
+  };
+}
+
+function buildTouchpointInventory(
+  lines: string[],
+  packagingStructures: string[],
+  businessTouchpoints: string[]
+): ProjectTouchpointInventory {
+  const combined = unique([...businessTouchpoints, ...packagingStructures]);
+  const matching = (pattern: RegExp) => combined.filter((item) => pattern.test(item));
+  return {
+    primaryPackaging: unique([
+      ...packagingStructures.filter((item) => !/调料|湿巾|筷子|纸巾/iu.test(item)),
+      ...labeledValues(lines, '主包装|一级包装')
+    ]),
+    secondaryPackaging: unique([
+      ...matching(/调料包|湿巾包装|辅助包装|二级包装/iu),
+      ...labeledValues(lines, '辅助包装|二级包装')
+    ]),
+    serviceMaterials: unique([
+      ...matching(/筷子套|纸巾|餐具|服务物料/iu),
+      ...labeledValues(lines, '服务物料')
+    ]),
+    viApplications: unique([
+      ...matching(/工作服|菜单|桌牌|工牌|VI|贴纸|手提袋/iu),
+      ...labeledValues(lines, 'VI 应用|品牌应用')
+    ]),
+    spatialTouchpoints: unique([
+      ...matching(/招牌|墙面|导视|空间|门店|灯箱/iu),
+      ...labeledValues(lines, '空间触点|门店触点')
+    ]),
+    digitalTouchpoints: unique([
+      ...matching(/社交媒体|平台头图|数字|网站|小程序|电商/iu),
+      ...labeledValues(lines, '数字触点|线上触点')
+    ])
+  };
+}
+
+const SERVICE_MATERIAL = /筷子套|纸巾|餐具包|服务物料/iu;
+const SECONDARY_PACKAGING = /调料|佐料|湿巾.{0,4}包装|辅助包装|二级包装/iu;
+const VI_APPLICATION = /工作服|工牌|菜单|桌牌|宣传海报|海报|贴纸/iu;
+
+export function normalizeProjectTouchpointClassification(input: {
+  packagingStructures: string[];
+  touchpointInventory: ProjectTouchpointInventory;
+}): {
+  packagingStructures: string[];
+  touchpointInventory: ProjectTouchpointInventory;
+} {
+  const inventory = input.touchpointInventory;
+  const candidates = unique([
+    ...input.packagingStructures,
+    ...inventory.primaryPackaging,
+    ...inventory.secondaryPackaging,
+    ...inventory.serviceMaterials,
+    ...inventory.viApplications
+  ]);
+  const serviceMaterials = unique([
+    ...inventory.serviceMaterials,
+    ...candidates.filter((item) => SERVICE_MATERIAL.test(item))
+  ]);
+  const viApplications = unique([
+    ...inventory.viApplications,
+    ...candidates.filter((item) => VI_APPLICATION.test(item))
+  ]);
+  const secondaryPackaging = unique([
+    ...inventory.secondaryPackaging,
+    ...candidates.filter((item) => SECONDARY_PACKAGING.test(item))
+  ]).filter((item) => !SERVICE_MATERIAL.test(item) && !VI_APPLICATION.test(item));
+  const primaryPackaging = unique(inventory.primaryPackaging)
+    .filter((item) => !SERVICE_MATERIAL.test(item)
+      && !SECONDARY_PACKAGING.test(item)
+      && !VI_APPLICATION.test(item));
+  const packagingStructures = unique([
+    ...input.packagingStructures,
+    ...primaryPackaging,
+    ...secondaryPackaging
+  ]).filter((item) => !SERVICE_MATERIAL.test(item) && !VI_APPLICATION.test(item));
+  return {
+    packagingStructures,
+    touchpointInventory: {
+      primaryPackaging,
+      secondaryPackaging,
+      serviceMaterials,
+      viApplications,
+      spatialTouchpoints: unique(inventory.spatialTouchpoints),
+      digitalTouchpoints: unique(inventory.digitalTouchpoints)
+    }
+  };
+}
+
 export interface ProjectProfileValidation {
   coreProductsContainOnlyOfferings: boolean;
   targetAudienceContainsOnlyPeople: boolean;
@@ -74,6 +214,8 @@ export interface ProjectProfileValidation {
   noMarkdownFragments: boolean;
   noAssetNumbers: boolean;
   noReferenceBrandTerms: boolean;
+  packagingAndTouchpointsSeparated: boolean;
+  invalidPackagingTouchpoints: string[];
   requiredFieldsComplete: boolean;
   passed: boolean;
   issues: string[];
@@ -91,8 +233,17 @@ export function validateCurrentProjectProfile(
     ...profile.usageScenarios,
     ...profile.businessTouchpoints,
     ...profile.packagingStructures,
+    ...Object.values(profile.visualSources || {}).flat(),
+    ...Object.values(profile.touchpointInventory || {}).flat(),
     ...profile.confirmedFacts
   ].filter(Boolean);
+  const packagingFacts = [
+    ...profile.packagingStructures,
+    ...(profile.touchpointInventory?.primaryPackaging || []),
+    ...(profile.touchpointInventory?.secondaryPackaging || [])
+  ];
+  const invalidPackagingTouchpoints = packagingFacts.filter((value) =>
+    SERVICE_MATERIAL.test(value) || VI_APPLICATION.test(value));
   const validation = {
     coreProductsContainOnlyOfferings: profile.coreProducts.length > 0
       && profile.coreProducts.every((value) => !OFFERING_ADVICE.test(value)),
@@ -103,6 +254,8 @@ export function validateCurrentProjectProfile(
     noAssetNumbers: facts.every((value) => !ASSET_NUMBER.test(value)),
     noReferenceBrandTerms: referenceIdentityTerms.every((term) =>
       term.trim().length < 2 || facts.every((value) => !value.includes(term.trim()))),
+    packagingAndTouchpointsSeparated: invalidPackagingTouchpoints.length === 0,
+    invalidPackagingTouchpoints,
     requiredFieldsComplete: Boolean(
       profile.brandName && !INCOMPLETE_VALUE.test(profile.brandName)
       && profile.industry && !INCOMPLETE_VALUE.test(profile.industry)
@@ -110,9 +263,12 @@ export function validateCurrentProjectProfile(
       && profile.targetAudience.length
       && profile.businessTouchpoints.length
       && profile.lockedAssets.length
+      && Object.values(profile.visualSources || {}).filter((values) => values.length > 0).length >= 2
     )
   };
-  const issues = Object.entries(validation).filter(([, passed]) => !passed).map(([key]) => key);
+  const issues = Object.entries(validation)
+    .filter(([key, passed]) => key !== 'invalidPackagingTouchpoints' && !passed)
+    .map(([key]) => key);
   return { ...validation, passed: issues.length === 0, issues };
 }
 
@@ -129,12 +285,18 @@ export function assertCurrentProjectProfile(
   if (!profile.targetAudience.length) missing.push('目标人群');
   if (!profile.businessTouchpoints.length) missing.push('业务触点');
   if (!profile.lockedAssets.length) missing.push('Locked Assets');
+  if (Object.values(profile.visualSources || {}).filter((values) => values.length > 0).length < 2) {
+    missing.push('当前项目视觉来源');
+  }
   const message = missing.length
     ? `当前项目资料不足，无法生成可靠的视觉重构文档。请先补充：${missing.join('、')}。`
     : `当前项目事实含有设计建议、Markdown、资产编号或非事实内容：${validation.issues.join('、')}`;
   throw Object.assign(new Error(message), {
     code: missing.length ? 'CURRENT_PROJECT_CONTEXT_INCOMPLETE' : 'CURRENT_PROJECT_PROFILE_CONTAMINATED',
     validation,
+    details: validation.packagingAndTouchpointsSeparated
+      ? undefined
+      : { packagingAndTouchpointsSeparated: validation.invalidPackagingTouchpoints },
     missingFields: missing
   });
 }
@@ -143,27 +305,38 @@ export function assertCurrentProjectProfile(
 export function buildCurrentProjectProfile(project: ProjectRecord, analysisMarkdown: string): CurrentProjectProfile {
   const lines = reportLines(analysisMarkdown);
   const assets = (project.assets || []).map((asset) => asset.originalName);
+  const coreProducts = labeledValues(lines, '核心产品(?:或服务)?|产品与服务|主营产品|主营服务');
+  const usageScenarios = labeledValues(lines, '消费场景|使用场景|业务场景');
+  const businessTouchpoints = labeledValues(lines, '业务触点|品牌触点|应用触点').length
+    ? labeledValues(lines, '业务触点|品牌触点|应用触点')
+    : inferTouchpoints(analysisMarkdown, assets);
+  const packagingStructures = labeledValues(lines, '包装结构|包装盒型|产品结构');
+  const brandName = confirmedOrAnalyzed(
+    [project.brandName, project.detectedBrandName],
+    labeledValues(lines, '品牌名称|品牌名|品牌', 1)[0]
+  );
+  const classifiedTouchpoints = normalizeProjectTouchpointClassification({
+    packagingStructures,
+    touchpointInventory: buildTouchpointInventory(lines, packagingStructures, businessTouchpoints)
+  });
   const profile: CurrentProjectProfile = {
-    schemaVersion: 'current-project-profile-v2',
+    schemaVersion: 'current-project-profile-v3',
     projectId: project.id,
     projectName: project.projectName,
-    brandName: confirmedOrAnalyzed(
-      [project.brandName, project.detectedBrandName],
-      labeledValues(lines, '品牌名称|品牌名|品牌', 1)[0]
-    ),
+    brandName,
     industry: confirmedOrAnalyzed(
       [project.industry, project.detectedIndustry],
       labeledValues(lines, '所属行业|行业定位|行业|所属品类|核心品类|品类|赛道', 1)[0]
     ),
-    coreProducts: labeledValues(lines, '核心产品(?:或服务)?|产品与服务|主营产品|主营服务'),
+    coreProducts,
     targetAudience: labeledValues(lines, '目标用户|目标人群|核心客群|主要客群|受众'),
     pricePositioning: labeledValues(lines, '价格带|价格定位|客单价', 1)[0],
     brandPositioning: labeledValues(lines, '品牌定位|价值主张|品牌角色', 1)[0] || '',
-    usageScenarios: labeledValues(lines, '消费场景|使用场景|业务场景'),
-    businessTouchpoints: labeledValues(lines, '业务触点|品牌触点|应用触点').length
-      ? labeledValues(lines, '业务触点|品牌触点|应用触点')
-      : inferTouchpoints(analysisMarkdown, assets),
-    packagingStructures: labeledValues(lines, '包装结构|包装盒型|产品结构'),
+    usageScenarios,
+    businessTouchpoints,
+    packagingStructures: classifiedTouchpoints.packagingStructures,
+    visualSources: buildVisualSourcesFromReport(lines, coreProducts, brandName, usageScenarios),
+    touchpointInventory: classifiedTouchpoints.touchpointInventory,
     lockedAssets: unique([
       ...(project.logoLocked ? ['当前项目原始 Logo'] : []),
       ...(project.logoFiles || []),
@@ -273,7 +446,7 @@ export function buildReferenceStyleProfile(
   const material = legacyRules(dna.materialAndLighting, identityTerms);
   const extension = legacyRules(dna.extensionMechanism, identityTerms);
   return {
-    schemaVersion: 'reference-style-profile-v2',
+    schemaVersion: 'reference-style-profile-v3',
     overallTemperament: temperament,
     colorSystem: legacyRules(dna.colorLogic, identityTerms),
     compositionSystem: legacyRules(dna.compositionRules, identityTerms),
@@ -324,6 +497,71 @@ function productMotif(product: string): string {
   return product.split(/[、，,；;\s]/u).filter(Boolean)[0]?.slice(0, 6) || '核心产品';
 }
 
+function currentSourceElements(current: CurrentProjectProfile): string[] {
+  const sources = current.visualSources || {
+    productForms: current.coreProducts,
+    cookingActions: [],
+    sensorySignals: [],
+    consumptionActions: current.usageScenarios,
+    brandNameSemantics: [current.brandName],
+    spatialObjects: []
+  };
+  return unique([
+    sources.productForms[0] || current.coreProducts[0] || '',
+    sources.cookingActions[0]
+      || sources.consumptionActions[0]
+      || sources.sensorySignals[0]
+      || sources.brandNameSemantics[0]
+      || current.usageScenarios[0]
+      || current.brandName
+  ]).slice(0, 4);
+}
+
+function fallbackAnchor(current: CurrentProjectProfile): VisualAnchor {
+  const product = current.coreProducts[0] || '核心产品';
+  const sourceElements = currentSourceElements(current);
+  return {
+    name: `${productMotif(product)}起势`,
+    sourceElements,
+    transformationLogic: `将${sourceElements.join('与')}提炼为连续、可裁切的流动路径。`,
+    visualForm: `以 ${product} 的真实形态为主体，让连续路径连接主体边缘、动作方向与稳定信息区。`,
+    extensionTouchpoints: ['包装', '海报', 'VI 应用'],
+    referenceSurfaceSimilarityRisk: 'low'
+  };
+}
+
+function fallbackFlexibleColorSystem(style: ReferenceStyleProfile): FlexibleColorSystem {
+  return {
+    identityColorRole: '当前项目品牌暖色只承担识别重点，不要求所有画面大面积满铺。',
+    backgroundOptions: ['包装可选暖米白或浅中性色背景。', '海报可按食欲、活动和主体对比需要调整暖色面积。'],
+    textAndStructureColors: ['深褐、炭黑或当前品牌确认的深色用于文字与结构。'],
+    accentOptions: ['允许极少量冷中性色平衡材质和空间层次。'],
+    saturationGuideline: '以暖色识别和中性色缓冲的关系为主，避免无依据的固定色彩比例。',
+    touchpointVariations: [
+      '包装优先保证产品信息与运输场景中的清晰识别。',
+      '海报可扩大情绪色面积，但不得压过食物或产品主体。',
+      'VI 与空间按尺寸、距离和材质调整背景与强调色。'
+    ]
+  };
+}
+
+function fallbackFlexibleCompositionSystem(): FlexibleCompositionSystem {
+  return {
+    fixedPrinciples: [
+      '产品或服务始终为第一视觉主体。',
+      '品牌名称和品类信息保持明确层级。',
+      '辅助图形不得压过主体，画面至少保留一个稳定信息区。'
+    ],
+    allowedVariations: [
+      'Anchor Image 可采用居中强主体，产品海报可使用偏心构图。',
+      '系列画面可通过近景、俯拍、局部裁切和留白位置形成变化。',
+      '包装按真实结构调整 Logo 与产品信息位置。'
+    ],
+    seriesConsistencyRules: ['以主体优先、信息层级和锚点路径维持系列一致，不锁死单一母版。'],
+    prohibitedLayouts: ['所有内容挤满画面', '标题覆盖产品主体', '辅助纹样大面积抢占焦点']
+  };
+}
+
 /** Deterministic compatibility fallback. Formal user flow uses the independent model decision step. */
 export function generateVisualReconstructionDirection(
   current: CurrentProjectProfile,
@@ -335,37 +573,61 @@ export function generateVisualReconstructionDirection(
   const color = style.colorSystem.map((item) => item.rule);
   const material = style.materialSystem.map((item) => item.rule);
   const photography = style.photographySystem.map((item) => item.rule);
+  const visualAnchorDefinition = fallbackAnchor(current);
+  const flexibleColorSystem = fallbackFlexibleColorSystem(style);
+  const flexibleCompositionSystem = fallbackFlexibleCompositionSystem();
   return {
     directionName: `${motif}成景`,
     coreProposition: `以 ${current.brandName} 的 ${product} 为绝对主体，在 ${current.usageScenarios[0] || '真实消费场景'} 中建立清晰、可延展的视觉识别。`,
-    visualAnchor: `从 ${product} 的真实轮廓、使用动作与呈现过程提取连续图形路径，结合主体摄影形成可用于包装裁切、海报动线和 VI 分区的视觉锚点。`,
+    visualAnchor: `${visualAnchorDefinition.transformationLogic}${visualAnchorDefinition.visualForm}`,
+    visualAnchorDefinition,
+    executionDetailLevel: 'gpt_visual',
+    referenceInheritance: [
+      { level: 'principle', weight: REFERENCE_INHERITANCE_WEIGHTS.principle, rule: '继承清晰信息层级与跨触点统一原则。' },
+      { level: 'relationship', weight: REFERENCE_INHERITANCE_WEIGHTS.relationship, rule: '继承主体、留白、暖色与中性色之间的视觉关系。' },
+      { level: 'surface', weight: REFERENCE_INHERITANCE_WEIGHTS.surface, rule: '具体颜色、字体、徽章和材质组合仅作弱参考，不完整复制。' }
+    ],
     currentProjectIdentityToRetain: unique([current.brandName, current.industry, ...current.coreProducts, ...current.lockedAssets]),
     currentVisualElementsToRedesign: ['未锁定的色彩比例与背景', '构图网格与信息层级', '辅助图形、材质、灯光与摄影表现'],
-    compositionSystem: composition,
+    flexibleCompositionSystem,
+    compositionSystem: [
+      ...flexibleCompositionSystem.fixedPrinciples,
+      ...flexibleCompositionSystem.allowedVariations,
+      ...flexibleCompositionSystem.seriesConsistencyRules,
+      ...flexibleCompositionSystem.prohibitedLayouts.map((item) => `禁止：${item}`)
+    ],
     graphicSystem: [`辅助图形只取自 ${product} 的轮廓、动作与真实场景，不复用参考项目专属符号。`],
-    colorSystem: color,
+    flexibleColorSystem,
+    colorSystem: [
+      flexibleColorSystem.identityColorRole,
+      ...flexibleColorSystem.backgroundOptions,
+      ...flexibleColorSystem.textAndStructureColors,
+      ...flexibleColorSystem.accentOptions,
+      flexibleColorSystem.saturationGuideline,
+      ...flexibleColorSystem.touchpointVariations
+    ],
     typographySystem: style.typographySystem.map((item) => item.rule),
     materialSystem: material,
     lightingSystem: style.lightingSystem.map((item) =>
       `光线以当前项目主体为中心设置明确方向、柔和过渡与受控阴影，形成${item.designEffect || '清晰层次'}。`),
     photographySystem: style.photographySystem.map((item) =>
-      `摄影以 ${product} 的真实近景为主体，控制镜头距离、背景和景深，形成${item.designEffect || '真实质感'}。`),
+      `摄影以 ${product} 的真实近景为主体，使用浅景深、柔化背景和自然高光，形成${item.designEffect || '真实质感'}。`),
     touchpointRules: {
       packaging: [
-        `包装以 ${product} 为正面摄影主体，主背景使用受控低饱和色，品牌色只承担识别重点。`,
+        `包装以 ${product} 为正面摄影主体，背景按结构与信息清晰度选择，品牌色只承担识别重点。`,
         'Logo 保持固定安全区，产品名、规格和说明形成三级信息层级。',
         '辅助图形位于主体与信息区之间，包装材质和工艺服从真实结构。',
         '渲染使用柔和侧光，系列仅改变受控色块、产品摄影与规格信息。'
       ],
       poster: [
         `海报以 ${product} 近景为主体，占据主要视觉区域并保留标题区和呼吸留白。`,
-        '镜头、背景和光线保持一致，辅助图形只负责连接主体与说明信息。',
-        '系列海报仅改变产品、标题和局部图形路径，不改变母版构图。'
+        '可使用近景、俯拍或局部裁切，背景和侧逆暖光服务食欲与主体层次。',
+        '系列海报通过产品、标题、景别与局部图形路径形成变化，同时保持锚点语言一致。'
       ],
       vi: [
-        '手提袋、菜单、贴纸、工作服和数字模板共用固定母版与色彩比例。',
+        '菜单、工作服、桌牌与数字模板共享信息层级和锚点语言，并按尺寸选择不同母版与色彩面积。',
         'Logo 始终遵守安全区，辅助图形按触点尺寸裁切。',
-        '不同触点只替换产品信息和必要变量，不改变信息层级。'
+        '不同触点可调整布局、背景和信息密度，但保持品牌名称、品类信息和锚点的识别关系。'
       ],
       space: ['门店招牌、导视、灯箱与陈列延续同一品牌色、材质和图形路径，并服务真实消费动线。']
     },
@@ -460,7 +722,8 @@ export function inspectVisualDirectionExecutability(
     posterSpecific: direction.touchpointRules.poster.length >= TOUCHPOINT_REQUIREMENTS.poster.minimumRules
       && missing.poster.length === 0,
     viSpecific: direction.touchpointRules.vi.length >= TOUCHPOINT_REQUIREMENTS.vi.minimumRules
-      && missing.vi.length === 0
+      && missing.vi.length === 0,
+    ...validateBetaContentCorrection(direction, current)
   };
   return { checks, missing };
 }
@@ -471,6 +734,15 @@ export function completeVisualDirectionTouchpoints(
   style: ReferenceStyleProfile
 ): VisualReconstructionDirection {
   const fallback = generateVisualReconstructionDirection(current, style);
+  const visualAnchorDefinition = direction.visualAnchorDefinition?.sourceElements?.length
+    ? direction.visualAnchorDefinition
+    : fallback.visualAnchorDefinition;
+  const flexibleColorSystem = direction.flexibleColorSystem?.identityColorRole
+    ? direction.flexibleColorSystem
+    : fallback.flexibleColorSystem;
+  const flexibleCompositionSystem = direction.flexibleCompositionSystem?.fixedPrinciples?.length
+    ? direction.flexibleCompositionSystem
+    : fallback.flexibleCompositionSystem;
   const touchpointRules = {
     ...direction.touchpointRules,
     space: direction.touchpointRules.space || []
@@ -489,7 +761,79 @@ export function completeVisualDirectionTouchpoints(
     }
     touchpointRules[touchpoint] = rules;
   }
-  return { ...direction, touchpointRules };
+  return normalizeDirectionForGptVisual({
+    ...direction,
+    visualAnchor: direction.visualAnchor || fallback.visualAnchor,
+    visualAnchorDefinition,
+    executionDetailLevel: 'gpt_visual',
+    referenceInheritance: direction.referenceInheritance?.length
+      ? direction.referenceInheritance
+      : fallback.referenceInheritance,
+    flexibleColorSystem,
+    flexibleCompositionSystem,
+    compositionSystem: direction.compositionSystem.length
+      ? direction.compositionSystem
+      : fallback.compositionSystem,
+    colorSystem: direction.colorSystem.length ? direction.colorSystem : fallback.colorSystem,
+    touchpointRules
+  });
+}
+
+export function normalizeGptVisualRule(value: string): string {
+  return value
+    .replace(/\b\d{2,3}\s*mm(?:\s*(?:微距)?镜头)?/giu, '近距离特写')
+    .replace(/\bF\s*\/?\s*\d+(?:\.\d+)?\b/giu, '浅景深')
+    .replace(/\b\d{4,5}\s*K\b/giu, '暖光')
+    .replace(/\b\d+(?:\.\d+)?\s*:\s*\d+(?:\.\d+)?\s*光比/giu, '受控明暗层次')
+    .replace(/\d+(?:\.\d+)?\s*(?:厘米|cm)/giu, '清晰安全区')
+    .replace(/\d+(?:\.\d+)?\s*%/giu, '按触点调整')
+    .replace(/(?:十二|十|九|八|七|六|五|四|三|二|\d+)\s*列网格.{0,10}(?:交点|第[一二三四五六七八九十\d]+列)/giu, '稳定信息区')
+    .replace(/\s{2,}/gu, ' ')
+    .trim();
+}
+
+export function normalizeDirectionForGptVisual(
+  direction: VisualReconstructionDirection
+): VisualReconstructionDirection {
+  const rules = (values: string[]) => unique(values.map(normalizeGptVisualRule));
+  const anchor = direction.visualAnchorDefinition;
+  return {
+    ...direction,
+    visualAnchor: normalizeGptVisualRule(direction.visualAnchor),
+    visualAnchorDefinition: {
+      ...anchor,
+      transformationLogic: normalizeGptVisualRule(anchor.transformationLogic),
+      visualForm: normalizeGptVisualRule(anchor.visualForm)
+    },
+    compositionSystem: rules(direction.compositionSystem),
+    graphicSystem: rules(direction.graphicSystem),
+    colorSystem: rules(direction.colorSystem),
+    typographySystem: rules(direction.typographySystem),
+    materialSystem: rules(direction.materialSystem),
+    lightingSystem: rules(direction.lightingSystem),
+    photographySystem: rules(direction.photographySystem),
+    flexibleColorSystem: {
+      ...direction.flexibleColorSystem,
+      identityColorRole: normalizeGptVisualRule(direction.flexibleColorSystem.identityColorRole),
+      backgroundOptions: rules(direction.flexibleColorSystem.backgroundOptions),
+      textAndStructureColors: rules(direction.flexibleColorSystem.textAndStructureColors),
+      accentOptions: rules(direction.flexibleColorSystem.accentOptions),
+      saturationGuideline: normalizeGptVisualRule(direction.flexibleColorSystem.saturationGuideline),
+      touchpointVariations: rules(direction.flexibleColorSystem.touchpointVariations)
+    },
+    flexibleCompositionSystem: {
+      fixedPrinciples: rules(direction.flexibleCompositionSystem.fixedPrinciples),
+      allowedVariations: rules(direction.flexibleCompositionSystem.allowedVariations),
+      seriesConsistencyRules: rules(direction.flexibleCompositionSystem.seriesConsistencyRules),
+      prohibitedLayouts: rules(direction.flexibleCompositionSystem.prohibitedLayouts)
+    },
+    touchpointRules: {
+      packaging: rules(direction.touchpointRules.packaging),
+      poster: rules(direction.touchpointRules.poster),
+      vi: rules(direction.touchpointRules.vi),
+      space: rules(direction.touchpointRules.space || [])
+    }
+  };
 }
 
 function sentenceList(direction: VisualReconstructionDirection): string[] {
@@ -508,6 +852,76 @@ function sentenceList(direction: VisualReconstructionDirection): string[] {
     ...direction.touchpointRules.vi,
     ...(direction.touchpointRules.space || [])
   ].map((value) => value.trim()).filter(Boolean);
+}
+
+export function validateBetaContentCorrection(
+  direction: VisualReconstructionDirection,
+  current: CurrentProjectProfile
+): BetaContentValidation {
+  const executable = sentenceList(direction).join('\n');
+  const currentSourceEntries = (
+    Object.entries(current.visualSources || {}) as Array<[keyof CurrentProjectVisualSources, string[]]>
+  ).flatMap(([category, values]) => values.map((item) => ({ category, value: item.trim() })));
+  const anchorSources = direction.visualAnchorDefinition?.sourceElements || [];
+  const matchedAnchorSources = anchorSources.flatMap((item) => {
+    const match = currentSourceEntries.find(({ value }) =>
+      value === item || value.includes(item) || item.includes(value));
+    return match ? [{ source: item, category: match.category }] : [];
+  });
+  const matchedSourceCategories = new Set(matchedAnchorSources.map((item) => item.category));
+  const inventory = current.touchpointInventory;
+  const packagingInventory = inventory
+    ? [...current.packagingStructures, ...inventory.primaryPackaging, ...inventory.secondaryPackaging]
+    : current.packagingStructures;
+  const packagingIsClean = packagingInventory.every((item) =>
+    !SERVICE_MATERIAL.test(item) && !VI_APPLICATION.test(item));
+  const distinct = (() => {
+    try {
+      validateOutputDuplication(direction);
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  const directionNameLength = [...direction.directionName].length;
+  const validation: BetaContentValidation = {
+    visualAnchorUsesCurrentProjectSources: anchorSources.length >= 2
+      && matchedAnchorSources.length >= 2
+      && matchedSourceCategories.size >= 2
+      && direction.visualAnchorDefinition.extensionTouchpoints.length >= 3,
+    noGenericTraditionalSymbolStacking: !LOW_SPECIFICITY_STACKS.some(({ pattern, terms }) =>
+      pattern.test(executable)
+      && !terms.every((term) => current.lockedAssets.some((asset) => asset.includes(term)))),
+    noSurfaceStyleOverCopying: direction.referenceInheritance.some((item) =>
+      item.level === 'principle' && item.weight === REFERENCE_INHERITANCE_WEIGHTS.principle)
+      && direction.referenceInheritance.some((item) =>
+        item.level === 'relationship' && item.weight === REFERENCE_INHERITANCE_WEIGHTS.relationship)
+      && direction.referenceInheritance.filter((item) => item.level === 'surface')
+        .some((item) => item.weight <= REFERENCE_INHERITANCE_WEIGHTS.surface)
+      && direction.visualAnchorDefinition.referenceSurfaceSimilarityRisk !== 'high',
+    colorRulesAreFlexible: Boolean(
+      direction.flexibleColorSystem.identityColorRole
+      && direction.flexibleColorSystem.backgroundOptions.length
+      && direction.flexibleColorSystem.touchpointVariations.length >= 2
+      && !HARD_COLOR_RULE.test(direction.colorSystem.join('\n'))
+    ),
+    compositionAllowsVariation: direction.flexibleCompositionSystem.fixedPrinciples.length > 0
+      && direction.flexibleCompositionSystem.allowedVariations.length >= 2
+      && direction.flexibleCompositionSystem.prohibitedLayouts.length > 0
+      && !hasRigidCompositionRule(direction.compositionSystem),
+    noUnnecessaryProductionParameters: direction.executionDetailLevel === 'gpt_visual'
+      && !PRODUCTION_PARAMETER.test(executable),
+    packagingAndTouchpointsSeparated: Boolean(inventory) && packagingIsClean,
+    touchpointRulesAreDistinct: distinct,
+    directionNameIsSpecific: directionNameLength >= 2
+      && directionNameLength <= 8
+      && !/参考风格重构|视觉重构|方案[一二三ABC]?$/iu.test(direction.directionName),
+    gptExecutionReady: direction.executionDetailLevel === 'gpt_visual'
+      && direction.touchpointRules.packaging.length >= 3
+      && direction.touchpointRules.poster.length >= 3
+      && direction.touchpointRules.vi.length >= 3
+  };
+  return validation;
 }
 
 export function validateOutputDuplication(direction: VisualReconstructionDirection): void {
@@ -621,6 +1035,10 @@ export function compileReconstructionBrief(
 - 目标用户：${current.targetAudience.join('；')}
 - 品牌定位：${current.brandPositioning}
 - 包装结构：${current.packagingStructures.join('；') || '以当前项目原视觉方案为准'}
+- 服务物料：${current.touchpointInventory.serviceMaterials.join('；') || '无明确服务物料'}
+- VI 应用：${current.touchpointInventory.viApplications.join('；') || '以当前项目实际触点为准'}
+- 空间触点：${current.touchpointInventory.spatialTouchpoints.join('；') || '以当前项目实际触点为准'}
+- 数字触点：${current.touchpointInventory.digitalTouchpoints.join('；') || '以当前项目实际触点为准'}
 - Locked Assets：${current.lockedAssets.join('；')}
 
 ## 2. 当前视觉方案判断
@@ -659,6 +1077,11 @@ ${bullet(direction.prohibitedActions)}
 - 方向名称：${direction.directionName}
 - 核心命题：${direction.coreProposition}
 - 核心视觉锚点：${direction.visualAnchor}
+- 锚点来源：${direction.visualAnchorDefinition.sourceElements.join('；')}
+- 锚点转换逻辑：${direction.visualAnchorDefinition.transformationLogic}
+- 锚点延展触点：${direction.visualAnchorDefinition.extensionTouchpoints.join('；')}
+- 参考表层相似风险：${direction.visualAnchorDefinition.referenceSurfaceSimilarityRisk}
+- 执行细节级别：${direction.executionDetailLevel}
 - 构图系统：${direction.compositionSystem.join('；')}
 - 图形系统：${direction.graphicSystem.join('；')}
 - 色彩系统：${direction.colorSystem.join('；')}
@@ -725,7 +1148,9 @@ export function validateReferenceStyleReconstruction(
   try { validateReferenceIdentityLeakage(direction, referenceIdentityTerms); } catch { leaked = true; }
   try { validateVisualDirectionExecutability(direction, current); executable = true; } catch { /* reported below */ }
   const executionText = sentenceList(direction).join('\n');
+  const betaContent = validateBetaContentCorrection(direction, current);
   const checks = {
+    ...betaContent,
     currentProjectContextComplete: projectValidation.requiredFieldsComplete,
     lockedAssetsPresent: current.lockedAssets.length > 0,
     referenceStyleProfilePresent: requiredStyleCategoriesPresent(style),
@@ -755,13 +1180,14 @@ export function finalizeReferenceStyleReconstruction(input: {
 }): { reconstruction: ReferenceStyleReconstruction; markdown: string } {
   assertCurrentProjectProfile(input.currentProjectProfile, input.referenceIdentityTerms);
   validateReferenceStyleProfile(input.referenceStyleProfile, input.referenceIdentityTerms);
-  validateOutputDuplication(input.visualReconstructionDirection);
-  validateReferenceIdentityLeakage(input.visualReconstructionDirection, input.referenceIdentityTerms || []);
-  validateVisualDirectionExecutability(input.visualReconstructionDirection, input.currentProjectProfile);
+  const visualReconstructionDirection = normalizeDirectionForGptVisual(input.visualReconstructionDirection);
+  validateOutputDuplication(visualReconstructionDirection);
+  validateReferenceIdentityLeakage(visualReconstructionDirection, input.referenceIdentityTerms || []);
+  validateVisualDirectionExecutability(visualReconstructionDirection, input.currentProjectProfile);
   const partial = {
     currentProjectProfile: input.currentProjectProfile,
     referenceStyleProfile: input.referenceStyleProfile,
-    visualReconstructionDirection: input.visualReconstructionDirection
+    visualReconstructionDirection
   };
   const markdown = compileReconstructionBrief(partial);
   const validation = validateReferenceStyleReconstruction(partial, markdown, input.referenceIdentityTerms);

@@ -6,9 +6,15 @@ import type {
   AnalysisProgress,
   AnalysisResult,
   CurrentProjectProfile,
+  CurrentProjectVisualSources,
+  FlexibleColorSystem,
+  FlexibleCompositionSystem,
+  ProjectTouchpointInventory,
   PublicSettings,
+  ReferenceInheritanceRule,
   ReferenceStyleProfile,
   ReferenceStyleRule,
+  VisualAnchor,
   VisualAnalysisPurpose,
   VisualReconstructionDirection
 } from '../shared/types';
@@ -26,6 +32,7 @@ import type { ProviderCredentials } from './settings-store';
 import {
   assertCurrentProjectProfile,
   completeVisualDirectionTouchpoints,
+  normalizeProjectTouchpointClassification,
   validateReferenceStyleProfile,
   validateVisualDirectionExecutability
 } from './reference-style-reconstruction';
@@ -126,11 +133,95 @@ function styleRuleArray(value: unknown): ReferenceStyleRule[] {
     if (!rule || !designEffect) return [];
     return [{
       rule,
+      inheritanceLevel: source.inheritanceLevel === 'principle'
+        || source.inheritanceLevel === 'relationship'
+        || source.inheritanceLevel === 'surface'
+        ? source.inheritanceLevel
+        : undefined,
       evidence: valueArray(source.evidence),
       designEffect,
       confidence: Math.max(0, Math.min(1, Number(source.confidence ?? 0.7)))
     }];
   });
+}
+
+const recordValue = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+
+function visualSourcesValue(value: unknown): CurrentProjectVisualSources {
+  const source = recordValue(value);
+  return {
+    productForms: valueArray(source.productForms),
+    cookingActions: valueArray(source.cookingActions),
+    sensorySignals: valueArray(source.sensorySignals),
+    consumptionActions: valueArray(source.consumptionActions),
+    brandNameSemantics: valueArray(source.brandNameSemantics),
+    spatialObjects: valueArray(source.spatialObjects)
+  };
+}
+
+function touchpointInventoryValue(value: unknown): ProjectTouchpointInventory {
+  const source = recordValue(value);
+  return {
+    primaryPackaging: valueArray(source.primaryPackaging),
+    secondaryPackaging: valueArray(source.secondaryPackaging),
+    serviceMaterials: valueArray(source.serviceMaterials),
+    viApplications: valueArray(source.viApplications),
+    spatialTouchpoints: valueArray(source.spatialTouchpoints),
+    digitalTouchpoints: valueArray(source.digitalTouchpoints)
+  };
+}
+
+function visualAnchorValue(value: unknown): VisualAnchor {
+  const source = recordValue(value);
+  return {
+    name: String(source.name || '').trim(),
+    sourceElements: valueArray(source.sourceElements),
+    transformationLogic: String(source.transformationLogic || '').trim(),
+    visualForm: String(source.visualForm || '').trim(),
+    extensionTouchpoints: valueArray(source.extensionTouchpoints),
+    referenceSurfaceSimilarityRisk: source.referenceSurfaceSimilarityRisk === 'medium'
+      || source.referenceSurfaceSimilarityRisk === 'high'
+      ? source.referenceSurfaceSimilarityRisk
+      : 'low'
+  };
+}
+
+function referenceInheritanceValue(value: unknown): ReferenceInheritanceRule[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const source = recordValue(item);
+    const level = source.level;
+    if (level !== 'principle' && level !== 'relationship' && level !== 'surface') return [];
+    const defaultWeight = level === 'principle' ? 1 : level === 'relationship' ? 0.8 : 0.35;
+    return [{
+      level: level as ReferenceInheritanceRule['level'],
+      weight: Number.isFinite(Number(source.weight)) ? Number(source.weight) : defaultWeight,
+      rule: String(source.rule || '').trim()
+    }];
+  }).filter((item) => item.rule);
+}
+
+function flexibleColorSystemValue(value: unknown): FlexibleColorSystem {
+  const source = recordValue(value);
+  return {
+    identityColorRole: String(source.identityColorRole || '').trim(),
+    backgroundOptions: valueArray(source.backgroundOptions),
+    textAndStructureColors: valueArray(source.textAndStructureColors),
+    accentOptions: valueArray(source.accentOptions),
+    saturationGuideline: String(source.saturationGuideline || '').trim(),
+    touchpointVariations: valueArray(source.touchpointVariations)
+  };
+}
+
+function flexibleCompositionSystemValue(value: unknown): FlexibleCompositionSystem {
+  const source = recordValue(value);
+  return {
+    fixedPrinciples: valueArray(source.fixedPrinciples),
+    allowedVariations: valueArray(source.allowedVariations),
+    seriesConsistencyRules: valueArray(source.seriesConsistencyRules),
+    prohibitedLayouts: valueArray(source.prohibitedLayouts)
+  };
 }
 
 export function createPipelineService(
@@ -478,32 +569,40 @@ export function createPipelineService(
       apiProfileId,
       prompt: buildCurrentProjectFactsPrompt(project),
       includeVisualAssets: true,
-      normalize: (raw, assetIds) => ({
-        schemaVersion: 'current-project-profile-v2',
-        projectId: project.id,
-        projectName: project.projectName,
-        brandName: !incompleteFact(project.brandName)
-          ? project.brandName
-          : String(raw.brandName || project.detectedBrandName || ''),
-        industry: !incompleteFact(project.industry)
-          ? project.industry
-          : String(raw.industry || project.detectedIndustry || ''),
-        coreProducts: valueArray(raw.coreProducts),
-        targetAudience: valueArray(raw.targetAudience),
-        brandPositioning: String(raw.brandPositioning || '').trim(),
-        pricePositioning: String(raw.pricePositioning || '').trim() || undefined,
-        usageScenarios: valueArray(raw.usageScenarios),
-        businessTouchpoints: valueArray(raw.businessTouchpoints),
-        packagingStructures: valueArray(raw.packagingStructures),
-        lockedAssets: [...new Set([
-          ...(project.logoLocked ? ['当前项目原始 Logo'] : []),
-          ...(project.logoFiles || []),
-          ...(project.lockedFacts || [])
-        ])],
-        confirmedFacts: valueArray(raw.confirmedFacts),
-        sourceArtifactIds: [`project:${project.id}`, ...assetIds],
-        currentVisualAssets: (project.assets || []).map((asset) => asset.originalName)
-      }),
+      normalize: (raw, assetIds) => {
+        const classifiedTouchpoints = normalizeProjectTouchpointClassification({
+          packagingStructures: valueArray(raw.packagingStructures),
+          touchpointInventory: touchpointInventoryValue(raw.touchpointInventory)
+        });
+        return {
+          schemaVersion: 'current-project-profile-v3',
+          projectId: project.id,
+          projectName: project.projectName,
+          brandName: !incompleteFact(project.brandName)
+            ? project.brandName
+            : String(raw.brandName || project.detectedBrandName || ''),
+          industry: !incompleteFact(project.industry)
+            ? project.industry
+            : String(raw.industry || project.detectedIndustry || ''),
+          coreProducts: valueArray(raw.coreProducts),
+          targetAudience: valueArray(raw.targetAudience),
+          brandPositioning: String(raw.brandPositioning || '').trim(),
+          pricePositioning: String(raw.pricePositioning || '').trim() || undefined,
+          usageScenarios: valueArray(raw.usageScenarios),
+          businessTouchpoints: valueArray(raw.businessTouchpoints),
+          packagingStructures: classifiedTouchpoints.packagingStructures,
+          visualSources: visualSourcesValue(raw.visualSources),
+          touchpointInventory: classifiedTouchpoints.touchpointInventory,
+          lockedAssets: [...new Set([
+            ...(project.logoLocked ? ['当前项目原始 Logo'] : []),
+            ...(project.logoFiles || []),
+            ...(project.lockedFacts || [])
+          ])],
+          confirmedFacts: valueArray(raw.confirmedFacts),
+          sourceArtifactIds: [`project:${project.id}`, ...assetIds],
+          currentVisualAssets: (project.assets || []).map((asset) => asset.originalName)
+        };
+      },
       validate: (value) => assertCurrentProjectProfile(value)
     });
   }
@@ -521,7 +620,7 @@ export function createPipelineService(
       prompt: buildReferenceStylePrompt(),
       includeVisualAssets: true,
       normalize: (raw, assetIds) => ({
-        schemaVersion: 'reference-style-profile-v2',
+        schemaVersion: 'reference-style-profile-v3',
         overallTemperament: styleRuleArray(raw.overallTemperament),
         colorSystem: styleRuleArray(raw.colorSystem),
         compositionSystem: styleRuleArray(raw.compositionSystem),
@@ -557,15 +656,35 @@ export function createPipelineService(
         const touchpoints = raw.touchpointRules && typeof raw.touchpointRules === 'object'
           ? raw.touchpointRules as Record<string, unknown>
           : {};
+        const anchor = visualAnchorValue(raw.visualAnchor);
+        const flexibleColorSystem = flexibleColorSystemValue(raw.flexibleColorSystem);
+        const flexibleCompositionSystem = flexibleCompositionSystemValue(raw.flexibleCompositionSystem);
         const direction: VisualReconstructionDirection = {
           directionName: String(raw.directionName || '').trim(),
           coreProposition: String(raw.coreProposition || '').trim(),
-          visualAnchor: String(raw.visualAnchor || '').trim(),
+          visualAnchor: [anchor.transformationLogic, anchor.visualForm].filter(Boolean).join('；'),
+          visualAnchorDefinition: anchor,
+          executionDetailLevel: 'gpt_visual',
+          referenceInheritance: referenceInheritanceValue(raw.referenceInheritance),
           currentProjectIdentityToRetain: valueArray(raw.currentProjectIdentityToRetain),
           currentVisualElementsToRedesign: valueArray(raw.currentVisualElementsToRedesign),
-          compositionSystem: valueArray(raw.compositionSystem),
+          flexibleCompositionSystem,
+          compositionSystem: [
+            ...flexibleCompositionSystem.fixedPrinciples,
+            ...flexibleCompositionSystem.allowedVariations,
+            ...flexibleCompositionSystem.seriesConsistencyRules,
+            ...flexibleCompositionSystem.prohibitedLayouts.map((item) => `禁止：${item}`)
+          ],
           graphicSystem: valueArray(raw.graphicSystem),
-          colorSystem: valueArray(raw.colorSystem),
+          flexibleColorSystem,
+          colorSystem: [
+            flexibleColorSystem.identityColorRole,
+            ...flexibleColorSystem.backgroundOptions,
+            ...flexibleColorSystem.textAndStructureColors,
+            ...flexibleColorSystem.accentOptions,
+            flexibleColorSystem.saturationGuideline,
+            ...flexibleColorSystem.touchpointVariations
+          ].filter(Boolean),
           typographySystem: valueArray(raw.typographySystem),
           materialSystem: valueArray(raw.materialSystem),
           lightingSystem: valueArray(raw.lightingSystem),

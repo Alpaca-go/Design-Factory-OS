@@ -453,10 +453,66 @@ export interface CurrentProjectProfile {
   sourceArtifactIds: string[];
   currentVisualAssets?: string[];
   existingBrandCopy?: string[];
+  visualSources: CurrentProjectVisualSources;
+  touchpointInventory: ProjectTouchpointInventory;
+}
+
+export interface CurrentProjectVisualSources {
+  productForms: string[];
+  cookingActions: string[];
+  sensorySignals: string[];
+  consumptionActions: string[];
+  brandNameSemantics: string[];
+  spatialObjects: string[];
+}
+
+export interface ProjectTouchpointInventory {
+  primaryPackaging: string[];
+  secondaryPackaging: string[];
+  serviceMaterials: string[];
+  viApplications: string[];
+  spatialTouchpoints: string[];
+  digitalTouchpoints: string[];
+}
+
+export type ReferenceInheritanceLevel = 'principle' | 'relationship' | 'surface';
+
+export interface ReferenceInheritanceRule {
+  level: ReferenceInheritanceLevel;
+  weight: number;
+  rule: string;
+}
+
+export type ExecutionDetailLevel = 'gpt_visual' | 'design_guideline' | 'production_spec';
+
+export interface VisualAnchor {
+  name: string;
+  sourceElements: string[];
+  transformationLogic: string;
+  visualForm: string;
+  extensionTouchpoints: string[];
+  referenceSurfaceSimilarityRisk: 'low' | 'medium' | 'high';
+}
+
+export interface FlexibleColorSystem {
+  identityColorRole: string;
+  backgroundOptions: string[];
+  textAndStructureColors: string[];
+  accentOptions: string[];
+  saturationGuideline: string;
+  touchpointVariations: string[];
+}
+
+export interface FlexibleCompositionSystem {
+  fixedPrinciples: string[];
+  allowedVariations: string[];
+  seriesConsistencyRules: string[];
+  prohibitedLayouts: string[];
 }
 
 export interface ReferenceStyleRule {
   rule: string;
+  inheritanceLevel?: ReferenceInheritanceLevel;
   evidence: string[];
   designEffect: string;
   confidence: number;
@@ -504,6 +560,11 @@ export interface VisualReconstructionDirection {
   directionName: string;
   coreProposition: string;
   visualAnchor: string;
+  visualAnchorDefinition: VisualAnchor;
+  executionDetailLevel: ExecutionDetailLevel;
+  referenceInheritance: ReferenceInheritanceRule[];
+  flexibleColorSystem: FlexibleColorSystem;
+  flexibleCompositionSystem: FlexibleCompositionSystem;
   currentProjectIdentityToRetain: string[];
   currentVisualElementsToRedesign: string[];
   compositionSystem: string[];
@@ -522,7 +583,20 @@ export interface VisualReconstructionDirection {
   prohibitedActions: string[];
 }
 
-export interface ReconstructionQualityValidation {
+export interface BetaContentValidation {
+  visualAnchorUsesCurrentProjectSources: boolean;
+  noGenericTraditionalSymbolStacking: boolean;
+  noSurfaceStyleOverCopying: boolean;
+  colorRulesAreFlexible: boolean;
+  compositionAllowsVariation: boolean;
+  noUnnecessaryProductionParameters: boolean;
+  packagingAndTouchpointsSeparated: boolean;
+  touchpointRulesAreDistinct: boolean;
+  directionNameIsSpecific: boolean;
+  gptExecutionReady: boolean;
+}
+
+export interface ReconstructionQualityValidation extends BetaContentValidation {
   currentProjectContextComplete: boolean;
   lockedAssetsPresent: boolean;
   referenceStyleProfilePresent: boolean;
