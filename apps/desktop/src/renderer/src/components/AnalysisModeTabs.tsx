@@ -1,4 +1,4 @@
-export type AnalysisMode = 'visual-analysis' | 'visual-translation';
+export type AnalysisMode = 'visual-analysis' | 'visual-translation' | 'reference-translation';
 
 interface Props {
   value: AnalysisMode;
@@ -12,6 +12,9 @@ export function AnalysisModeTabs({ value, onChange }: Props) {
     </button>
     <button role="tab" aria-selected={value === 'visual-translation'} className={value === 'visual-translation' ? 'active' : ''} onClick={() => onChange('visual-translation')}>
       <span>文档视觉转译</span><small>上传策略文档，生成三个视觉方向</small>
+    </button>
+    <button role="tab" aria-selected={value === 'reference-translation'} className={value === 'reference-translation' ? 'active' : ''} onClick={() => onChange('reference-translation')}>
+      <span>参考风格重构</span><small>将参考视觉风格应用到当前项目并生成 GPT 执行文档</small>
     </button>
   </div>;
 }

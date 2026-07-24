@@ -1,3 +1,41 @@
-# 仓库分支审计（Phase B 后）
+# Repository branch audit after cleanup
 
-尚未执行 Phase B。本文件将在合并、创建 develop、同步活跃功能分支及经确认的分支删除完成后填写。
+Audit date: 2026-07-23 (Asia/Shanghai).
+
+## Remaining remote branches
+
+| Branch | Status |
+| --- | --- |
+| `main` | Retrieval-First core baseline |
+| `develop` | Long-lived integration branch |
+| `feature/reference-led-visual-direction` | Active; PR #7 targets `develop` |
+
+## Pull requests
+
+- PR #6 was merged into `main` with merge commit
+  `5f9ac06d1e25aa4b091461e4b4437f9b7d3f82af`.
+- PR #7 is open from `feature/reference-led-visual-direction` to `develop`.
+- PRs #2, #3, #4 and #5 were closed without merging after an archive-tag
+  explanation was added to each PR.
+
+## Deleted archived remote branches
+
+After explicit user confirmation, the following remote branches were deleted:
+
+- `v5-deep-creative-director`
+- `v5-desktop`
+- `feature/visual-translation-v1`
+- `feature/brand-dna-analysis`
+- `feature/brand-dna-report-v2`
+- `feature/brand-dna-v3-deep-compact`
+- `feature/brand-dna-v3-core-quality-fix`
+- `experiment/execution-oriented-directions-v2`
+- `experiment/visual-fact-first-pipeline`
+
+All nine annotated `archive/*-20260723` tags remain on the remote and retain
+the exact deleted branch tips.
+
+The merged `feature/retrieval-first-single-pipeline` branch was subsequently
+deleted locally and remotely after separate user confirmation. Its history
+remains reachable through PR #6, `main`, and
+`retrieval-first-core-beta-0.5`.

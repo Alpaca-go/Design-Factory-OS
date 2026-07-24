@@ -1,7 +1,9 @@
 import path from 'node:path';
 import { isUsableProjectName } from './project-intake.ts';
+import { validateReferenceTranslationMarkdown, type ReportType } from './reference-translation-report.ts';
 
 const WINDOWS_FORBIDDEN = /[<>:"/\\|?*\u0000-\u001F]/g;
+const ASSET_DECISIONS = new Set(['保留', '升级', '替换', '删除', '新增']);
 
 export function sanitizeFilenamePart(value: string): string {
   const safe = String(value || '')
@@ -63,15 +65,41 @@ export function normalizeReportTitle(markdown: string, projectName: string, lang
   return /^#\s+.+$/m.test(value) ? value.replace(/^#\s+.+$/m, title) + '\n' : `${title}\n\n${value}\n`;
 }
 
-export function validateDesktopReport(markdown: string): void {
+export function validateVisualUpgradeMarkdown(markdown: string): void {
   const required = Array.from({ length: 11 }, (_, index) => `## ${index}.`);
   const missing = required.filter((heading) => !markdown.includes(heading));
   if (missing.length) throw new Error(`Markdown 校验失败：缺少章节 ${missing.join('、')}`);
   if (!markdown.includes('唯一视觉升级命题')) throw new Error('Markdown 校验失败：缺少唯一视觉升级命题');
-  if (!['保留', '升级', '替换', '删除', '新增'].every((action) => markdown.includes(action))) {
-    throw new Error('Markdown 校验失败：资产决策未覆盖保留、升级、替换、删除、新增');
+  const decisionSection = markdown.match(/## 3\.\s*视觉资产决策([\s\S]*?)(?=\n## 4\.|$)/u)?.[1] || '';
+  const decisionRows = decisionSection.split(/\r?\n/u).flatMap((line) => {
+    if (!/^\s*\|.*\|\s*$/u.test(line) || /^\s*\|[\s:|-]+\|\s*$/u.test(line)) return [];
+    const cells = line.split('|').slice(1, -1).map((cell) => cell.replace(/\*\*/gu, '').trim());
+    if (cells[0] === '视觉资产' || cells.length < 2) return [];
+    return [{ asset: cells[0] || '', decision: cells[1] || '' }];
+  });
+  if (!decisionRows.length) {
+    throw new Error('Markdown 校验失败：视觉资产决策表为空或格式无效');
+  }
+  const invalid = decisionRows.filter((row) => !ASSET_DECISIONS.has(row.decision));
+  if (invalid.length) {
+    throw new Error(`Markdown 校验失败：资产决策值无效 ${invalid.map((row) => `${row.asset}:${row.decision}`).join('、')}`);
   }
 }
+
+export function validateMarkdownReport(
+  reportType: ReportType,
+  markdown: string,
+  structuredResult?: unknown
+): void {
+  if (reportType === 'visual_upgrade') return validateVisualUpgradeMarkdown(markdown);
+  if (reportType === 'reference_translation') {
+    return validateReferenceTranslationMarkdown(markdown, structuredResult as Parameters<typeof validateReferenceTranslationMarkdown>[1]);
+  }
+  throw new Error(`Unsupported report type: ${reportType}`);
+}
+
+// Backward-compatible visual-upgrade entry point.
+export const validateDesktopReport = validateVisualUpgradeMarkdown;
 
 export function assertInside(parent: string, target: string): string {
   const resolvedParent = path.resolve(parent);

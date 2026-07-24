@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { AssetSummary, ProjectRecord, PublicSettings } from '../../../shared/types';
 import { cleanError, formatBytes } from '../utils';
+import { VisualAssetUploader } from './VisualAssetUploader';
 
 interface Props {
   settings: PublicSettings;
@@ -103,21 +104,25 @@ export function ProjectWizard({ settings, onStart, onCancel }: Props) {
     </header>
 
     <section className="panel intake-panel">
-      <div className={`drop-zone intake-drop-zone ${busy ? 'busy' : ''}`} onDragOver={(event) => event.preventDefault()} onDrop={(event) => {
-        event.preventDefault();
-        void prepare(Array.from(event.dataTransfer.files).map((file) => window.masterpiece.files.getPathForFile(file)));
-      }}>
-        <div className="upload-orbit">↥</div>
-        <strong>{busy ? '正在读取、解压与去重…' : '将 ZIP、图片、PDF 或文件夹拖到这里'}</strong>
-        <p>支持 ZIP、JPG、JPEG、PNG、WEBP、PDF，可多选</p>
-        <div className="button-row">
-          <button className="button secondary" type="button" disabled={busy} onClick={() => void window.masterpiece.projects.chooseFiles('assets').then(prepare)}>选择文件</button>
-          <button className="button ghost" type="button" disabled={busy} onClick={() => void window.masterpiece.projects.chooseFolder().then(prepare)}>选择文件夹</button>
-        </div>
-      </div>
+      <VisualAssetUploader
+        role="current_project"
+        busy={busy}
+        notice={notice}
+        items={(summary?.items || []).map((item) => ({
+          id: item.id,
+          name: item.name,
+          extension: item.extension,
+          bytes: item.bytes,
+          thumbnailDataUrl: item.thumbnailDataUrl
+        }))}
+        onAddPaths={prepare}
+        onChooseFiles={() => window.masterpiece.projects.chooseFiles('assets')}
+        onChooseFolder={() => window.masterpiece.projects.chooseFolder()}
+        onRemove={removeAsset}
+        onClear={clearAssets}
+      />
 
       {error && <div className="notice error">{error}</div>}
-      {notice && <div className="notice ok">{notice}</div>}
 
       {project && summary && <div className="intake-result">
         <div className="intake-heading">
@@ -132,13 +137,6 @@ export function ProjectWizard({ settings, onStart, onCancel }: Props) {
           <div><small>Logo 线索</small><strong>{summary.logoDetected ? '已识别' : '默认锁定'}</strong></div>
         </div>
         {batches.length > 1 && <div className="batch-actions"><small>导入批次</small>{batches.map(([batchId, batch]) => <button key={batchId} disabled={busy} onClick={() => void removeBatch(batchId, batch.label)} title="删除整个批次">{batch.label} · {batch.count} 个 ×</button>)}</div>}
-        {summary.items.length > 0 && <div className="intake-thumbnails">
-          {summary.items.map((item) => <div className="asset-card removable" key={item.id}>
-            <button className="asset-remove" disabled={busy} title={`删除 ${item.name}`} aria-label={`删除 ${item.name}`} onClick={() => void removeAsset(item.id)}>×</button>
-            {item.thumbnailDataUrl ? <img src={item.thumbnailDataUrl} alt="" /> : <div className={`file-placeholder ${item.kind}`}>{item.extension.replace('.', '').toUpperCase()}</div>}
-            <strong title={item.relativePath}>{item.name}</strong><small>{formatBytes(item.bytes)}</small>
-          </div>)}
-        </div>}
         <div className="auto-facts-note">
           <div><small>品牌线索</small><strong>{project.detectedBrandName}</strong><span>置信度 {Math.round(project.factConfidence.brandName * 100)}%</span></div>
           <div><small>行业线索</small><strong>{project.detectedIndustry}</strong><span>置信度 {Math.round(project.factConfidence.industry * 100)}%</span></div>

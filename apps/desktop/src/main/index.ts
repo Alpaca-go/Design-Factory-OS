@@ -7,6 +7,8 @@ import type {
   CreateProjectInput,
   SaveApiProfileInput,
   SaveSettingsInput,
+  StartReferenceTranslationInput,
+  StartReferenceTranslationUserInput,
   StartVisualTranslationInput,
   VisualTranslationProgress
 } from '../shared/types';
@@ -23,6 +25,7 @@ import {
 } from './settings-store';
 import { createPipelineService } from './pipeline-service';
 import { createVisualTranslationService } from './visual-translation-service';
+import { createReferenceTranslationService } from './reference-translation-service';
 import { assertInside, sanitizeFilenamePart } from './analysis-contract';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -54,6 +57,11 @@ const visualTranslation = createVisualTranslationService(
   getSettings,
   (progress: VisualTranslationProgress) => mainWindow?.webContents.send('visual-translation:progress', progress)
 );
+const referenceTranslation = createReferenceTranslationService(getSettings, {
+  projects,
+  pipeline,
+  emitProgress: (progress) => mainWindow?.webContents.send('reference-translation:progress', progress)
+});
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -200,6 +208,49 @@ function registerIpc(): void {
   ipcMain.handle('visual-translation:open-folder', async (_event, runId: string) => {
     const root = await visualTranslation.runRoot(runId);
     const result = await shell.openPath(path.join(root, 'outputs'));
+    if (result) throw new Error(result);
+  });
+
+  ipcMain.handle('reference-translation:choose-input', async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      properties: ['openFile'],
+      filters: [{ name: '结构化 JSON', extensions: ['json'] }]
+    });
+    return result.canceled ? [] : result.filePaths;
+  });
+  ipcMain.handle('reference-translation:choose-reference-assets', async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: '参考视觉方案', extensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'zip'] }]
+    });
+    return result.canceled ? [] : result.filePaths;
+  });
+  ipcMain.handle('reference-translation:choose-project-sources', async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: '项目文档与视觉资产', extensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'zip'] }]
+    });
+    return result.canceled ? [] : result.filePaths;
+  });
+  ipcMain.handle('reference-translation:inspect-assets', (_event, paths: string[]) =>
+    referenceTranslation.inspectAssets(paths));
+  ipcMain.handle('reference-translation:run-user-input', (
+    _event,
+    input: StartReferenceTranslationUserInput
+  ) => referenceTranslation.runUserInput(input));
+  ipcMain.handle('reference-translation:run', (_event, input: StartReferenceTranslationInput) => referenceTranslation.run(input));
+  ipcMain.handle('reference-translation:list-runs', () => referenceTranslation.listRuns());
+  ipcMain.handle('reference-translation:get-active', () => referenceTranslation.getActive());
+  ipcMain.handle('reference-translation:get-profile', (_event, runId: string) => referenceTranslation.getProfile(runId));
+  ipcMain.handle('reference-translation:get-direction', (_event, runId: string) => referenceTranslation.getDirection(runId));
+  ipcMain.handle('reference-translation:get-reconstruction', (_event, runId: string) => referenceTranslation.getReconstruction(runId));
+  ipcMain.handle('reference-translation:read-report', (_event, runId: string) => referenceTranslation.readReport(runId));
+  ipcMain.handle('reference-translation:retry-report', (_event, runId: string) => referenceTranslation.retryReport(runId));
+  ipcMain.handle('reference-translation:cancel', (_event, runId: string) => referenceTranslation.cancel(runId));
+  ipcMain.handle('reference-translation:remove', (_event, runId: string) => referenceTranslation.remove(runId));
+  ipcMain.handle('reference-translation:open-folder', async (_event, runId: string) => {
+    const root = await referenceTranslation.runRoot(runId);
+    const result = await shell.openPath(root);
     if (result) throw new Error(result);
   });
 }

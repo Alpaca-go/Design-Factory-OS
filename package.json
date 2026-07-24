@@ -16,6 +16,7 @@
     "quality:shadow": "node ./scripts/quality-shadow.mjs",
     "quality:sprint2": "node ./scripts/sprint-2-quality.mjs",
     "freeze:cross-industry": "node ./scripts/cross-industry-freeze.mjs",
+    "reference-translate": "node ./scripts/reference-translate.mjs",
     "desktop:dev": "npm --prefix apps/desktop run dev",
     "desktop:build": "npm --prefix apps/desktop run build",
     "desktop:test": "npm --prefix apps/desktop test",

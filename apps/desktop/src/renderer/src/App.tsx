@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { AnalysisProgress, AssetSummary, ProjectRecord, PublicSettings, VisualTranslationRunRecord } from '../../shared/types';
+import type {
+  AnalysisProgress,
+  AssetSummary,
+  ProjectRecord,
+  PublicSettings,
+  ReferenceTranslationRunRecord,
+  VisualTranslationRunRecord
+} from '../../shared/types';
 import { AnalysisModeTabs, type AnalysisMode } from './components/AnalysisModeTabs';
 import { AnalysisView } from './components/AnalysisView';
 import { ProjectWizard } from './components/ProjectWizard';
 import { ReportView } from './components/ReportView';
 import { SettingsPanel } from './components/SettingsPanel';
 import { VisualTranslationWorkspace } from './components/VisualTranslationWorkspace';
+import { ReferenceTranslationWorkspace } from './components/ReferenceTranslationWorkspace';
 import { cleanError, formatBytes, formatDuration } from './utils';
 
 type Screen = 'home' | 'settings' | 'create' | 'project' | 'analysis' | 'report';
@@ -20,13 +28,25 @@ function TranslationStatusBadge({ status }: { status: VisualTranslationRunRecord
   return <span className={`badge ${status}`}>{labels[status]}</span>;
 }
 
+function ReconstructionStatusBadge({ status }: { status: ReferenceTranslationRunRecord['status'] }) {
+  const labels: Record<ReferenceTranslationRunRecord['status'], string> = {
+    running: '运行中',
+    completed: '已完成',
+    failed: '失败',
+    cancelled: '已取消'
+  };
+  return <span className={`badge ${status}`}>{labels[status]}</span>;
+}
+
 export function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [settings, setSettings] = useState<PublicSettings | null>(null);
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [translationRuns, setTranslationRuns] = useState<VisualTranslationRunRecord[]>([]);
+  const [reconstructionRuns, setReconstructionRuns] = useState<ReferenceTranslationRunRecord[]>([]);
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('visual-analysis');
   const [requestedTranslationRunId, setRequestedTranslationRunId] = useState('');
+  const [requestedReconstructionRunId, setRequestedReconstructionRunId] = useState('');
   const [selected, setSelected] = useState<ProjectRecord | null>(null);
   const [selectedApiProfileId, setSelectedApiProfileId] = useState('');
   const [settingsReturnScreen, setSettingsReturnScreen] = useState<Screen>('home');
@@ -36,6 +56,7 @@ export function App() {
   const [runFailure, setRunFailure] = useState('');
   const [deletingProjectId, setDeletingProjectId] = useState('');
   const [deletingRunId, setDeletingRunId] = useState('');
+  const [deletingReconstructionRunId, setDeletingReconstructionRunId] = useState('');
   const [loading, setLoading] = useState(true);
   const enabledProfiles = settings?.profiles.filter((profile) => profile.isEnabled) || [];
   const selectedProfile = enabledProfiles.find((profile) => profile.id === selectedApiProfileId)
@@ -52,11 +73,22 @@ export function App() {
   }, [assets]);
 
   async function refresh() {
-    const [nextSettings, nextProjects, nextTranslationRuns] = await Promise.all([window.masterpiece.settings.get(), window.masterpiece.projects.list(), window.masterpiece.visualTranslation.listRuns()]);
+    const [nextSettings, nextProjects, nextTranslationRuns, nextReconstructionRuns] = await Promise.all([
+      window.masterpiece.settings.get(),
+      window.masterpiece.projects.list(),
+      window.masterpiece.visualTranslation.listRuns(),
+      window.masterpiece.referenceTranslation.listRuns()
+    ]);
     setSettings(nextSettings);
     setProjects(nextProjects);
     setTranslationRuns(nextTranslationRuns);
-    return { settings: nextSettings, projects: nextProjects, translationRuns: nextTranslationRuns };
+    setReconstructionRuns(nextReconstructionRuns);
+    return {
+      settings: nextSettings,
+      projects: nextProjects,
+      translationRuns: nextTranslationRuns,
+      reconstructionRuns: nextReconstructionRuns
+    };
   }
 
   useEffect(() => {
@@ -201,6 +233,22 @@ export function App() {
     }
   }
 
+  async function deleteReconstructionRun(run: ReferenceTranslationRunRecord) {
+    if (run.status === 'running') return;
+    if (!window.confirm(`确定删除参考风格重构任务“${run.projectContextFilename}”吗？\n\n此操作会永久删除该任务的中间产物、执行文档和本地任务文件夹，且无法撤销。`)) return;
+    setDeletingReconstructionRunId(run.id);
+    setError('');
+    try {
+      await window.masterpiece.referenceTranslation.remove(run.id);
+      setReconstructionRuns((current) => current.filter((item) => item.id !== run.id));
+      if (requestedReconstructionRunId === run.id) setRequestedReconstructionRunId('');
+    } catch (reason) {
+      setError(cleanError(reason));
+    } finally {
+      setDeletingReconstructionRunId('');
+    }
+  }
+
   function saveSettings(next: PublicSettings) {
     setSettings(next);
     const currentStillEnabled = next.profiles.some((profile) => profile.id === selectedApiProfileId && profile.isEnabled);
@@ -216,13 +264,18 @@ export function App() {
 
   if (screen === 'settings') return <SettingsPanel settings={settings} onSaved={saveSettings} onClose={() => setScreen(settingsReturnScreen)} />;
   if (screen === 'create') return <div className="analysis-workspace-shell">
-    <AnalysisModeTabs value={analysisMode} onChange={(mode) => { setAnalysisMode(mode); if (mode !== 'visual-translation') setRequestedTranslationRunId(''); }} />
+    <AnalysisModeTabs value={analysisMode} onChange={(mode) => {
+      setAnalysisMode(mode);
+      if (mode !== 'visual-translation') setRequestedTranslationRunId('');
+      if (mode !== 'reference-translation') setRequestedReconstructionRunId('');
+    }} />
     <div hidden={analysisMode !== 'visual-analysis'}><ProjectWizard settings={settings} onCancel={() => { setScreen('home'); void refresh(); }} onStart={(project, profileId) => {
       setSelected(project);
       setSelectedApiProfileId(profileId);
       void run(project, true, profileId);
     }} /></div>
     <div hidden={analysisMode !== 'visual-translation'}><VisualTranslationWorkspace settings={settings} selectedApiProfileId={selectedApiProfileId} initialRunId={requestedTranslationRunId} onApiProfileChange={setSelectedApiProfileId} onBack={() => { setScreen('home'); void refresh(); }} onOpenSettings={() => { setSettingsReturnScreen('create'); setScreen('settings'); }} /></div>
+    <div hidden={analysisMode !== 'reference-translation'}><ReferenceTranslationWorkspace initialRunId={requestedReconstructionRunId} onBack={() => { setScreen('home'); void refresh(); }} /></div>
   </div>;
   if (screen === 'analysis' && selected) return <AnalysisView
     project={selected}
@@ -263,7 +316,8 @@ export function App() {
   const hasUsableProfile = enabledProfiles.some((profile) => profile.hasApiKey && profile.baseUrl && profile.modelId);
   const recentRecords = [
     ...projects.map((project) => ({ kind: 'visual-analysis' as const, createdAt: project.lastRunAt || project.updatedAt || project.createdAt, project })),
-    ...translationRuns.map((run) => ({ kind: 'visual-translation' as const, createdAt: run.createdAt, run }))
+    ...translationRuns.map((run) => ({ kind: 'visual-translation' as const, createdAt: run.createdAt, run })),
+    ...reconstructionRuns.map((run) => ({ kind: 'reference-reconstruction' as const, createdAt: run.createdAt, run }))
   ].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   return <div className="app-shell">
     <aside className="sidebar"><div className="logo-lockup"><div className="brand-mark">M</div><div><strong>Masterpiece OS</strong><small>Desktop / v5</small></div></div><nav><button className="active">项目</button><button onClick={() => { setAnalysisMode('visual-analysis'); setScreen('create'); }}>分析工作台</button><button onClick={() => { setSettingsReturnScreen('home'); setScreen('settings'); }}>设置</button></nav><div className="sidebar-footer"><span className={`status-dot ${settings.connectionStatus}`} /><div><small>默认模型</small><strong>{defaultProfile?.modelId || '未配置'}</strong></div></div></aside>
@@ -281,7 +335,7 @@ export function App() {
             <span className="row-arrow">→</span>
           </button>
           <button className="project-delete" disabled={record.project.status === 'running' || deletingProjectId === record.project.id} title={record.project.status === 'running' ? '请先取消正在运行的分析' : `删除 ${record.project.projectName} 及本地文件夹`} aria-label={`删除项目 ${record.project.projectName}`} onClick={() => void deleteProject(record.project)}>{deletingProjectId === record.project.id ? '…' : '删除'}</button>
-        </div> : <div className="project-row translation-record" key={`translation-${record.run.id}`}>
+        </div> : record.kind === 'visual-translation' ? <div className="project-row translation-record" key={`translation-${record.run.id}`}>
           <button className="project-row-open" onClick={() => { setRequestedTranslationRunId(record.run.id); setAnalysisMode('visual-translation'); setScreen('create'); }}>
             <span className="project-index">{String(index + 1).padStart(2, '0')}</span>
             <div className="project-name"><strong>{record.run.projectName}</strong><small><span className="record-type visual-translation">文档视觉转译</span>{record.run.documentCount} 份文档</small></div>
@@ -291,6 +345,20 @@ export function App() {
             <span className="row-arrow">→</span>
           </button>
           <button className="project-delete" disabled={record.run.status === 'running' || deletingRunId === record.run.id} title={record.run.status === 'running' ? '请先取消正在运行的分析' : `删除文档视觉转译任务 ${record.run.projectName} 及本地文件夹`} aria-label={`删除文档视觉转译任务 ${record.run.projectName}`} onClick={() => void deleteTranslationRun(record.run)}>{deletingRunId === record.run.id ? '…' : '删除'}</button>
+        </div> : <div className="project-row translation-record" key={`reconstruction-${record.run.id}`}>
+          <button className="project-row-open" onClick={() => {
+            setRequestedReconstructionRunId(record.run.id);
+            setAnalysisMode('reference-translation');
+            setScreen('create');
+          }}>
+            <span className="project-index">{String(index + 1).padStart(2, '0')}</span>
+            <div className="project-name"><strong>{record.run.projectContextFilename}</strong><small><span className="record-type reference-reconstruction">参考风格重构</span>{record.run.visualAnalysisFilename}</small></div>
+            <ReconstructionStatusBadge status={record.run.status} />
+            <div className="project-model"><small>OUTPUT</small><strong>{record.run.reportFilename ? 'GPT 执行文档' : '—'}</strong></div>
+            <div className="project-time"><small>DURATION</small><strong>{formatDuration(record.run.durationMs || null)}</strong></div>
+            <span className="row-arrow">→</span>
+          </button>
+          <button className="project-delete" disabled={record.run.status === 'running' || deletingReconstructionRunId === record.run.id} title={record.run.status === 'running' ? '请先取消正在运行的重构任务' : `删除参考风格重构任务 ${record.run.projectContextFilename} 及本地文件夹`} aria-label={`删除参考风格重构任务 ${record.run.projectContextFilename}`} onClick={() => void deleteReconstructionRun(record.run)}>{deletingReconstructionRunId === record.run.id ? '…' : '删除'}</button>
         </div>)}</div> : <div className="empty-home"><div className="empty-orbit" /><strong>还没有分析记录</strong><p>进入分析工作台，选择视觉分析或文档视觉转译开始第一次任务。</p><button className="button primary" onClick={() => { setAnalysisMode('visual-analysis'); setScreen('create'); }}>开始第一次分析</button></div>}
       </section>
     </main>

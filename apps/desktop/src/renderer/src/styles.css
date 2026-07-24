@@ -86,6 +86,14 @@ label { display: grid; gap: 7px; margin: 16px 0; color: #49444c; font-size: 11px
 .record-type { display: inline-block; margin-right: 7px; padding: 3px 7px; border-radius: 99px; font-size: 9px; font-weight: 750; vertical-align: 1px; }
 .record-type.visual-analysis { color: #4d35a0; background: #e8e0fa; }
 .record-type.visual-translation { color: #9a5a20; background: #f7e6cf; }
+.record-type.reference-reconstruction { color: #17685c; background: #dcefe9; }
+.reference-intermediate-results { margin-top: 20px; }
+.reference-intermediate-grid { display: grid; gap: 14px; margin-top: 16px; }
+.reference-intermediate-grid section { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.55); }
+.reference-intermediate-grid section > span { float: right; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+.reference-intermediate-grid section > span.pass { color: #17685c; background: #dcefe9; }
+.reference-intermediate-grid section > span.failed { color: #a33b3b; background: #f7dddd; }
+.reference-intermediate-grid pre { max-height: 320px; margin: 12px 0 0; padding: 12px; overflow: auto; white-space: pre-wrap; word-break: break-word; border-radius: 8px; background: #17161b; color: #eeeaf7; font-size: 11px; line-height: 1.55; }
 .record-spacer { width: 52px; }
 
 @media (max-width: 1080px) {
@@ -123,3 +131,76 @@ label { display: grid; gap: 7px; margin: 16px 0; color: #49444c; font-size: 11px
 .report-filename-editor { display: flex; gap: 10px; align-items: end; max-width: 760px; margin: 0 0 16px; }
 .report-filename-editor label { flex: 1; margin: 0; }
 .field-help { color: #817a85; font-size: 10px; font-weight: 400; line-height: 1.5; }
+
+/* Reference-Led Visual Direction（参考转译）工作台 */
+.reference-input-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0; padding: 12px 14px; border: 1px solid #ddd8e0; border-radius: 9px; background: #fff; }
+.reference-input-row strong { display: block; font-size: 12px; }
+.reference-input-row small { display: block; margin-top: 4px; color: #847d87; font-size: 10px; word-break: break-all; }
+.reference-input-row.compact { margin-bottom: 0; background: #faf9fb; }
+.reference-project-field { display: grid; gap: 8px; margin: 16px 0; }
+.reference-project-field > strong { font-size: 12px; }
+.reference-project-field > small { color: #847d87; font-size: 10px; }
+.reference-project-field select { width: 100%; }
+.reference-advanced { margin: 16px 0; padding: 11px 14px; border: 1px solid #ddd8e0; border-radius: 9px; background: #faf9fb; }
+.reference-advanced summary { cursor: pointer; color: #554e5a; font-size: 11px; font-weight: 600; }
+.reference-developer-toggle { display: flex; flex-direction: row; gap: 8px; align-items: center; margin: 13px 0 0; font-size: 11px; }
+.reference-developer-toggle input { width: auto; margin: 0; }
+.reference-developer-inputs { margin-top: 12px; padding-top: 2px; border-top: 1px solid #e5e1e7; }
+.reference-developer-inputs > p { color: #817a85; font-size: 10px; line-height: 1.5; }
+.visual-uploader-selection { margin-top: 18px; padding-top: 18px; border-top: 1px solid #ded9d3; }
+.visual-uploader-selection .intake-thumbnails { margin-top: 14px; }
+.reference-uploader-heading { display: flex; justify-content: space-between; align-items: baseline; margin: 12px 0 8px; }
+.reference-uploader-heading strong { font-size: 12px; }
+.reference-uploader-heading small { color: #847d87; font-size: 10px; }
+.reference-progress-card { margin-bottom: 18px; }
+.reference-progress-track { height: 8px; overflow: hidden; border-radius: 999px; background: #e6e1e9; }
+.reference-progress-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #6c42d8, #a875e8); transition: width .35s ease; }
+.reference-progress-meta { display: flex; gap: 18px; align-items: center; margin: 11px 0 16px; color: #77707b; font-size: 10px; }
+.reference-progress-meta strong { color: #4c365e; font-size: 13px; }
+.reference-direction-card { padding: 16px 18px; border: 1px solid #d9d3df; border-left: 4px solid #6c42d8; border-radius: 9px; background: #fff; }
+.reference-direction-card p { margin: 8px 0; color: #4d4752; font-size: 11px; line-height: 1.6; }
+.reference-direction-card p strong { display: inline-block; min-width: 70px; margin-right: 8px; color: #2f2a33; }
+.reference-direction-card p.prohibited, .reference-direction-card p.prohibited strong { color: #a44343; }
+.reference-error-summary { display: grid; gap: 4px; margin: 8px 0; padding: 9px 10px; border-radius: 7px; background: #f7e9ea; }
+.reference-error-summary strong { color: #963f47; font-size: 10px; }
+.reference-error-summary em { color: #8c454b; font-size: 10px; font-style: normal; }
+.reference-error-summary small { color: #775e61 !important; }
+.reference-project-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; overflow: hidden; border: 1px solid #e1dce4; border-radius: 8px; background: #e1dce4; }
+.reference-project-summary div { min-width: 0; padding: 9px 10px; background: #faf9fb; }
+.reference-project-summary small, .reference-project-summary strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reference-project-summary small { color: #8b858e; font-size: 9px; }
+.reference-project-summary strong { margin-top: 3px; font-size: 10px; }
+.reference-lock-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.reference-lock-grid p { margin: 0; padding: 12px 14px; border: 1px solid #e0dce4; border-radius: 8px; background: #fff; font-size: 11px; line-height: 1.55; }
+.reference-lock-grid strong { display: block; margin-bottom: 4px; color: #5b4567; }
+.reference-application-list { display: grid; gap: 8px; }
+.reference-application-list div { padding: 12px 14px; border: 1px solid #e0dce4; border-radius: 8px; background: #fff; }
+.reference-application-list small, .reference-application-list strong { display: block; }
+.reference-application-list small { margin-bottom: 4px; color: #856ca0; font-size: 9px; }
+.reference-application-list strong { font-size: 11px; line-height: 1.55; }
+.reference-transfer-groups { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.reference-transfer-group { padding: 13px 14px; border: 1px solid #ddd8e0; border-left: 4px solid #aaa3ad; border-radius: 9px; background: #fff; }
+.reference-transfer-group.directlyTransferable { border-left-color: #3f916d; }
+.reference-transfer-group.requiresReinterpretation { border-left-color: #b68a46; }
+.reference-transfer-group.prohibitedToCopy { border-left-color: #b84f4f; }
+.reference-transfer-group strong { font-size: 12px; }
+.reference-transfer-group ul { margin: 9px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.reference-transfer-group li span { display: block; font-size: 11px; }
+.reference-transfer-group li small { display: block; margin-top: 2px; color: #847d87; font-size: 10px; line-height: 1.45; }
+.reference-transfer-group .muted { margin: 8px 0 0; color: #9a939d; font-size: 11px; }
+.reference-matrix-list { display: grid; gap: 12px; }
+.reference-matrix-card { padding: 14px 16px; border: 1px solid #ddd8e0; border-radius: 9px; background: #fff; }
+.reference-matrix-head { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.reference-matrix-head span { font-size: 11px; font-weight: 600; color: #6c42d8; }
+.reference-matrix-head small { color: #847d87; font-size: 10px; }
+.reference-matrix-card p { margin: 6px 0; font-size: 11px; line-height: 1.55; color: #4d4752; }
+.reference-matrix-card p strong { display: inline-block; margin-right: 8px; min-width: 62px; color: #2f2a33; }
+.reference-matrix-card p.prohibited { color: #a44343; }
+.reference-matrix-card p.prohibited strong { color: #a44343; }
+.reference-dna-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.reference-dna-group { padding: 13px 14px; border: 1px solid #ddd8e0; border-radius: 9px; background: #fff; }
+.reference-dna-group strong { font-size: 12px; }
+.reference-dna-group ul { margin: 9px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.reference-dna-group li span { display: block; font-size: 11px; }
+.reference-dna-group li small { display: block; margin-top: 2px; color: #847d87; font-size: 10px; line-height: 1.45; }
+.reference-translation-report .panel { margin-bottom: 16px; }

@@ -47,10 +47,13 @@ test('default Windows artifact is portable and does not create an installer', as
 
 test('new analysis UI contains intake actions and API Profile choice without metadata form', async () => {
   const source = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'renderer', 'src', 'components', 'ProjectWizard.tsx'), 'utf8');
+  const uploader = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'renderer', 'src', 'components', 'VisualAssetUploader.tsx'), 'utf8');
   assert.doesNotMatch(source, /<input|<textarea/);
   assert.match(source, /分析模型/);
   assert.doesNotMatch(source, /choose\('logo'\)|choose\('brief'\)/);
-  assert.match(source, /选择文件夹/);
+  assert.match(source, /VisualAssetUploader/);
+  assert.match(uploader, /选择文件夹/);
+  assert.match(uploader, /onDrop=/);
   assert.match(source, /开始分析/);
   assert.match(source, /sourcePaths/);
 });
@@ -81,7 +84,7 @@ test('Visual Translation exposes one formal workflow without internal version se
   assert.doesNotMatch(workspace, /方向生成模式|文档分析流程|概念方向 V1|执行向 V2|视觉事实优先 V2|深度分析 V1|实验分支|生产基线/u);
 });
 
-test('analysis intake shares tabs, translation supports drop upload, and home distinguishes both record types', async () => {
+test('analysis intake shares tabs, translation supports drop upload, and home distinguishes all record types', async () => {
   const app = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'renderer', 'src', 'App.tsx'), 'utf8');
   const tabs = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'renderer', 'src', 'components', 'AnalysisModeTabs.tsx'), 'utf8');
   const workspace = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'renderer', 'src', 'components', 'VisualTranslationWorkspace.tsx'), 'utf8');
@@ -93,7 +96,10 @@ test('analysis intake shares tabs, translation supports drop upload, and home di
   assert.doesNotMatch(workspace, /项目名称<input/);
   assert.match(app, /record-type visual-analysis/);
   assert.match(app, /record-type visual-translation/);
+  assert.match(app, /record-type reference-reconstruction/);
   assert.match(app, /visualTranslation\.listRuns\(\)/);
+  assert.match(app, /referenceTranslation\.listRuns\(\)/);
+  assert.match(app, /initialRunId=\{requestedReconstructionRunId\}/);
 });
 
 test('recent project rows expose a destructive local-folder delete action', async () => {
@@ -103,6 +109,21 @@ test('recent project rows expose a destructive local-folder delete action', asyn
   assert.match(app, /永久删除该项目对应的本地文件夹/);
   assert.match(app, /projects\.remove\(project\.id\)/);
   assert.match(store, /fs\.rm\(root,\s*\{\s*recursive:\s*true/);
+});
+
+test('reference reconstruction isolates project facts, reference style and the independent decision step', async () => {
+  const service = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'main', 'reference-translation-service.ts'), 'utf8');
+  const prompts = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'main', 'reference-reconstruction-prompts.ts'), 'utf8');
+  const workspace = await fs.readFile(path.join(repositoryRoot, 'apps', 'desktop', 'src', 'renderer', 'src', 'components', 'ReferenceTranslationWorkspace.tsx'), 'utf8');
+  assert.match(service, /analyzeCurrentProjectProfile/);
+  assert.match(service, /analyzeReferenceStyle/);
+  assert.match(service, /generateVisualReconstructionDecision/);
+  assert.doesNotMatch(service, /const currentReport|const referenceReport|reportObservations/);
+  assert.match(prompts, /只能使用下面两个干净 JSON/);
+  assert.match(prompts, /不得假设或引用任何上游 Markdown 报告/);
+  assert.doesNotMatch(prompts, /CATEGORY_PREFIX|wrapAsStyleRule/);
+  assert.match(workspace, /查看中间结果/);
+  assert.match(workspace, /quality-validation\.json/);
 });
 
 test('API Key is encrypted outside project records', async () => {
